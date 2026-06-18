@@ -1,6 +1,4 @@
 // Public site reads the same shared inventory the admin writes to the database.
-const MARKET_NOTES_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEYtCDQrbxiln-82ECtRwK_8hq6_3bo0uVGu1IRKtKEuVqsk8xWQ2x_sL7CatdyQ/pub?gid=2025503342&single=true&output=csv";
 const SUBSTACK_FEED_URL = "https://musicneedsmorethanmusic.substack.com/feed";
 
 const productPage = document.getElementById("product-page");
@@ -122,47 +120,6 @@ function stripHtml(html) {
   return doc.body.textContent.replace(/\s+/g, " ").trim();
 }
 
-function parseMarketNotesUrls(csvText) {
-  const rows = parseCSV(csvText);
-  if (rows.length < 2) {
-    return { primary: "", secondary: "", tertiary: "" };
-  }
-
-  const headers = rows[0].map(normalizeHeader);
-  const values = rows[1];
-
-  const getColumn = name => {
-    const index = headers.findIndex(header => header.trim().toLowerCase() === name);
-    return index >= 0 ? String(values[index] || "").trim() : "";
-  };
-
-  return {
-    primary: getColumn("primary"),
-    secondary: getColumn("secondary"),
-    tertiary: getColumn("tertiary")
-  };
-}
-
-function normalizeNoteUrl(url) {
-  const trimmed = String(url || "").trim();
-  if (!trimmed) return "";
-
-  try {
-    const parsed = new URL(trimmed);
-    const path = parsed.pathname.replace(/\/$/, "").toLowerCase();
-    return `${parsed.hostname.toLowerCase()}${path}`;
-  } catch {
-    return trimmed.toLowerCase().replace(/\/$/, "");
-  }
-}
-
-function findFeedItemForUrl(items, url) {
-  const target = normalizeNoteUrl(url);
-  if (!target) return null;
-
-  return items.find(item => normalizeNoteUrl(item.link) === target) || null;
-}
-
 function feedItemToPost(item) {
   const title = String(item.title || "").trim();
   const link = String(item.link || "").trim();
@@ -171,15 +128,6 @@ function feedItemToPost(item) {
   if (!title || !link) return null;
 
   return { title, link, excerpt };
-}
-
-function resolvePostForUrl(url, feedItems) {
-  if (!url) return null;
-
-  const feedItem = findFeedItemForUrl(feedItems, url);
-  if (!feedItem) return null;
-
-  return feedItemToPost(feedItem);
 }
 
 async function fetchSubstackFeedItems() {
@@ -262,23 +210,17 @@ async function loadMarketNotes() {
   if (!marketNotesSection) return;
 
   try {
-    const [csvResponse, feedItems] = await Promise.all([
-      fetch(MARKET_NOTES_CSV_URL, { cache: "no-store" }),
-      fetchSubstackFeedItems()
-    ]);
+    const feedItems = await fetchSubstackFeedItems();
 
-    if (!csvResponse.ok) {
-      throw new Error(`Market Notes CSV request failed: ${csvResponse.status}`);
-    }
+    // Use the three most recent posts, filling slots in order:
+    // first → primary hero, second → secondary rail, third → tertiary rail.
+    const posts = feedItems.slice(0, 3).map(feedItemToPost).filter(Boolean);
 
-    const urls = parseMarketNotesUrls(await csvResponse.text());
-    const postsBySlot = {
-      primary: urls.primary ? resolvePostForUrl(urls.primary, feedItems) : null,
-      secondary: urls.secondary ? resolvePostForUrl(urls.secondary, feedItems) : null,
-      tertiary: urls.tertiary ? resolvePostForUrl(urls.tertiary, feedItems) : null
-    };
-
-    renderMarketNotes(postsBySlot);
+    renderMarketNotes({
+      primary: posts[0] || null,
+      secondary: posts[1] || null,
+      tertiary: posts[2] || null
+    });
   } catch (error) {
     console.error(error);
     renderMarketNotes({ primary: null, secondary: null, tertiary: null });
