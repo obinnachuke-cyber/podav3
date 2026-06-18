@@ -1228,3 +1228,79 @@ input {
     justify-content: flex-start;
   }
 }
+
+/* ============================================================
+   Landing / splash page (landing.html)
+   Brand centered with three links to the main sections.
+   ============================================================ */
+.landing {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(var(--pad), env(safe-area-inset-top))
+           max(var(--pad), env(safe-area-inset-right))
+           max(var(--pad), env(safe-area-inset-bottom))
+           max(var(--pad), env(safe-area-inset-left));
+  text-align: center;
+}
+
+.landing-inner {
+  width: min(520px, 100%);
+}
+
+.landing-eyebrow {
+  margin: 0 0 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--purple-2);
+}
+
+.landing-title {
+  margin: 0 0 4px;
+  font-size: clamp(1.8rem, 9vw, 3rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1.05;
+}
+
+.landing-tagline {
+  margin: 0 0 clamp(28px, 7vw, 44px);
+  color: var(--text-dim);
+  font-size: clamp(0.85rem, 2.6vw, 0.95rem);
+}
+
+.landing-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.landing-links a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 0 18px;
+  background: var(--bg-box);
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.landing-links a:hover,
+.landing-links a:focus-visible {
+  background: color-mix(in srgb, var(--bg-box-hover) 85%, var(--purple-deep));
+  border-color: var(--purple-2);
+  color: var(--purple-2);
+  outline: none;
+}

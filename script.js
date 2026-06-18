@@ -469,7 +469,7 @@ function renderProductPage(items) {
     productPage.innerHTML = `
       <div class="product-error">
         <p>Closet data could not be loaded.</p>
-        <a class="product-link" href="index.html#closet-capital">← Back to portfolio</a>
+        <a class="product-link" href="closet.html">← Back to portfolio</a>
       </div>
     `;
     return;
@@ -479,7 +479,7 @@ function renderProductPage(items) {
     productPage.innerHTML = `
       <div class="product-error">
         <p>Asset not found.</p>
-        <a class="product-link" href="index.html#closet-capital">← Back to portfolio</a>
+        <a class="product-link" href="closet.html">← Back to portfolio</a>
       </div>
     `;
     return;
@@ -491,7 +491,7 @@ function renderProductPage(items) {
     productPage.innerHTML = `
       <div class="product-error">
         <p>Asset not found.</p>
-        <a class="product-link" href="index.html#closet-capital">← Back to portfolio</a>
+        <a class="product-link" href="closet.html">← Back to portfolio</a>
       </div>
     `;
     return;
@@ -536,7 +536,7 @@ function renderProductPage(items) {
         ${item.publicDescription ? `<div class="product-note"><p>${escapeHTML(item.publicDescription)}</p></div>` : ""}
 
         <div class="product-actions">
-          <a class="product-link" href="index.html#closet-capital">← Back to portfolio</a>
+          <a class="product-link" href="closet.html">← Back to portfolio</a>
         </div>
       </div>
     </article>

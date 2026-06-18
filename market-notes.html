@@ -3,20 +3,49 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Poda Closet — Asset</title>
+  <title>Market Notes — Poda Capital</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="pdp-body">
-  <header class="site-header site-header--pdp">
+<body>
+  <header class="site-header">
     <a class="site-logo" href="index.html">Poda Capital</a>
-    <nav class="site-nav nav--pdp" aria-label="Product navigation">
-      <a href="closet.html">← Portfolio</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
       <a href="market-notes.html">Market Notes</a>
+      <a href="closet.html">Closet Capital</a>
       <a href="about.html">About</a>
+      <a href="admin.html">Admin</a>
     </nav>
   </header>
 
-  <main id="product-page" class="product-page portal-shell"></main>
+  <main class="portal-shell">
+    <section id="market-notes" class="page-section market-notes">
+      <div class="section-bar">
+        <span class="section-bar__label">Newsletter</span>
+        <span class="section-bar__title">Market Notes</span>
+      </div>
+
+      <div class="market-notes__body">
+        <p id="marketNotesEmpty" class="status-message hidden">Market notes coming soon.</p>
+        <article class="note-feature" data-note-slot="primary" hidden>
+          <h3 class="note-feature__title"></h3>
+          <p class="note-feature__preview"></p>
+          <a class="note-link" href="#">Read the note</a>
+        </article>
+
+        <div class="note-rail">
+          <article class="note-teaser" data-note-slot="secondary" hidden>
+            <h3 class="note-teaser__title"></h3>
+            <a class="note-link" href="#">Read the note</a>
+          </article>
+          <article class="note-teaser" data-note-slot="tertiary" hidden>
+            <h3 class="note-teaser__title"></h3>
+            <a class="note-link" href="#">Read the note</a>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
 
   <footer class="site-footer portal-shell">
     <span class="footer-brand">Poda Capital</span>

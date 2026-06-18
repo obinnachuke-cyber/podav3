@@ -3,20 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Poda Closet — Asset</title>
+  <title>About — Poda Capital</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="pdp-body">
-  <header class="site-header site-header--pdp">
+<body>
+  <header class="site-header">
     <a class="site-logo" href="index.html">Poda Capital</a>
-    <nav class="site-nav nav--pdp" aria-label="Product navigation">
-      <a href="closet.html">← Portfolio</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
       <a href="market-notes.html">Market Notes</a>
+      <a href="closet.html">Closet Capital</a>
       <a href="about.html">About</a>
+      <a href="admin.html">Admin</a>
     </nav>
   </header>
 
-  <main id="product-page" class="product-page portal-shell"></main>
+  <main class="portal-shell">
+    <section id="about" class="page-section about">
+      <div class="section-bar">
+        <span class="section-bar__title">About</span>
+      </div>
+      <p class="about__text">Poda is not pretending every clothing purchase is an investment. It tracks the relationship between taste, cost, wear, liquidity, and resale value.</p>
+    </section>
+  </main>
 
   <footer class="site-footer portal-shell">
     <span class="footer-brand">Poda Capital</span>
@@ -40,10 +49,5 @@
       </span>
     </nav>
   </footer>
-
-  <script src="supabase.min.js"></script>
-  <script src="supabase-config.js"></script>
-  <script src="db.js"></script>
-  <script src="script.js"></script>
 </body>
 </html>
