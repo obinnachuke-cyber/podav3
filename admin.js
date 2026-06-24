@@ -1408,6 +1408,10 @@ function bindAuthEvents() {
 
   document.getElementById("importBtn").addEventListener("click", importFromBrowser);
   document.getElementById("exportExcelBtn").addEventListener("click", exportToExcel);
+  document.getElementById("backupBtn").addEventListener("click", downloadBackup);
+  document.getElementById("restoreBtn").addEventListener("click",
+    () => document.getElementById("restoreInput").click());
+  document.getElementById("restoreInput").addEventListener("change", restoreFromFile);
 }
 
 /* ============================================================
@@ -1434,6 +1438,84 @@ async function exportToExcel() {
     button.disabled = false;
     button.textContent = original;
   }
+}
+
+/* ============================================================
+   JSON backup + restore — a full-fidelity safety net.
+   Backup downloads every item (incl. image URLs) as JSON;
+   Restore reads such a file and writes the items back to the DB.
+   Unlike the Excel export, a backup can be re-imported to recover.
+   ============================================================ */
+function downloadBackup() {
+  const payload = {
+    type: "poda-backup",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    count: state.items.length,
+    items: state.items
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `poda_backup_${date}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+async function restoreFromFile(event) {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = ""; // let the same file be chosen again later
+  if (!file) return;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch (error) {
+    alert("That file isn't valid JSON. Choose a Poda backup file (.json).");
+    return;
+  }
+
+  // Accept either a { items: [...] } backup envelope or a bare array.
+  const list = Array.isArray(parsed) ? parsed
+    : (parsed && Array.isArray(parsed.items) ? parsed.items : null);
+  if (!list) {
+    alert("This doesn't look like a Poda backup (no items found).");
+    return;
+  }
+
+  // Only restore objects that have a usable id.
+  const items = list.filter(item => item && typeof item.id === "string" && item.id);
+  if (!items.length) {
+    alert("No valid items were found in that backup.");
+    return;
+  }
+
+  if (!confirm(
+    `Restore ${items.length} item(s) from this backup?\n` +
+    `Any existing item with the same ID will be overwritten.`
+  )) {
+    return;
+  }
+
+  let restored = 0;
+  let failed = 0;
+  for (const item of items) {
+    try {
+      await window.PodaDB.upsertItem(item);
+      restored++;
+    } catch (error) {
+      console.error("Restore failed for item", item.id, error);
+      failed++;
+    }
+  }
+
+  state.items = await loadItems();
+  renderCurrentView();
+  alert(`Restored ${restored} item(s).${failed ? ` ${failed} failed — see console.` : ""}`);
 }
 
 /* ============================================================
