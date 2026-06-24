@@ -134,7 +134,6 @@ function blankItem() {
     purchasePlatform: "",
     publicDescription: "",
     privateNotes: "",
-    measurements: { notes: "" },
     costs: {
       purchasePrice: 0, inboundShipping: 0, tax: 0,
       cleaningCost: 0, repairCost: 0, authCost: 0, otherPrepCost: 0

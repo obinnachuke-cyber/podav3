@@ -233,17 +233,23 @@ function itemDetailHref(item) {
   return `item.html?id=${encodeURIComponent(id)}`;
 }
 
-function getListingUrl(item) {
+// Listing platforms in priority order, mapped to their display name so we
+// can label the buy button intentionally ("Shop on Grailed") instead of a
+// generic "View listing".
+const LISTING_PLATFORMS = [
+  ["grailedUrl", "Grailed"], ["depopUrl", "Depop"], ["ebayUrl", "eBay"],
+  ["instagramUrl", "Instagram"], ["vestiaireUrl", "Vestiaire"], ["stockxUrl", "StockX"],
+  ["goatUrl", "GOAT"], ["archiveUrl", "Archive"], ["otherUrl", "Other"]
+];
+
+// Returns the first available listing as { url, platform }.
+function getListing(item) {
   const platform = item.platform || {};
-  const keys = ["grailedUrl", "depopUrl", "ebayUrl", "instagramUrl",
-    "vestiaireUrl", "stockxUrl", "goatUrl", "archiveUrl", "otherUrl"];
-
-  for (const key of keys) {
+  for (const [key, name] of LISTING_PLATFORMS) {
     const value = String(platform[key] || "").trim();
-    if (value) return value;
+    if (value) return { url: value, platform: name };
   }
-
-  return "";
+  return { url: "", platform: "" };
 }
 
 function getImageUrl(item) {
@@ -343,7 +349,7 @@ function getFilteredItems() {
 
 function itemCard(item) {
   const status = cleanStatus(item.status);
-  const listingUrl = getListingUrl(item);
+  const listing = getListing(item);
   const soldClass = status === "Sold" ? " archive-card--sold" : "";
   const detailHref = itemDetailHref(item);
   const assetLinkOpen = detailHref
@@ -379,8 +385,8 @@ function itemCard(item) {
         <dl class="item-ledger">
           <div class="item-ledger__row">
             <dt>Listing</dt>
-            <dd>${status === "Listed" && listingUrl
-              ? `<a class="external-listing" href="${escapeHTML(listingUrl)}" target="_blank" rel="noopener">View listing ↗</a>`
+            <dd>${status === "Listed" && listing.url
+              ? `<a class="external-listing" href="${escapeHTML(listing.url)}" target="_blank" rel="noopener">Shop on ${escapeHTML(listing.platform)} ↗</a>`
               : `<span class="ledger-muted">Not listed</span>`}</dd>
           </div>
           <div class="item-ledger__row">
@@ -498,12 +504,13 @@ function renderProductPage(items) {
   }
 
   const status = cleanStatus(item.status);
-  const listingUrl = getListingUrl(item);
+  const listing = getListing(item);
   const soldClass = status === "Sold" ? " product-layout--sold" : "";
 
   const price = status === "Sold" ? itemSoldPrice(item) : itemListPrice(item);
   const priceLabel = status === "Sold" ? "Sold For" : "List Price";
   const showPrice = status !== "Closet" && price > 0;
+  const showBuy = status === "Listed" && listing.url;
 
   document.title = `${item.itemName || item.id} — Poda Closet`;
 
@@ -518,10 +525,14 @@ function renderProductPage(items) {
         <h1 class="product-title">${escapeHTML(item.itemName || "Untitled Item")}</h1>
         <p class="product-status"><span class="badge">${escapeHTML(status)}</span></p>
 
-        ${status === "Listed" && listingUrl
-          ? `<p class="product-listing-cta">
-              <a class="product-link external-listing" href="${escapeHTML(listingUrl)}" target="_blank" rel="noopener">View listing ↗</a>
-            </p>`
+        ${showBuy
+          ? `<div class="product-buy-wrap">
+              <a class="product-buy" href="${escapeHTML(listing.url)}" target="_blank" rel="noopener">
+                Shop on ${escapeHTML(listing.platform)}
+                <span class="product-buy__arrow" aria-hidden="true">↗</span>
+              </a>
+              <span class="product-buy__note">Opens ${escapeHTML(listing.platform)} in a new tab</span>
+            </div>`
           : ""}
 
         <dl class="product-details">

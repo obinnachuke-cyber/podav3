@@ -320,7 +320,7 @@
   /* ---------------------------------------------------------- */
   const INV_GROUPS = [
     ["ITEM IDENTITY", 8], ["ACQUISITION", 3], ["COSTS", 4],
-    ["LISTING", 3], ["SALE ACTUALS", 6], ["ANALYTICS", 4], ["MEASUREMENTS", 4]
+    ["LISTING", 3], ["SALE ACTUALS", 6], ["ANALYTICS", 4], ["NOTES", 1]
   ];
   const INV_COLS = [
     "ITEM ID", "BRAND", "ITEM NAME", "SUBCATEGORY", "SIZE", "COLOR", "CONDITION", "SEASON / YEAR",
@@ -329,9 +329,9 @@
     "LIST PRICE", "DATE LISTED", "LISTING URL",
     "SALE PRICE", "DATE SOLD", "SOLD PLATFORM", "PLATFORM FEE", "SHIPPING OUT", "NET PAYOUT",
     "GROSS PROFIT", "NET PROFIT", "DAYS LISTED", "DAYS TO SELL",
-    "PIT TO PIT", "SHOULDER", "LENGTH", "NOTES"
+    "NOTES"
   ];
-  const INV_WIDTHS = [12, 16, 22, 13, 7, 12, 11, 11, 13, 12, 16, 13, 12, 11, 15, 11, 12, 22, 11, 11, 13, 11, 11, 12, 12, 11, 11, 11, 9, 9, 9, 30];
+  const INV_WIDTHS = [12, 16, 22, 13, 7, 12, 11, 11, 13, 12, 16, 13, 12, 11, 15, 11, 12, 22, 11, 11, 13, 11, 11, 12, 12, 11, 11, 11, 30];
   // Money columns (1-based) and the columns that are user input (blue text).
   const INV_MONEY = new Set([12, 13, 14, 15, 16, 19, 22, 23, 24, 25, 26]);
 
@@ -369,7 +369,7 @@
         sold ? k.finalShipping : "", sold ? k.finalNetPayout : "",
         sold ? k.grossProfit : "", sold ? k.finalNetProfit : "",
         k.daysListed === null ? "" : k.daysListed, k.daysToSell === null ? "" : k.daysToSell,
-        "", "", "", item.privateNotes || item.publicDescription || ""
+        item.privateNotes || item.publicDescription || ""
       ];
       const bg = statusBg(item.status);
       row.forEach((v, i) => {

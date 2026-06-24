@@ -1023,17 +1023,57 @@ input {
   margin: 12px 0 8px;
 }
 
-.product-listing-cta {
-  margin: 0 0 16px;
+/* Prominent "Shop on {Platform}" call-to-action on the item detail page. */
+.product-buy-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 20px;
 }
 
-.product-listing-cta .external-listing {
-  font-size: 11px;
+.product-buy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 360px;
+  padding: 15px 22px;
+  background: var(--purple);
+  color: #f4faf8;
+  border: 1px solid var(--purple-2);
+  font-size: 13px;
   font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  box-shadow: 0 6px 18px var(--purple-glow);
+  transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+}
+
+.product-buy:hover,
+.product-buy:focus-visible {
+  background: var(--purple-2);
+  color: var(--bg);
+  box-shadow: 0 8px 22px var(--purple-glow);
+  outline: none;
+}
+
+.product-buy:active {
+  transform: translateY(1px);
+}
+
+.product-buy__arrow {
+  font-size: 1.05em;
+  line-height: 1;
+}
+
+.product-buy__note {
+  font-size: 9px;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--purple-2);
-  text-decoration-color: var(--purple-2);
+  color: var(--text-faint);
 }
 
 .product-details {
@@ -1205,7 +1245,14 @@ input {
   min-width: 44px;
   min-height: 44px;
   color: var(--text-dim);
+  text-decoration: none;
   transition: color 0.15s ease;
+}
+
+.footer-icon:hover,
+.footer-icon:focus-visible {
+  color: var(--purple-2);
+  outline: none;
 }
 
 .footer-icon svg {
