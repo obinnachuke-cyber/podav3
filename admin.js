@@ -1407,6 +1407,33 @@ function bindAuthEvents() {
   });
 
   document.getElementById("importBtn").addEventListener("click", importFromBrowser);
+  document.getElementById("exportExcelBtn").addEventListener("click", exportToExcel);
+}
+
+/* ============================================================
+   Download the live inventory workbook (Excel). Built from the
+   current items, so it's empty when the closet is empty and
+   populates one row per item as you add them.
+   ============================================================ */
+async function exportToExcel() {
+  if (!window.PodaExcel) {
+    alert("Excel export isn't loaded yet. Refresh the page and try again.");
+    return;
+  }
+  const button = document.getElementById("exportExcelBtn");
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = "Building…";
+  try {
+    const date = new Date().toISOString().slice(0, 10);
+    await window.PodaExcel.download(state.items, `poda_capital_inventory_${date}.xlsx`);
+  } catch (error) {
+    console.error("Excel export failed:", error);
+    alert("Could not build the Excel file. See the console for details.");
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
 }
 
 /* ============================================================

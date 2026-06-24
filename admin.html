@@ -30,6 +30,7 @@
       <nav class="site-nav" aria-label="Admin">
         <a class="admin-public-link" href="index.html">← Public Site</a>
         <button type="button" class="admin-newitem" id="importBtn">Import from this browser</button>
+        <button type="button" class="admin-newitem" id="exportExcelBtn">Download Excel</button>
         <button type="button" class="admin-newitem" id="headerNewItem">+ New Item</button>
         <button type="button" class="admin-public-link" id="logoutBtn">Log out</button>
       </nav>
@@ -60,6 +61,9 @@
   <script src="supabase.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="db.js"></script>
+  <!-- ExcelJS: builds the downloadable inventory workbook in the browser. -->
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="excel-export.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>
