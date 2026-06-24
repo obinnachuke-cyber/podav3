@@ -167,7 +167,7 @@ input {
 }
 
 .page-section {
-  padding-block: clamp(20px, 5vw, 36px);
+  padding-block: clamp(28px, 6vw, 52px);
   border-bottom: 1px dotted var(--border);
 }
 
@@ -253,50 +253,49 @@ input {
 }
 
 /* —— Section bars —— */
+/* Quiet section header: an eyebrow label + a hairline rule, no box. */
 .section-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 10px 16px;
-  margin-bottom: 12px;
-  padding: 8px 10px;
-  background: color-mix(in srgb, var(--bg-box) 88%, var(--purple-deep));
-  border: 1px solid var(--border);
-  border-bottom: 2px solid var(--purple);
+  gap: 6px 14px;
+  margin-bottom: 20px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--border);
 }
 
 .section-bar__label {
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--purple-2);
 }
 
 .section-bar__title {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  color: var(--text);
 }
 
 /* —— Market notes —— */
 .market-notes__body {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: 12px;
 }
 
 .note-feature,
 .note-teaser {
-  padding: 12px 14px;
+  padding: 16px 18px;
   background: var(--bg-box);
-  border: 1px solid var(--border);
   min-width: 0;
 }
 
 .note-feature {
-  border-left: 3px solid var(--purple);
+  border-left: 2px solid var(--purple);
   background: color-mix(in srgb, var(--bg-box) 90%, var(--purple-deep));
 }
 
@@ -320,7 +319,7 @@ input {
 
 .note-rail {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .note-link {
@@ -370,15 +369,13 @@ input {
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 24px;
 }
 
 .metric-card {
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: var(--bg-box);
-  border: 1px solid var(--border);
-  border-top: 2px solid var(--purple);
   min-width: 0;
 }
 
@@ -502,7 +499,7 @@ input {
 .items-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 16px;
 }
 
 .item-card {
@@ -685,42 +682,6 @@ input {
   font-weight: 500;
 }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px dotted var(--border);
-}
-
-.detail span {
-  display: block;
-  margin-bottom: 2px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-.detail strong {
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-dim);
-  overflow-wrap: anywhere;
-}
-
-.thesis {
-  margin: 0;
-  padding-top: 6px;
-  font-size: clamp(0.8rem, 2.4vw, 0.82rem);
-  line-height: 1.5;
-  color: var(--text-faint);
-  border-top: 1px dotted var(--border);
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
 .card-link {
   align-self: flex-start;
   margin-top: auto;
@@ -744,14 +705,12 @@ input {
 /* —— About —— */
 .about__text {
   margin: 0;
-  max-width: 34rem;
-  padding: 12px 14px;
-  background: color-mix(in srgb, var(--bg-box) 92%, var(--purple-deep));
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--purple);
-  color: var(--text-dim);
-  font-size: clamp(0.88rem, 2.6vw, 0.94rem);
-  line-height: 1.55;
+  max-width: 40rem;
+  color: var(--text);
+  font-size: clamp(1.05rem, 3.4vw, 1.35rem);
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
 }
 
@@ -1222,11 +1181,37 @@ input {
   max-width: 100%;
 }
 
+.footer-left {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 16px;
+  min-width: 0;
+}
+
 .footer-brand {
   flex: 0 0 auto;
   color: var(--text-faint);
   font-weight: 700;
   letter-spacing: 0.16em;
+}
+
+.footer-admin {
+  flex: 0 0 auto;
+  color: var(--text-faint);
+  text-decoration: none;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  transition: color 0.12s ease, opacity 0.12s ease;
+}
+
+.footer-admin:hover,
+.footer-admin:focus-visible {
+  color: var(--purple-2);
+  opacity: 1;
+  outline: none;
 }
 
 .footer-links {

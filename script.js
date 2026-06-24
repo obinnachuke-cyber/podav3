@@ -404,23 +404,6 @@ function itemCard(item) {
           </div>`
             : ""}
         </dl>
-
-        <div class="detail-grid">
-          <div class="detail">
-            <span>Category</span>
-            <strong>${escapeHTML(item.category || "—")}</strong>
-          </div>
-          <div class="detail">
-            <span>Color</span>
-            <strong>${escapeHTML(item.color || "—")}</strong>
-          </div>
-        </div>
-
-        ${item.publicDescription ? `<p class="thesis">${escapeHTML(item.publicDescription)}</p>` : ""}
-
-        <div class="item-card__actions">
-          ${detailHref ? `<a class="asset-link" href="${escapeHTML(detailHref)}">View asset</a>` : ""}
-        </div>
       </div>
     </article>
   `;
