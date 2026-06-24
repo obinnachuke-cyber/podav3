@@ -52,6 +52,17 @@
   outline: none;
 }
 
+/* Live sync, while active: a steady green to show the file is connected. */
+.admin-newitem.is-active {
+  background: #2f7d52;
+  color: #ffffff;
+}
+.admin-newitem.is-active:hover,
+.admin-newitem.is-active:focus-visible {
+  background: #266844;
+  color: #ffffff;
+}
+
 /* —— Shell + navigation —— */
 .admin-shell {
   width: min(960px, 100%);

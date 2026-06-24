@@ -74,7 +74,8 @@ const state = {
   editingId: null,        // id being edited, or null for a new item
   draftImages: [],        // images in the open modal
   draftPrimary: "",       // primary image (data URL / URL) in the open modal
-  filters: { status: "All", category: "All", brand: "", platform: "All" }
+  filters: { status: "All", category: "All", brand: "", platform: "All" },
+  liveSync: { handle: null, active: false }  // Excel file kept in sync on disk
 };
 
 /* ============================================================
@@ -1213,7 +1214,7 @@ async function saveItem() {
     return; // upsertItem already alerted the user; keep the modal open
   }
   closeModal();
-  renderCurrentView();
+  afterMutation();
 }
 
 /* ============================================================
@@ -1234,7 +1235,7 @@ function bindModalEvents() {
           return; // deleteItemById already alerted the user
         }
         closeModal();
-        renderCurrentView();
+        afterMutation();
       }
     });
   }
@@ -1314,7 +1315,7 @@ function bindMainEvents() {
         } catch (error) {
           state.items = await loadItems(); // re-sync after a failed save
         }
-        renderCurrentView();
+        afterMutation();
       }
       return;
     }
@@ -1372,6 +1373,7 @@ async function startApp() {
   adminApp.hidden = false;
   state.items = await loadItems();
   setView("dashboard");
+  setupLiveSync();
 }
 
 function bindAuthEvents() {
@@ -1408,6 +1410,7 @@ function bindAuthEvents() {
 
   document.getElementById("importBtn").addEventListener("click", importFromBrowser);
   document.getElementById("exportExcelBtn").addEventListener("click", exportToExcel);
+  document.getElementById("liveSyncBtn").addEventListener("click", toggleLiveSync);
 }
 
 /* ============================================================
@@ -1433,6 +1436,115 @@ async function exportToExcel() {
   } finally {
     button.disabled = false;
     button.textContent = original;
+  }
+}
+
+/* ============================================================
+   Live auto-sync — keep an Excel file on disk in step with the
+   closet as items are added, edited, or moved between folders.
+   Uses the File System Access API (Chrome / Edge / Opera). The
+   linked file is remembered across reloads, though the browser
+   may require one click to re-grant write access after a reload.
+   ============================================================ */
+let liveSyncTimer = null;
+
+// Push the latest items to the linked file, debounced so a burst of
+// edits collapses into a single write.
+function scheduleLiveSync() {
+  if (!state.liveSync.active || !state.liveSync.handle) return;
+  clearTimeout(liveSyncTimer);
+  liveSyncTimer = setTimeout(runLiveSync, 600);
+}
+
+async function runLiveSync() {
+  if (!state.liveSync.active || !state.liveSync.handle) return;
+  try {
+    await window.PodaExcel.liveSync.write(state.liveSync.handle, state.items);
+  } catch (error) {
+    console.error("Live sync write failed:", error);
+    // Permission revoked or file gone — fall back to a re-link prompt.
+    state.liveSync.active = false;
+    updateLiveSyncButton("reconnect");
+  }
+}
+
+// Re-render after a data change AND mirror it to the linked file.
+function afterMutation() {
+  renderCurrentView();
+  scheduleLiveSync();
+}
+
+function updateLiveSyncButton(mode) {
+  const button = document.getElementById("liveSyncBtn");
+  if (!button) return;
+  if (mode === "on") {
+    const handle = state.liveSync.handle;
+    const name = handle && handle.name ? ` (${handle.name})` : "";
+    button.textContent = `Live sync: On${name}`;
+    button.classList.add("is-active");
+  } else if (mode === "reconnect") {
+    button.textContent = "Live sync: Reconnect";
+    button.classList.remove("is-active");
+  } else {
+    button.textContent = "Live sync: Off";
+    button.classList.remove("is-active");
+  }
+}
+
+// On startup: reveal the button only where supported, and quietly
+// re-establish a previously linked file if the browser still allows it.
+async function setupLiveSync() {
+  const button = document.getElementById("liveSyncBtn");
+  if (!button || !window.PodaExcel || !window.PodaExcel.liveSync.supported()) return;
+  button.hidden = false;
+
+  const handle = await window.PodaExcel.liveSync.getSavedHandle();
+  if (!handle) { updateLiveSyncButton("off"); return; }
+
+  state.liveSync.handle = handle;
+  // Check permission without prompting (prompting needs a click).
+  const granted = await window.PodaExcel.liveSync.ensurePermission(handle, false);
+  if (granted) {
+    state.liveSync.active = true;
+    updateLiveSyncButton("on");
+    runLiveSync(); // bring the file up to date with the current database
+  } else {
+    updateLiveSyncButton("reconnect"); // one click will re-grant access
+  }
+}
+
+async function toggleLiveSync() {
+  if (!window.PodaExcel || !window.PodaExcel.liveSync.supported()) return;
+  const liveSync = window.PodaExcel.liveSync;
+
+  // Currently on → turn it off and forget the file link.
+  if (state.liveSync.active) {
+    if (!confirm("Turn off live sync? The file stays as-is; you can re-link it later.")) return;
+    state.liveSync.active = false;
+    state.liveSync.handle = null;
+    await liveSync.clearSavedHandle();
+    updateLiveSyncButton("off");
+    return;
+  }
+
+  try {
+    // Reconnect a remembered file (re-grant on click), otherwise pick a new one.
+    let handle = state.liveSync.handle;
+    if (handle) {
+      const ok = await liveSync.ensurePermission(handle, true);
+      if (!ok) { updateLiveSyncButton("reconnect"); return; }
+    } else {
+      handle = await liveSync.pickFile();        // throws AbortError if cancelled
+      await liveSync.ensurePermission(handle, true);
+    }
+    state.liveSync.handle = handle;
+    state.liveSync.active = true;
+    updateLiveSyncButton("on");
+    await runLiveSync();                          // write once, immediately
+  } catch (error) {
+    if (error && error.name === "AbortError") return; // user cancelled the picker
+    console.error("Live sync setup failed:", error);
+    alert("Could not start live sync. See the console for details.");
   }
 }
 
@@ -1492,7 +1604,7 @@ async function importFromBrowser() {
   }
 
   state.items = await loadItems();
-  renderCurrentView();
+  afterMutation();
   alert(`Imported ${imported} item(s).${failed ? ` ${failed} failed — see console.` : ""}`);
 }
 

@@ -583,5 +583,97 @@
     URL.revokeObjectURL(url);
   }
 
-  return { buildWorkbook, download, metrics, calc };
+  /* ---------------------------------------------------------- */
+  /* Browser-only: live auto-sync to a file on disk             */
+  /* (File System Access API — Chrome / Edge / Opera)           */
+  /*                                                            */
+  /* The chosen file's handle is stashed in IndexedDB so the    */
+  /* link survives page reloads; the browser still re-checks    */
+  /* permission (and may need one click) after a fresh load.    */
+  /* ---------------------------------------------------------- */
+  const IDB_NAME = "poda-excel";
+  const IDB_STORE = "handles";
+  const HANDLE_KEY = "inventoryFile";
+
+  function liveSyncSupported() {
+    return typeof window !== "undefined" && "showSaveFilePicker" in window;
+  }
+
+  function openIdb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function idbDo(mode, fn) {
+    return openIdb().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, mode);
+      const store = tx.objectStore(IDB_STORE);
+      const req = fn(store);
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = () => reject(tx.error);
+    }));
+  }
+
+  const idbGet = key => idbDo("readonly", s => s.get(key));
+  const idbSet = (key, val) => idbDo("readwrite", s => s.put(val, key));
+  const idbDel = key => idbDo("readwrite", s => s.delete(key));
+
+  // Prompt the user to pick/create the .xlsx file, then remember it.
+  async function pickFile() {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: "poda_capital_inventory.xlsx",
+      types: [{
+        description: "Excel workbook",
+        accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] }
+      }]
+    });
+    await idbSet(HANDLE_KEY, handle);
+    return handle;
+  }
+
+  async function getSavedHandle() {
+    try {
+      return (await idbGet(HANDLE_KEY)) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function clearSavedHandle() {
+    try { await idbDel(HANDLE_KEY); } catch (e) { /* ignore */ }
+  }
+
+  // queryPermission never prompts; requestPermission must be called from a
+  // user gesture (a click). Pass prompt=true only from a click handler.
+  async function ensurePermission(handle, prompt) {
+    const opts = { mode: "readwrite" };
+    if ((await handle.queryPermission(opts)) === "granted") return true;
+    if (prompt && (await handle.requestPermission(opts)) === "granted") return true;
+    return false;
+  }
+
+  // Rebuild the workbook from the current items and overwrite the linked file.
+  async function writeToHandle(handle, items) {
+    const wb = buildWorkbook(ExcelJS, items);
+    const buffer = await wb.xlsx.writeBuffer();
+    const writable = await handle.createWritable();
+    await writable.write(buffer);
+    await writable.close();
+  }
+
+  return {
+    buildWorkbook, download, metrics, calc,
+    liveSync: {
+      supported: liveSyncSupported,
+      pickFile,
+      getSavedHandle,
+      clearSavedHandle,
+      ensurePermission,
+      write: writeToHandle
+    }
+  };
 });
