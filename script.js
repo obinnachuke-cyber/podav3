@@ -303,63 +303,51 @@ function getFilteredItems() {
 }
 
 function itemCard(item) {
-  const status = cleanStatus(item.status);
-  const listing = getListing(item);
-  const soldClass = status === "Sold" ? " archive-card--sold" : "";
+  const status     = cleanStatus(item.status);
+  const listing    = getListing(item);
   const detailHref = itemDetailHref(item);
-  const assetLinkOpen = detailHref
-    ? `<a class="item-card__asset-link" href="${escapeHTML(detailHref)}">`
-    : "";
-  const assetLinkClose = detailHref ? "</a>" : "";
-  const titleInner = detailHref
-    ? `<a class="item-card__asset-link item-card__asset-link--title" href="${escapeHTML(detailHref)}">${escapeHTML(item.itemName || "Untitled Item")}</a>`
-    : escapeHTML(item.itemName || "Untitled Item");
+  const isSold     = status === "Sold";
 
-  // Public-facing price only: list price while Listed, sale price once Sold.
-  const price = status === "Sold" ? itemSoldPrice(item) : itemListPrice(item);
-  const priceLabel = status === "Sold" ? "Sold For" : "List Price";
-  const showPrice = status !== "Closet" && price !== null;
+  const price      = isSold ? itemSoldPrice(item) : itemListPrice(item);
+  const priceLabel = isSold ? "Sold" : "Listed";
+  const showPrice  = status !== "Closet" && price !== null;
+
+  // Sparse detail line: size · condition [· price]
+  const detailParts = [
+    item.size      ? escapeHTML(item.size)      : "",
+    item.condition ? escapeHTML(item.condition) : "",
+    showPrice      ? `${priceLabel} ${formatMoney(price)}` : ""
+  ].filter(Boolean);
+  const detailLine = detailParts.join(" · ");
+
+  // Image block — links to detail page if available
+  const imgInner = `
+    <div class="catalog-card__image${getImageUrl(item) ? "" : " catalog-card__image--empty"}${isSold ? " catalog-card__image--sold" : ""}">
+      ${renderCardImageContent(item)}
+    </div>`;
+  const imageBlock = detailHref
+    ? `<a class="catalog-card__img-link" href="${escapeHTML(detailHref)}">${imgInner}</a>`
+    : imgInner;
+
+  // Title — links to detail page if available
+  const titleInner = detailHref
+    ? `<a class="catalog-card__title-link" href="${escapeHTML(detailHref)}">${escapeHTML(item.itemName || "Untitled")}</a>`
+    : escapeHTML(item.itemName || "Untitled");
 
   return `
-    <article class="item-card archive-card${soldClass}">
-      ${assetLinkOpen}
-      <div class="item-image${getImageUrl(item) ? "" : " item-image--empty"}">
-        <span class="card-corner-tag">${escapeHTML(status)}</span>
-        ${renderCardImageContent(item)}
-      </div>
-      ${assetLinkClose}
-      <div class="item-body">
-        <div class="item-body__hero">
-          <p class="brand">${escapeHTML(item.brand || "Unknown Brand")}</p>
-          <div class="item-body__title-row">
-            <h2 class="item-title">${titleInner}</h2>
-            <span class="badge">${escapeHTML(status)}</span>
-          </div>
+    <article class="catalog-card${isSold ? " catalog-card--sold" : ""}">
+      <div class="catalog-card__meta">
+        <div class="catalog-card__meta-row">
+          <span class="catalog-card__brand">${escapeHTML(item.brand || "Unknown")}</span>
+          <span class="catalog-card__status catalog-card__status--${status.toLowerCase()}">${escapeHTML(status)}</span>
         </div>
-
-        <dl class="item-ledger">
-          <div class="item-ledger__row">
-            <dt>Listing</dt>
-            <dd>${status === "Listed" && listing.url
-              ? `<a class="external-listing" href="${escapeHTML(listing.url)}" target="_blank" rel="noopener">Shop on ${escapeHTML(listing.platform)} ↗</a>`
-              : `<span class="ledger-muted">Not listed</span>`}</dd>
-          </div>
-          <div class="item-ledger__row">
-            <dt>Size</dt>
-            <dd>${escapeHTML(item.size || "—")}</dd>
-          </div>
-          <div class="item-ledger__row">
-            <dt>Condition</dt>
-            <dd>${escapeHTML(item.condition || "—")}</dd>
-          </div>
-          ${showPrice
-            ? `<div class="item-ledger__row">
-            <dt>${priceLabel}</dt>
-            <dd>${formatMoney(price)}</dd>
-          </div>`
-            : ""}
-        </dl>
+        <h2 class="catalog-card__name">${titleInner}</h2>
+        ${detailLine ? `<p class="catalog-card__details">${detailLine}</p>` : ""}
+        ${status === "Listed" && listing.url
+          ? `<a class="catalog-card__shop" href="${escapeHTML(listing.url)}" target="_blank" rel="noopener">Shop on ${escapeHTML(listing.platform)} ↗</a>`
+          : ""}
       </div>
+      ${imageBlock}
     </article>
   `;
 }
