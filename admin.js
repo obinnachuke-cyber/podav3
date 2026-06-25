@@ -1931,24 +1931,33 @@ function renderArchive() {
 
       pasteStatus.textContent = "Uploading…";
       let success = 0;
+      let lastErr = null;
       for (const item of imageItems) {
         const file = item.getAsFile();
         if (!file) continue;
         try {
-          const dataUrl = await compressImage(file);
-          const url = await window.PodaDB.uploadImage(dataUrl);
+          // Try to compress first; fall back to raw file if compress fails
+          let uploadInput = file;
+          try { uploadInput = await compressImage(file); } catch (_) { /* use raw */ }
+          const url = await window.PodaDB.uploadImage(uploadInput);
           const img = { id: generateArchiveId(), url, uploadedAt: new Date().toISOString() };
           await window.PodaDB.upsertArchiveImage(img);
           archiveState.images.unshift(img);
           success++;
         } catch (err) {
+          lastErr = err;
           console.error("Paste upload failed:", err);
         }
       }
 
-      pasteStatus.textContent = success ? `✓ ${success} image${success > 1 ? "s" : ""} added` : "Upload failed — try again.";
-      setTimeout(() => { if (pasteStatus) pasteStatus.textContent = ""; }, 4000);
-      renderArchive();
+      if (success) {
+        pasteStatus.textContent = `✓ ${success} image${success > 1 ? "s" : ""} added`;
+        setTimeout(() => { if (pasteStatus) pasteStatus.textContent = ""; }, 4000);
+        renderArchive();
+      } else {
+        const msg = lastErr ? lastErr.message || String(lastErr) : "Unknown error";
+        pasteStatus.textContent = `Upload failed: ${msg}`;
+      }
     });
   }
 
