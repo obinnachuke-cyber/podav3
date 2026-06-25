@@ -1267,7 +1267,7 @@ input {
 
 /* Colour tokens for the home page */
 :root {
-  --home-bg:     #3a3a3a;   /* dark-medium grey                */
+  --home-bg:     #1e1e1e;   /* near-black grey                 */
   --home-green:  #4a8c5c;   /* dark muted green, not neon      */
   --home-green-dim: rgba(74, 140, 92, 0.42);
   --home-font:   "Space Mono", "Courier New", Courier, monospace;
