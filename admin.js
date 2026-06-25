@@ -1877,7 +1877,15 @@ function renderArchive() {
         <input type="file" id="archiveUploadInput" accept="image/*" multiple hidden />
       </label>
     </div>
-    <p id="archiveUploadStatus" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em;min-height:1em;margin:0 0 16px;"></p>
+    <p id="archiveUploadStatus" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em;min-height:1em;margin:0 0 12px;"></p>
+
+    <!-- Paste URL box -->
+    <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:20px;flex-wrap:wrap;">
+      <input id="archivePasteInput" type="url" placeholder="Paste image URL…"
+        style="flex:1 1 240px;min-width:0;padding:0 12px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:inherit;font-size:13px;min-height:38px;" />
+      <button id="archivePasteBtn" type="button" class="admin-newitem" style="flex:0 0 auto;margin-left:0;">Add URL</button>
+    </div>
+
     ${images.length === 0
       ? `<p class="admin-empty">No images yet. Upload your first one above.</p>`
       : `<div class="archive-masonry admin-archive-masonry">
@@ -1893,6 +1901,35 @@ function renderArchive() {
 
   const uploadInput = document.getElementById("archiveUploadInput");
   if (uploadInput) uploadInput.addEventListener("change", handleArchiveUpload);
+
+  // Paste URL handler
+  const pasteBtn   = document.getElementById("archivePasteBtn");
+  const pasteInput = document.getElementById("archivePasteInput");
+  if (pasteBtn && pasteInput) {
+    async function addPastedUrl() {
+      const url = pasteInput.value.trim();
+      if (!url) return;
+      if (!/^https?:\/\//i.test(url)) {
+        alert("Please enter a valid URL starting with https://");
+        return;
+      }
+      pasteBtn.disabled = true;
+      pasteBtn.textContent = "Adding…";
+      try {
+        const img = { id: generateArchiveId(), url, uploadedAt: new Date().toISOString() };
+        await window.PodaDB.upsertArchiveImage(img);
+        archiveState.images.unshift(img);
+        pasteInput.value = "";
+        renderArchive();
+      } catch (e) {
+        alert("Could not save image. Check your connection.");
+        pasteBtn.disabled = false;
+        pasteBtn.textContent = "Add URL";
+      }
+    }
+    pasteBtn.addEventListener("click", addPastedUrl);
+    pasteInput.addEventListener("keydown", e => { if (e.key === "Enter") addPastedUrl(); });
+  }
 
   adminMain.querySelectorAll(".archive-delete-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
