@@ -1262,8 +1262,109 @@ input {
 }
 
 /* ============================================================
-   Landing / splash page (landing.html)
-   Brand centered with three links to the main sections.
+   Home / index page — dark navy + neon green
+   ============================================================ */
+.home-body {
+  background: #080d2e;
+  /* smooth momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  /* crisp text rendering on retina */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.home {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  /* center vertically so content sits mid-screen when it fits */
+  align-items: center;
+  justify-content: center;
+  /* respect notch / dynamic island / home bar */
+  padding-top: max(clamp(40px, 10vw, 72px), env(safe-area-inset-top));
+  padding-bottom: max(clamp(40px, 10vw, 72px), env(safe-area-inset-bottom));
+  padding-left: max(clamp(20px, 6vw, 48px), env(safe-area-inset-left));
+  padding-right: max(clamp(20px, 6vw, 48px), env(safe-area-inset-right));
+}
+
+.home-inner {
+  width: 100%;
+  max-width: 600px;
+  /* center the block horizontally on all screen sizes */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.home-eyebrow {
+  margin: 0 0 clamp(16px, 4vw, 32px);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(57, 255, 88, 0.45);
+  text-align: center;
+}
+
+/* Nav list */
+.home-nav {
+  display: flex;
+  flex-direction: column;
+  /* no gap — line-height handles rhythm */
+  gap: 0;
+  align-items: center;
+  width: 100%;
+}
+
+.home-nav__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  /* pill padding: rest state has equal top/bottom, right matches left on hover */
+  padding: 1px 20px;
+  border-radius: 100px;
+  color: #39ff58;
+  text-decoration: none;
+  /* scale down on small phones so all 8 items fit without scrolling */
+  font-size: clamp(2rem, 10.5vw, 5rem);
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  /* smooth pill fill transition */
+  transition: background 0.14s ease, color 0.14s ease;
+  width: fit-content;
+  /* tap highlight off on iOS */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.home-nav__item:hover,
+.home-nav__item:focus-visible {
+  background: #39ff58;
+  color: #080d2e;
+  outline: none;
+}
+
+/* active tap feedback on touch devices */
+.home-nav__item:active {
+  background: #39ff58;
+  color: #080d2e;
+  opacity: 0.85;
+}
+
+.home-nav__item--active {
+  background: #39ff58;
+  color: #080d2e;
+}
+
+.home-nav__lock {
+  width: clamp(16px, 2.6vw, 24px);
+  height: clamp(16px, 2.6vw, 24px);
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
+/* ============================================================
+   Legacy landing page (kept for backwards compat)
    ============================================================ */
 .landing {
   min-height: 100vh;
@@ -1292,18 +1393,18 @@ input {
 }
 
 .landing-title {
-  margin: 0 0 4px;
-  font-size: clamp(1.8rem, 9vw, 3rem);
+  margin: 0 0 6px;
+  font-size: clamp(1.4rem, 6.5vw, 2.2rem);
   font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  line-height: 1.05;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  line-height: 1.1;
 }
 
 .landing-tagline {
   margin: 0 0 clamp(28px, 7vw, 44px);
   color: var(--text-dim);
-  font-size: clamp(0.85rem, 2.6vw, 0.95rem);
+  font-size: clamp(0.78rem, 2.3vw, 0.86rem);
 }
 
 .landing-links {
@@ -1316,6 +1417,7 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 7px;
   min-height: 44px;
   padding: 0 8px;
   background: none;
@@ -1327,6 +1429,12 @@ input {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   transition: opacity 0.12s ease;
+}
+
+.landing-lock {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
 }
 
 .landing-links a:hover,
