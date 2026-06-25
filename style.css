@@ -24,7 +24,7 @@
   --purple-glow: rgba(0, 0, 0, 0.06);
 
   --header-h: 48px;
-  --pad: clamp(14px, 3.5vw, 28px);
+  --pad: clamp(20px, 5vw, 28px);
   --font: "Space Mono", "Courier New", Courier, monospace;
 }
 
