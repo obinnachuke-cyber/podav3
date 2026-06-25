@@ -141,7 +141,7 @@ function feedItemToPost(item) {
       const sameYear = d.getFullYear() === now.getFullYear();
       dateLabel = sameYear
         ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        : String(d.getFullYear());
+        : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     }
   }
 
