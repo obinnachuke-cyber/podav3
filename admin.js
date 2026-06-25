@@ -625,7 +625,8 @@ function gapsFor(item) {
     if ((STAGE_INDEX[stage] ?? 0) > reached) return;
     fields.forEach(([path, label]) => {
       const value = getByPath(item, path);
-      if (value === undefined || value === null || value === "" || value === 0) gaps.push(label);
+      // 0 is a valid value (e.g. free item, $0 cost) — only flag truly blank/missing
+      if (value === undefined || value === null || value === "") gaps.push(label);
     });
   });
 
@@ -799,8 +800,8 @@ function textField(label, name, value, opts = {}) {
 }
 
 function numberField(label, name, value, opts = {}) {
-  // Always leave the input blank when the value is zero/empty — never show "0".
-  const display = num(value) === 0 ? "" : value;
+  // Show 0 when it's been explicitly set; only leave blank when null/undefined/""
+  const display = (value === null || value === undefined || value === "") ? "" : value;
   return textField(label, name, display, { ...opts, type: "number" });
 }
 
@@ -1108,7 +1109,8 @@ function readForm() {
 
     let value;
     if (element.type === "checkbox") value = element.checked;
-    else if (element.type === "number") value = element.value === "" ? 0 : Number(element.value);
+    // Keep blank as null (not 0) so we can tell "not entered" from "explicitly 0"
+    else if (element.type === "number") value = element.value === "" ? null : Number(element.value);
     else value = element.value;
 
     setByPath(base, name, value);
