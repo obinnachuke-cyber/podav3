@@ -1,29 +1,31 @@
+/* Space Mono — loaded here so every page that links style.css gets it */
+@import url("https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+
 * {
   box-sizing: border-box;
 }
 
 :root {
   color-scheme: dark;
-  --bg: #0c0c0c;
-  --bg-box: #1a1a1a;
-  --bg-box-hover: #242424;
-  --text: #e8e8e8;
-  --text-dim: #9a9a9a;
-  --text-faint: #6a6a6a;
+  --bg: #1e1e1e;
+  --bg-box: #272727;
+  --bg-box-hover: #303030;
+  --text: #e2e2e2;
+  --text-dim: #909090;
+  --text-faint: #606060;
   --border: #3a3a3a;
-  --border-light: #555;
-  --image-bg: #111;
+  --border-light: #505050;
+  --image-bg: #161616;
 
-  /* Accent: dark navy-green (kept under the --purple* names so every
-     existing rule picks up the new colour automatically). */
-  --purple: #1f4a45;          /* accent surface         */
-  --purple-2: #5fa394;        /* lighter accent / links */
-  --purple-deep: #112b28;     /* deep accent            */
-  --purple-glow: rgba(31, 74, 69, 0.22);
+  /* Accent: muted forest green — same palette as the homepage */
+  --purple: #1a3d26;          /* accent surface         */
+  --purple-2: #4a8c5c;        /* lighter accent / links */
+  --purple-deep: #0f2418;     /* deep accent            */
+  --purple-glow: rgba(74, 140, 92, 0.18);
 
   --header-h: 48px;
   --pad: clamp(14px, 3.5vw, 28px);
-  --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font: "Space Mono", "Courier New", Courier, monospace;
 }
 
 html {
