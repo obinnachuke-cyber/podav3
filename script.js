@@ -149,15 +149,17 @@ function feedItemToPost(item) {
 }
 
 async function fetchSubstackFeedItems() {
-  // count=50 requests up to 50 posts instead of the default 10
-  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(SUBSTACK_FEED_URL)}&count=50`;
+  // rss2json free tier: no count param — use default (returns up to 10 items)
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(SUBSTACK_FEED_URL)}`;
   const response = await fetch(apiUrl, { cache: "no-store" });
 
-  if (!response.ok) throw new Error(`rss2json request failed: ${response.status}`);
+  if (!response.ok) throw new Error(`rss2json HTTP error: ${response.status}`);
 
   const data = await response.json();
+  console.log("[inbox] rss2json response:", data.status, "items:", data.items?.length);
+
   if (data.status !== "ok" || !Array.isArray(data.items)) {
-    throw new Error("rss2json returned an invalid feed payload");
+    throw new Error(`rss2json error: ${data.message || data.status}`);
   }
 
   return data.items;
