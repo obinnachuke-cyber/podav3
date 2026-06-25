@@ -72,15 +72,23 @@ function rowsToObjects(rows) {
 }
 
 function parseMoney(value) {
-  if (!value) return 0;
+  if (value === null || value === undefined || value === "") return 0;
 
   const matches = String(value).match(/\$?\d+(?:,\d{3})*(?:\.\d+)?/g);
   if (!matches) return 0;
 
-  const numbers = matches.map(num => Number(num.replace(/[$,]/g, ""))).filter(Number.isFinite);
+  const numbers = matches.map(n => Number(n.replace(/[$,]/g, ""))).filter(Number.isFinite);
   if (!numbers.length) return 0;
 
-  return numbers.reduce((sum, num) => sum + num, 0) / numbers.length;
+  return numbers.reduce((sum, n) => sum + n, 0) / numbers.length;
+}
+
+// Returns the number if the field has any value (including 0),
+// or null if the field is blank / missing — so 0 can be displayed.
+function numOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function formatMoney(value) {
@@ -249,11 +257,11 @@ function itemImageAlt(item) {
 }
 
 function itemListPrice(item) {
-  return num(item.pricing && item.pricing.currentListPrice);
+  return numOrNull(item.pricing && item.pricing.currentListPrice);
 }
 
 function itemSoldPrice(item) {
-  return num(item.soldActuals && item.soldActuals.finalSalePrice);
+  return numOrNull(item.soldActuals && item.soldActuals.finalSalePrice);
 }
 
 function renderCardImageContent(item) {
@@ -302,11 +310,11 @@ function calculateMetrics(items) {
 
   const listedValue = items
     .filter(item => cleanStatus(item.status) === "Listed")
-    .reduce((sum, item) => sum + itemListPrice(item), 0);
+    .reduce((sum, item) => sum + (itemListPrice(item) ?? 0), 0);
 
   const soldRevenue = items
     .filter(item => cleanStatus(item.status) === "Sold")
-    .reduce((sum, item) => sum + itemSoldPrice(item), 0);
+    .reduce((sum, item) => sum + (itemSoldPrice(item) ?? 0), 0);
 
   if (metricItems) metricItems.textContent = items.length;
   if (metricClosetValue) metricClosetValue.textContent = closetCount;
@@ -349,7 +357,7 @@ function itemCard(item) {
   // Public-facing price only: list price while Listed, sale price once Sold.
   const price = status === "Sold" ? itemSoldPrice(item) : itemListPrice(item);
   const priceLabel = status === "Sold" ? "Sold For" : "List Price";
-  const showPrice = status !== "Closet" && price > 0;
+  const showPrice = status !== "Closet" && price !== null;
 
   return `
     <article class="item-card archive-card${soldClass}">
@@ -478,7 +486,7 @@ function renderProductPage(items) {
 
   const price = status === "Sold" ? itemSoldPrice(item) : itemListPrice(item);
   const priceLabel = status === "Sold" ? "Sold For" : "List Price";
-  const showPrice = status !== "Closet" && price > 0;
+  const showPrice = status !== "Closet" && price !== null;
   const showBuy = status === "Listed" && listing.url;
 
   document.title = `${item.itemName || item.id} — Poda Closet`;
