@@ -1274,6 +1274,10 @@ function bindMainEvents() {
       openModal(null);
       return;
     }
+    if (event.target.closest("[data-new-note]")) {
+      openNoteModal(null);
+      return;
+    }
     // Don't open the modal when interacting with inline controls.
     if (event.target.closest("[data-no-edit]")) return;
 
@@ -1346,12 +1350,6 @@ function bindMainEvents() {
 function bindGlobalEvents() {
   document.querySelectorAll(".admin-nav__link").forEach(link => {
     link.addEventListener("click", () => setView(link.dataset.view));
-  });
-
-  document.getElementById("headerNewItem").addEventListener("click", () => openModal(null));
-  document.getElementById("headerNewNote").addEventListener("click", () => {
-    setView("notes");
-    openNoteModal(null);
   });
 
   modalOverlay.addEventListener("click", event => {
@@ -1648,7 +1646,11 @@ function renderNotes() {
   `).join("");
 
   adminMain.innerHTML = `
-    ${sectionBar("Inbox", "Market Notes")}
+    <div class="section-bar section-bar--admin">
+      <span class="section-bar__label">Inbox</span>
+      <span class="section-bar__title">Market Notes</span>
+      <button type="button" class="admin-newitem section-bar__action" data-new-note>+ New Note</button>
+    </div>
     ${notes.length === 0
       ? `<p class="admin-empty">No notes yet. Use "+ New Note" to write your first one.</p>`
       : `<div class="table-wrap">
@@ -1867,14 +1869,15 @@ function renderArchive() {
   const images = archiveState.images;
 
   adminMain.innerHTML = `
-    ${sectionBar("Archive", "Lookbook")}
-    <div style="margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-      <label class="btn btn--primary" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 16px;">
-        + Upload Images
+    <div class="section-bar section-bar--admin">
+      <span class="section-bar__label">Archive</span>
+      <span class="section-bar__title">Lookbook</span>
+      <label class="admin-newitem section-bar__action" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        + New Images
         <input type="file" id="archiveUploadInput" accept="image/*" multiple hidden />
       </label>
-      <span id="archiveUploadStatus" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em;"></span>
     </div>
+    <p id="archiveUploadStatus" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em;min-height:1em;margin:0 0 16px;"></p>
     ${images.length === 0
       ? `<p class="admin-empty">No images yet. Upload your first one above.</p>`
       : `<div class="archive-masonry admin-archive-masonry">
