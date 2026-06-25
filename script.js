@@ -1,5 +1,4 @@
 // Public site reads the same shared inventory the admin writes to the database.
-const SUBSTACK_FEED_URL = "https://musicneedsmorethanmusic.substack.com/feed";
 
 const productPage = document.getElementById("product-page");
 const marketNotesSection = document.getElementById("market-notes");
@@ -128,82 +127,45 @@ function stripHtml(html) {
   return doc.body.textContent.replace(/\s+/g, " ").trim();
 }
 
-function feedItemToPost(item) {
-  const title = String(item.title || "").trim();
-  const link  = String(item.link  || "").trim();
-  if (!title || !link) return null;
-
-  // Subtitle: rss2json sometimes puts it in item.description (HTML) —
-  // strip tags and truncate to a short preview line.
-  const excerpt = stripHtml(item.description || "").slice(0, 120).trim();
-
-  // Cover image: rss2json returns it as item.thumbnail
-  const thumbnail = String(item.thumbnail || item.enclosure?.link || "").trim();
-
-  // Date: parse pubDate, format as "Mon DD" or "YYYY" if older
-  let dateLabel = "";
-  if (item.pubDate) {
-    const d = new Date(item.pubDate);
-    if (!isNaN(d)) {
-      const now = new Date();
-      const sameYear = d.getFullYear() === now.getFullYear();
-      dateLabel = sameYear
-        ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    }
-  }
-
-  return { title, link, excerpt, thumbnail, dateLabel };
+/* —— Inbox helpers —— */
+function noteDateLabel(note) {
+  const d = note.publishedAt || note.createdAt;
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-async function fetchSubstackFeedItems() {
-  // rss2json free tier: no count param — use default (returns up to 10 items)
-  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(SUBSTACK_FEED_URL)}`;
-  const response = await fetch(apiUrl, { cache: "no-store" });
-
-  if (!response.ok) throw new Error(`rss2json HTTP error: ${response.status}`);
-
-  const data = await response.json();
-  console.log("[inbox] rss2json response:", data.status, "items:", data.items?.length);
-
-  if (data.status !== "ok" || !Array.isArray(data.items)) {
-    throw new Error(`rss2json error: ${data.message || data.status}`);
-  }
-
-  return data.items;
-}
-
-function inboxRowHTML(post) {
-  const thumb = post.thumbnail
-    ? `<img src="${escapeHTML(post.thumbnail)}" alt="" loading="lazy" decoding="async" />`
+function inboxRowHTML(note) {
+  const thumb = note.coverImage
+    ? `<img src="${escapeHTML(note.coverImage)}" alt="" loading="lazy" decoding="async" />`
     : `<div class="inbox-thumb__placeholder"></div>`;
 
   return `
-    <a class="inbox-row" href="${escapeHTML(post.link)}" target="_blank" rel="noopener">
+    <a class="inbox-row" href="note.html?id=${encodeURIComponent(note.id)}">
       <div class="inbox-thumb">${thumb}</div>
       <div class="inbox-row__body">
         <span class="inbox-row__from">podacapital</span>
-        <span class="inbox-row__title">${escapeHTML(post.title)}</span>
-        ${post.excerpt ? `<span class="inbox-row__preview">${escapeHTML(post.excerpt)}</span>` : ""}
+        <span class="inbox-row__title">${escapeHTML(note.title || "Untitled")}</span>
+        ${note.subtitle ? `<span class="inbox-row__preview">${escapeHTML(note.subtitle)}</span>` : ""}
       </div>
-      <span class="inbox-row__date">${escapeHTML(post.dateLabel)}</span>
+      <span class="inbox-row__date">${escapeHTML(noteDateLabel(note))}</span>
     </a>
   `;
 }
 
-function renderMarketNotes(posts) {
-  const list    = document.getElementById("inboxList");
-  const empty   = document.getElementById("marketNotesEmpty");
-
+function renderMarketNotes(notes) {
+  const list  = document.getElementById("inboxList");
+  const empty = document.getElementById("marketNotesEmpty");
   if (!list) return;
 
-  if (!posts.length) {
-    if (empty) { empty.textContent = "No posts yet."; empty.classList.remove("hidden"); }
+  const published = notes.filter(n => n.status === "published");
+
+  if (!published.length) {
+    if (empty) { empty.textContent = "No notes published yet."; }
     return;
   }
 
   if (empty) empty.remove();
-  list.innerHTML = posts.map(inboxRowHTML).join("");
+  list.innerHTML = published.map(inboxRowHTML).join("");
 }
 
 async function loadMarketNotes() {
@@ -211,13 +173,12 @@ async function loadMarketNotes() {
   if (!list) return;
 
   try {
-    const feedItems = await fetchSubstackFeedItems();
-    const posts = feedItems.map(feedItemToPost).filter(Boolean);
-    renderMarketNotes(posts);
+    const notes = await window.PodaDB.getNotes();
+    renderMarketNotes(notes);
   } catch (error) {
     console.error(error);
     const empty = document.getElementById("marketNotesEmpty");
-    if (empty) empty.textContent = "Could not load posts — try refreshing.";
+    if (empty) empty.textContent = "Could not load notes — try refreshing.";
   }
 }
 

@@ -398,7 +398,8 @@ function renderCurrentView() {
     all: renderAllItems,
     closet: renderCloset,
     listed: renderListed,
-    sold: renderSold
+    sold: renderSold,
+    notes: renderNotes
   };
   (renderers[state.view] || renderDashboard)();
 }
@@ -1275,6 +1276,10 @@ function bindMainEvents() {
     // Don't open the modal when interacting with inline controls.
     if (event.target.closest("[data-no-edit]")) return;
 
+    // Note rows
+    const noteRow = event.target.closest("[data-note-edit]");
+    if (noteRow) { openNoteModal(noteRow.dataset.noteEdit); return; }
+
     const row = event.target.closest("[data-edit-id]");
     if (row) openModal(row.dataset.editId);
   });
@@ -1343,6 +1348,10 @@ function bindGlobalEvents() {
   });
 
   document.getElementById("headerNewItem").addEventListener("click", () => openModal(null));
+  document.getElementById("headerNewNote").addEventListener("click", () => {
+    setView("notes");
+    openNoteModal(null);
+  });
 
   modalOverlay.addEventListener("click", event => {
     if (event.target === modalOverlay) closeModal();
@@ -1371,7 +1380,10 @@ async function startApp() {
   appStarted = true;
   loginGate.hidden = true;
   adminApp.hidden = false;
-  state.items = await loadItems();
+  [state.items, noteState.notes] = await Promise.all([
+    loadItems(),
+    window.PodaDB.getNotes().catch(() => [])
+  ]);
   setView("dashboard");
 }
 
@@ -1577,6 +1589,218 @@ async function importFromBrowser() {
   state.items = await loadItems();
   renderCurrentView();
   alert(`Imported ${imported} item(s).${failed ? ` ${failed} failed — see console.` : ""}`);
+}
+
+/* ============================================================
+   Market Notes — state, helpers, views, modal
+   ============================================================ */
+const noteState = {
+  notes: []
+};
+
+function blankNote() {
+  return {
+    id: "",
+    title: "",
+    subtitle: "",
+    body: "",
+    coverImage: "",
+    status: "draft",        // "draft" | "published"
+    publishedAt: "",
+    createdAt: new Date().toISOString()
+  };
+}
+
+function generateNoteId() {
+  const yy = String(new Date().getFullYear()).slice(-2);
+  const existing = noteState.notes
+    .map(n => Number((n.id || "").replace(/^NOTE-\d{2}-/, "")))
+    .filter(Number.isFinite);
+  const next = existing.length ? Math.max(...existing) + 1 : 1;
+  return `NOTE-${yy}-${String(next).padStart(3, "0")}`;
+}
+
+function noteDateLabel(note) {
+  const d = note.publishedAt || note.createdAt;
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+/* —— View: Notes list —— */
+function renderNotes() {
+  const notes = noteState.notes;
+
+  const rows = notes.map(note => `
+    <tr data-note-edit="${escapeHTML(note.id)}">
+      <td class="cell-mono">${escapeHTML(note.id)}</td>
+      <td class="cell-strong">${escapeHTML(note.title || "Untitled")}</td>
+      <td>${escapeHTML(note.subtitle || "—")}</td>
+      <td><span class="badge ${note.status === "published" ? "badge--listed" : "badge--draft"}">${escapeHTML(note.status)}</span></td>
+      <td>${escapeHTML(noteDateLabel(note))}</td>
+      <td>
+        <a class="card-link" href="note.html?id=${encodeURIComponent(note.id)}" target="_blank" rel="noopener"
+           onclick="event.stopPropagation()">View ↗</a>
+      </td>
+    </tr>
+  `).join("");
+
+  adminMain.innerHTML = `
+    ${sectionBar("Inbox", "Market Notes")}
+    ${notes.length === 0
+      ? `<p class="admin-empty">No notes yet. Use "+ New Note" to write your first one.</p>`
+      : `<div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>ID</th><th>Title</th><th>Subtitle</th>
+                <th>Status</th><th>Date</th><th></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`
+    }
+  `;
+}
+
+/* —— Note modal form —— */
+function buildNoteForm(note) {
+  return `
+    <form id="noteForm" novalidate>
+      <p class="field-error" id="noteFormError" hidden></p>
+
+      <section class="form-card">
+        <div class="section-bar"><span class="section-bar__title">Note</span></div>
+        <div class="field-grid">
+          ${textField("Title", "note.title", note.title, { full: true })}
+          ${textField("Subtitle / Deck", "note.subtitle", note.subtitle, { full: true })}
+          ${textField("Cover Image URL", "note.coverImage", note.coverImage, { full: true, placeholder: "https://…" })}
+        </div>
+      </section>
+
+      <section class="form-card">
+        <div class="section-bar"><span class="section-bar__title">Body</span></div>
+        <div class="field-grid">
+          ${textareaField("Body (blank line = new paragraph)", "note.body", note.body, { full: true })}
+        </div>
+      </section>
+
+      <section class="form-card">
+        <div class="section-bar"><span class="section-bar__title">Publish</span></div>
+        <div class="field-grid">
+          <div class="field">
+            <label>Status</label>
+            <div class="toggle-group" role="group" style="max-width:240px">
+              <button type="button" class="toggle note-status-btn${note.status === "draft" ? " active" : ""}"
+                data-note-status="draft">Draft</button>
+              <button type="button" class="toggle note-status-btn${note.status === "published" ? " active" : ""}"
+                data-note-status="published">Published</button>
+            </div>
+            <input type="hidden" name="note.status" id="noteStatusInput" value="${escapeHTML(note.status)}" />
+          </div>
+          ${dateField("Publish Date", "note.publishedAt",
+              note.publishedAt ? note.publishedAt.slice(0, 10) : new Date().toISOString().slice(0, 10))}
+        </div>
+      </section>
+    </form>
+  `;
+}
+
+function openNoteModal(noteId = null) {
+  const editing = noteId ? noteState.notes.find(n => n.id === noteId) : null;
+  const note = editing ? structuredClone(editing) : blankNote();
+
+  modalContent.innerHTML = `
+    <div class="modal-head">
+      <h2 class="modal-title">${editing ? "Edit Note" : "New Note"}</h2>
+      <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">${buildNoteForm(note)}</div>
+    <div class="modal-foot">
+      ${editing ? `<button type="button" class="btn btn--danger" id="deleteNoteBtn">Delete</button>` : ""}
+      <button type="button" class="btn" id="cancelNoteBtn">Cancel</button>
+      <button type="button" class="btn btn--primary" id="saveNoteBtn">Save Note</button>
+    </div>
+  `;
+
+  modalOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
+
+  // Status toggle buttons
+  modalContent.querySelectorAll(".note-status-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      modalContent.querySelectorAll(".note-status-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("noteStatusInput").value = btn.dataset.noteStatus;
+    });
+  });
+
+  document.getElementById("modalClose").addEventListener("click", closeModal);
+  document.getElementById("cancelNoteBtn").addEventListener("click", closeModal);
+  document.getElementById("saveNoteBtn").addEventListener("click", () => saveNote(noteId));
+
+  const deleteBtn = document.getElementById("deleteNoteBtn");
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", async () => {
+      if (!confirm("Delete this note permanently?")) return;
+      try {
+        await window.PodaDB.deleteNote(noteId);
+        noteState.notes = noteState.notes.filter(n => n.id !== noteId);
+      } catch (e) {
+        alert("Could not delete the note. Check your connection and try again.");
+        return;
+      }
+      closeModal();
+      renderNotes();
+    });
+  }
+}
+
+function readNoteForm(existingId) {
+  const form = document.getElementById("noteForm");
+  const note = existingId
+    ? structuredClone(noteState.notes.find(n => n.id === existingId) || blankNote())
+    : blankNote();
+
+  form.querySelectorAll("input[name], select[name], textarea[name]").forEach(el => {
+    const key = el.getAttribute("name").replace("note.", "");
+    if (!key) return;
+    note[key] = el.type === "checkbox" ? el.checked : el.value;
+  });
+
+  return note;
+}
+
+async function saveNote(existingId) {
+  const note = readNoteForm(existingId);
+  const errorBox = document.getElementById("noteFormError");
+
+  if (!note.title.trim()) {
+    errorBox.textContent = "Title is required.";
+    errorBox.hidden = false;
+    return;
+  }
+
+  if (!note.id) note.id = generateNoteId();
+
+  // Auto-stamp publishedAt when publishing for the first time
+  if (note.status === "published" && !note.publishedAt) {
+    note.publishedAt = new Date().toISOString().slice(0, 10);
+  }
+
+  try {
+    await window.PodaDB.upsertNote(note);
+  } catch (e) {
+    alert("Could not save the note. Check your connection and try again.");
+    return;
+  }
+
+  const idx = noteState.notes.findIndex(n => n.id === note.id);
+  if (idx >= 0) noteState.notes[idx] = note;
+  else noteState.notes.unshift(note);
+
+  closeModal();
+  renderNotes();
 }
 
 /* ============================================================

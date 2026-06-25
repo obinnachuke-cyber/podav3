@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Market Note — Poda Capital</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-logo" href="index.html">Poda Capital</a>
+    <nav class="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="market-notes.html">Inbox</a>
+      <a href="about.html">About</a>
+    </nav>
+  </header>
+
+  <main class="portal-shell">
+    <div class="note-page" id="notePage">
+      <p class="status-message" id="noteStatus">Loading…</p>
+    </div>
+  </main>
+
+  <footer class="site-footer portal-shell">
+    <div class="footer-left">
+      <span class="footer-brand">Poda Capital</span>
+    </div>
+  </footer>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script>
+    (async function () {
+      const page   = document.getElementById("notePage");
+      const status = document.getElementById("noteStatus");
+
+      const id = new URLSearchParams(window.location.search).get("id");
+      if (!id) { status.textContent = "Note not found."; return; }
+
+      let notes = [];
+      try { notes = await window.PodaDB.getNotes(); } catch (e) { /* offline */ }
+
+      const note = notes.find(n => n.id === id);
+
+      if (!note || note.status !== "published") {
+        status.textContent = "Note not found.";
+        return;
+      }
+
+      // Update page title
+      document.title = `${note.title} — Poda Capital`;
+
+      // Format date
+      const dateStr = note.publishedAt
+        ? new Date(note.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+        : "";
+
+      // Render body: split on blank lines → paragraphs
+      function escHTML(s) {
+        return String(s || "")
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+          .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      }
+
+      const bodyHTML = String(note.body || "")
+        .split(/\n\s*\n/)
+        .map(para => para.trim())
+        .filter(Boolean)
+        .map(para => `<p>${escHTML(para).replace(/\n/g, "<br />")}</p>`)
+        .join("");
+
+      page.innerHTML = `
+        <article class="note-article">
+          ${note.coverImage
+            ? `<div class="note-article__cover"><img src="${escHTML(note.coverImage)}" alt="" /></div>`
+            : ""}
+          <header class="note-article__header">
+            <p class="note-article__eyebrow">
+              <a href="market-notes.html">← Inbox</a>
+              ${dateStr ? `<span>${escHTML(dateStr)}</span>` : ""}
+            </p>
+            <h1 class="note-article__title">${escHTML(note.title)}</h1>
+            ${note.subtitle ? `<p class="note-article__subtitle">${escHTML(note.subtitle)}</p>` : ""}
+          </header>
+          <div class="note-article__body">${bodyHTML || "<p>—</p>"}</div>
+        </article>
+      `;
+    })();
+  </script>
+</body>
+</html>

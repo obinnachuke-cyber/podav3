@@ -38,7 +38,8 @@
     ? window.supabase.createClient(URL, KEY)
     : null;
 
-  const TABLE = "items";
+  const TABLE       = "items";
+  const NOTES_TABLE = "notes";
 
   /* —— Items: read all, ordered oldest→newest to match the old array order —— */
   async function getItems() {
@@ -89,6 +90,44 @@
         () => callback())
       .subscribe();
     return () => client.removeChannel(channel);
+  }
+
+  /* —— Notes: read all, newest first —— */
+  async function getNotes() {
+    if (!client) return [];
+    const { data, error } = await client
+      .from(NOTES_TABLE)
+      .select("data")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Failed to load notes:", error.message);
+      return [];
+    }
+    return (data || []).map(row => row.data).filter(Boolean);
+  }
+
+  /* —— Notes: create or update one note (keyed by note.id) —— */
+  async function upsertNote(note) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client
+      .from(NOTES_TABLE)
+      .upsert({ id: note.id, data: note }, { onConflict: "id" });
+
+    if (error) {
+      console.error("Failed to save note:", error.message);
+      throw error;
+    }
+  }
+
+  /* —— Notes: delete one —— */
+  async function deleteNote(id) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client.from(NOTES_TABLE).delete().eq("id", id);
+    if (error) {
+      console.error("Failed to delete note:", error.message);
+      throw error;
+    }
   }
 
   /* —— Images: turn a data URL into a Blob so we can upload a real file —— */
@@ -153,6 +192,9 @@
     upsertItem,
     deleteItem,
     onItemsChange,
+    getNotes,
+    upsertNote,
+    deleteNote,
     uploadImage,
     getSession,
     signIn,
