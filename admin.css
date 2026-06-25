@@ -236,8 +236,8 @@
   font-size: 7px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #777;
-  border: 1px dotted #333;
+  color: var(--text-faint);
+  border: 1px dotted var(--border);
 }
 
 /* —— Summary bar (Sold) —— */
@@ -895,6 +895,65 @@
 }
 
 /* ============================================================
+   Mobile admin — improved layout
+   ============================================================ */
+
+/* Header: wrap into two rows so nav buttons don't get crushed */
+@media (max-width: 639px) {
+  .admin-body .site-header {
+    flex-wrap: wrap;
+    row-gap: 0;
+    padding-bottom: 0;
+    min-height: auto;
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+
+  .admin-body .site-logo {
+    padding-block: 14px;
+    flex: 1 1 auto;
+  }
+
+  /* Nav overflows to its own scrollable row */
+  .admin-body .site-nav {
+    flex: 0 0 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+    border-top: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .admin-body .site-nav a,
+  .admin-body .admin-public-link {
+    padding: 0 12px;
+    min-height: 40px;
+    font-size: 9px;
+  }
+
+  .admin-newitem {
+    margin-left: 4px;
+    padding: 0 12px;
+    min-height: 40px;
+    font-size: 9px;
+  }
+
+  /* Section bar: stack label/title above action button on very small screens */
+  .section-bar--admin {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .section-bar__action {
+    margin-left: 0;
+    flex: 0 0 auto;
+  }
+
+  /* Admin shell: tighten vertical padding */
+  .admin-shell {
+    padding-block: 12px;
+  }
+}
+
+/* ============================================================
    Login gate (admin sign in)
    ============================================================ */
 /* The [hidden] attribute must win over display:flex below, or the login
@@ -911,7 +970,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: var(--bg, #0e0e12);
+  background: var(--bg);
   z-index: 1000;
 }
 
@@ -922,16 +981,15 @@
   flex-direction: column;
   gap: 14px;
   padding: 32px 28px;
-  border: 1px solid var(--border, #2a2a33);
-  border-radius: 14px;
-  background: var(--surface, #16161c);
+  border: 1px solid var(--border);
+  background: var(--bg-box);
 }
 
 .login-title {
   margin: 0;
   font-size: 22px;
   letter-spacing: 0.04em;
-  color: var(--text, #f4f4f6);
+  color: var(--text);
 }
 
 .login-sub {
@@ -940,7 +998,7 @@
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--text-faint, #8a8a96);
+  color: var(--text-faint);
 }
 
 .login-card .field span {
@@ -948,30 +1006,29 @@
   margin-bottom: 4px;
   font-size: 11px;
   letter-spacing: 0.08em;
-  color: var(--text-dim, #b6b6c0);
+  color: var(--text-dim);
 }
 
 .login-card input {
   width: 100%;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 12px;
-  border: 1px solid var(--border, #2a2a33);
-  border-radius: 8px;
-  background: var(--bg, #0e0e12);
-  color: var(--text, #f4f4f6);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px; /* prevent iOS zoom */
 }
 
 .login-card input:focus-visible {
   outline: none;
-  border-color: var(--purple, #7c5cff);
+  border-color: var(--purple-2);
 }
 
 .login-error {
   margin: 0;
   font-size: 12px;
-  color: #ff6b6b;
+  color: #c95151;
 }
 
 .login-card .btn {
