@@ -122,21 +122,38 @@ function stripHtml(html) {
 
 function feedItemToPost(item) {
   const title = String(item.title || "").trim();
-  const link = String(item.link || "").trim();
-  const excerpt = stripHtml(item.description || "");
-
+  const link  = String(item.link  || "").trim();
   if (!title || !link) return null;
 
-  return { title, link, excerpt };
+  // Subtitle: rss2json sometimes puts it in item.description (HTML) —
+  // strip tags and truncate to a short preview line.
+  const excerpt = stripHtml(item.description || "").slice(0, 120).trim();
+
+  // Cover image: rss2json returns it as item.thumbnail
+  const thumbnail = String(item.thumbnail || item.enclosure?.link || "").trim();
+
+  // Date: parse pubDate, format as "Mon DD" or "YYYY" if older
+  let dateLabel = "";
+  if (item.pubDate) {
+    const d = new Date(item.pubDate);
+    if (!isNaN(d)) {
+      const now = new Date();
+      const sameYear = d.getFullYear() === now.getFullYear();
+      dateLabel = sameYear
+        ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        : String(d.getFullYear());
+    }
+  }
+
+  return { title, link, excerpt, thumbnail, dateLabel };
 }
 
 async function fetchSubstackFeedItems() {
-  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(SUBSTACK_FEED_URL)}`;
+  // count=50 requests up to 50 posts instead of the default 10
+  const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(SUBSTACK_FEED_URL)}&count=50`;
   const response = await fetch(apiUrl, { cache: "no-store" });
 
-  if (!response.ok) {
-    throw new Error(`rss2json request failed: ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`rss2json request failed: ${response.status}`);
 
   const data = await response.json();
   if (data.status !== "ok" || !Array.isArray(data.items)) {
@@ -146,84 +163,51 @@ async function fetchSubstackFeedItems() {
   return data.items;
 }
 
-function populatePrimaryCard(card, post) {
-  card.querySelector(".note-feature__title").textContent = post.title;
-  card.querySelector(".note-feature__preview").textContent = post.excerpt;
-  card.querySelector(".note-link").href = post.link;
+function inboxRowHTML(post) {
+  const thumb = post.thumbnail
+    ? `<img src="${escapeHTML(post.thumbnail)}" alt="" loading="lazy" decoding="async" />`
+    : `<div class="inbox-thumb__placeholder"></div>`;
+
+  return `
+    <a class="inbox-row" href="${escapeHTML(post.link)}" target="_blank" rel="noopener">
+      <div class="inbox-thumb">${thumb}</div>
+      <div class="inbox-row__body">
+        <span class="inbox-row__from">podacapital</span>
+        <span class="inbox-row__title">${escapeHTML(post.title)}</span>
+        ${post.excerpt ? `<span class="inbox-row__preview">${escapeHTML(post.excerpt)}</span>` : ""}
+      </div>
+      <span class="inbox-row__date">${escapeHTML(post.dateLabel)}</span>
+    </a>
+  `;
 }
 
-function populateTeaserCard(card, post) {
-  card.querySelector(".note-teaser__title").textContent = post.title;
-  card.querySelector(".note-link").href = post.link;
-}
+function renderMarketNotes(posts) {
+  const list    = document.getElementById("inboxList");
+  const empty   = document.getElementById("marketNotesEmpty");
 
-function renderMarketNotes(postsBySlot) {
-  const emptyMessage = document.getElementById("marketNotesEmpty");
-  const primaryCard = marketNotesSection?.querySelector('[data-note-slot="primary"]');
-  const secondaryCard = marketNotesSection?.querySelector('[data-note-slot="secondary"]');
-  const tertiaryCard = marketNotesSection?.querySelector('[data-note-slot="tertiary"]');
-  const noteRail = marketNotesSection?.querySelector(".note-rail");
+  if (!list) return;
 
-  const showPrimary = Boolean(postsBySlot.primary);
-  const showSecondary = Boolean(postsBySlot.secondary);
-  const showTertiary = Boolean(postsBySlot.tertiary);
-
-  if (primaryCard) {
-    if (showPrimary) {
-      populatePrimaryCard(primaryCard, postsBySlot.primary);
-      primaryCard.hidden = false;
-    } else {
-      primaryCard.hidden = true;
-    }
+  if (!posts.length) {
+    if (empty) { empty.textContent = "No posts yet."; empty.classList.remove("hidden"); }
+    return;
   }
 
-  if (secondaryCard) {
-    if (showSecondary) {
-      populateTeaserCard(secondaryCard, postsBySlot.secondary);
-      secondaryCard.hidden = false;
-    } else {
-      secondaryCard.hidden = true;
-    }
-  }
-
-  if (tertiaryCard) {
-    if (showTertiary) {
-      populateTeaserCard(tertiaryCard, postsBySlot.tertiary);
-      tertiaryCard.hidden = false;
-    } else {
-      tertiaryCard.hidden = true;
-    }
-  }
-
-  if (noteRail) {
-    noteRail.hidden = !(showSecondary || showTertiary);
-  }
-
-  const hasVisibleCards = showPrimary || showSecondary || showTertiary;
-
-  if (emptyMessage) {
-    emptyMessage.classList.toggle("hidden", hasVisibleCards);
-  }
+  if (empty) empty.remove();
+  list.innerHTML = posts.map(inboxRowHTML).join("");
 }
 
 async function loadMarketNotes() {
-  if (!marketNotesSection) return;
+  const list = document.getElementById("inboxList");
+  if (!list) return;
 
   try {
     const feedItems = await fetchSubstackFeedItems();
-
-    // Use the three most recent posts, filling slots in order:
-    // first → primary hero, second → secondary rail, third → tertiary rail.
-    const posts = feedItems.slice(0, 3).map(feedItemToPost).filter(Boolean);
-
-    renderMarketNotes({
-      primary: posts[0] || null,
-      secondary: posts[1] || null,
-      tertiary: posts[2] || null
-    });
+    const posts = feedItems.map(feedItemToPost).filter(Boolean);
+    renderMarketNotes(posts);
   } catch (error) {
     console.error(error);
-    renderMarketNotes({ primary: null, secondary: null, tertiary: null });
+    const empty = document.getElementById("marketNotesEmpty");
+    if (empty) empty.textContent = "Could not load posts — try refreshing.";
   }
 }
 

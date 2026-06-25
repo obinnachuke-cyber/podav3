@@ -18,31 +18,20 @@
   </header>
 
   <main class="portal-shell">
-    <section id="market-notes" class="page-section market-notes">
-      <div class="section-bar">
-        <span class="section-bar__label">Newsletter</span>
-        <span class="section-bar__title">Market Notes</span>
+    <section id="market-notes" class="page-section">
+
+      <!-- Inbox header bar -->
+      <div class="inbox-header">
+        <span class="inbox-header__from">From</span>
+        <span class="inbox-header__subject">Subject</span>
+        <span class="inbox-header__date">Date</span>
       </div>
 
-      <div class="market-notes__body">
-        <p id="marketNotesEmpty" class="status-message hidden">Market notes coming soon.</p>
-        <article class="note-feature" data-note-slot="primary" hidden>
-          <h3 class="note-feature__title"></h3>
-          <p class="note-feature__preview"></p>
-          <a class="note-link" href="#">Read the note</a>
-        </article>
-
-        <div class="note-rail">
-          <article class="note-teaser" data-note-slot="secondary" hidden>
-            <h3 class="note-teaser__title"></h3>
-            <a class="note-link" href="#">Read the note</a>
-          </article>
-          <article class="note-teaser" data-note-slot="tertiary" hidden>
-            <h3 class="note-teaser__title"></h3>
-            <a class="note-link" href="#">Read the note</a>
-          </article>
-        </div>
+      <!-- Rows injected by JS -->
+      <div id="inboxList" class="inbox-list">
+        <p id="marketNotesEmpty" class="status-message">Loading...</p>
       </div>
+
     </section>
   </main>
 
