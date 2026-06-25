@@ -1681,7 +1681,20 @@ function buildNoteForm(note) {
       <section class="form-card">
         <div class="section-bar"><span class="section-bar__title">Body</span></div>
         <div class="field-grid">
-          ${textareaField("Body (blank line = new paragraph)", "note.body", note.body, { full: true })}
+          ${textareaField("Body — blank line = new paragraph · [img: url] on its own line = inline image", "note.body", note.body, { full: true })}
+          <div class="field field--full">
+            <label style="margin-bottom:6px;display:block;">Insert inline image</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <label class="btn" style="cursor:pointer;min-height:36px;display:inline-flex;align-items:center;padding:0 14px;">
+                Upload image
+                <input type="file" id="noteBodyImageInput" accept="image/*" hidden />
+              </label>
+              <span id="noteBodyImageStatus" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em;"></span>
+            </div>
+            <p style="font-size:10px;color:var(--text-faint);margin:6px 0 0;letter-spacing:0.06em;">
+              Or type <code style="background:var(--bg-box);padding:1px 5px;">[img: https://…]</code> on its own line anywhere in the body.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -1738,6 +1751,40 @@ function openNoteModal(noteId = null) {
   document.getElementById("modalClose").addEventListener("click", closeModal);
   document.getElementById("cancelNoteBtn").addEventListener("click", closeModal);
   document.getElementById("saveNoteBtn").addEventListener("click", () => saveNote(noteId));
+
+  // Inline image upload: compress, upload to Supabase, insert [img: url] at cursor
+  document.getElementById("noteBodyImageInput").addEventListener("change", async event => {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const statusEl = document.getElementById("noteBodyImageStatus");
+    const textarea = document.querySelector('[name="note.body"]');
+    statusEl.textContent = "Uploading…";
+
+    try {
+      const dataUrl = await compressImage(file);
+      const url = await window.PodaDB.uploadImage(dataUrl);
+      const tag = `\n\n[img: ${url}]\n\n`;
+
+      // Insert at cursor position, or append
+      if (textarea && typeof textarea.selectionStart === "number") {
+        const start = textarea.selectionStart;
+        const before = textarea.value.slice(0, start);
+        const after  = textarea.value.slice(textarea.selectionEnd);
+        textarea.value = before + tag + after;
+        textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+        textarea.focus();
+      } else if (textarea) {
+        textarea.value += tag;
+      }
+      statusEl.textContent = "✓ Image inserted";
+      setTimeout(() => { statusEl.textContent = ""; }, 3000);
+    } catch (err) {
+      statusEl.textContent = "Upload failed — try again.";
+      console.error(err);
+    }
+  });
 
   const deleteBtn = document.getElementById("deleteNoteBtn");
   if (deleteBtn) {

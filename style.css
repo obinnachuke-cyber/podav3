@@ -912,6 +912,20 @@ input {
 
 .note-article__body p:last-child { margin-bottom: 0; }
 
+/* Inline images inside the body */
+.note-article__figure {
+  margin: clamp(20px, 5vw, 36px) 0;
+  padding: 0;
+  width: 100%;
+}
+
+.note-article__figure img {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--border);
+  background: var(--image-bg);
+}
+
 /* —— About —— */
 .about__text {
   margin: 0;

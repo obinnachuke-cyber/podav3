@@ -57,18 +57,40 @@
         ? new Date(note.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
         : "";
 
-      // Render body: split on blank lines → paragraphs
       function escHTML(s) {
         return String(s || "")
           .replace(/&/g,"&amp;").replace(/</g,"&lt;")
           .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
       }
 
+      // Render body: split on blank lines → blocks.
+      // A block that matches [img: url] becomes a figure; everything else is a paragraph.
+      const IMG_TAG = /^\[img:\s*(https?:\/\/[^\]]+)\]$/i;
+
       const bodyHTML = String(note.body || "")
         .split(/\n\s*\n/)
-        .map(para => para.trim())
+        .map(block => block.trim())
         .filter(Boolean)
-        .map(para => `<p>${escHTML(para).replace(/\n/g, "<br />")}</p>`)
+        .map(block => {
+          // Check every line in the block for an image tag
+          const lines = block.split("\n").map(l => l.trim());
+          // Single-line block that is purely an image tag
+          if (lines.length === 1 && IMG_TAG.test(lines[0])) {
+            const url = lines[0].match(IMG_TAG)[1];
+            return `<figure class="note-article__figure"><img src="${escHTML(url)}" alt="" loading="lazy" /></figure>`;
+          }
+          // Mixed or text block — render as paragraph, but swap inline [img:] on own lines
+          const inner = lines.map(line => {
+            const m = line.match(IMG_TAG);
+            if (m) return `</p><figure class="note-article__figure"><img src="${escHTML(m[1])}" alt="" loading="lazy" /></figure><p>`;
+            return escHTML(line);
+          }).join("<br />");
+          // Clean up empty <p> tags left by the inline swap
+          return `<p>${inner}</p>`
+            .replace(/<p><\/p>/g, "")
+            .replace(/<br \/>(<\/p>|<figure)/g, "$1")
+            .replace(/(<\/figure>)<br \/>/g, "$1");
+        })
         .join("");
 
       page.innerHTML = `
