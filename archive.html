@@ -42,14 +42,13 @@
       </div>
 
       <main class="portal-shell">
-        <section class="page-section">
+        <section class="page-section" style="border-bottom:none;">
           <div class="section-bar">
             <span class="section-bar__title">Archive</span>
           </div>
-          <p class="subhead" style="margin-top:0;">Coming soon</p>
-          <p class="about__text" style="font-size:clamp(0.88rem,2.4vw,1rem);margin-top:12px;">
-            A lookbook — a grid of inspirational images, references, and visual research. The things that inform the eye.
-          </p>
+          <div id="archiveGrid" class="archive-masonry">
+            <p id="archiveStatus" class="status-message">Loading…</p>
+          </div>
         </section>
       </main>
 
@@ -62,6 +61,30 @@
     </div><!-- /.app-content -->
   </div><!-- /.app-shell -->
 
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script>
+    (async function () {
+      const grid   = document.getElementById("archiveGrid");
+      const status = document.getElementById("archiveStatus");
+
+      let images = [];
+      try { images = await window.PodaDB.getArchiveImages(); }
+      catch (e) { status.textContent = "Could not load archive."; return; }
+
+      if (!images.length) {
+        status.textContent = "Nothing here yet.";
+        return;
+      }
+
+      grid.innerHTML = images.map(img => `
+        <div class="archive-masonry__item">
+          <img src="${img.url.replace(/"/g, "&quot;")}" alt="" loading="lazy" />
+        </div>
+      `).join("");
+    })();
+  </script>
   <script src="shell.js"></script>
 </body>
 </html>

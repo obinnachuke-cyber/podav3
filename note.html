@@ -133,6 +133,9 @@
             ${note.subtitle ? `<p class="note-article__subtitle">${escHTML(note.subtitle)}</p>` : ""}
           </header>
           <div class="note-article__body">${bodyHTML || "<p>—</p>"}</div>
+          ${note.substackUrl
+            ? `<p class="note-article__substack"><a href="${escapeHTML(note.substackUrl)}" target="_blank" rel="noopener">Read on Substack →</a></p>`
+            : ""}
         </article>
       `;
     })();

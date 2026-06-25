@@ -399,7 +399,8 @@ function renderCurrentView() {
     closet: renderCloset,
     listed: renderListed,
     sold: renderSold,
-    notes: renderNotes
+    notes: renderNotes,
+    archive: renderArchive
   };
   (renderers[state.view] || renderDashboard)();
 }
@@ -1380,9 +1381,10 @@ async function startApp() {
   appStarted = true;
   loginGate.hidden = true;
   adminApp.hidden = false;
-  [state.items, noteState.notes] = await Promise.all([
+  [state.items, noteState.notes, archiveState.images] = await Promise.all([
     loadItems(),
-    window.PodaDB.getNotes().catch(() => [])
+    window.PodaDB.getNotes().catch(() => []),
+    window.PodaDB.getArchiveImages().catch(() => [])
   ]);
   setView("dashboard");
 }
@@ -1605,6 +1607,7 @@ function blankNote() {
     subtitle: "",
     body: "",
     coverImage: "",
+    substackUrl: "",        // optional link to Substack article
     status: "draft",        // "draft" | "published"
     publishedAt: "",
     createdAt: new Date().toISOString()
@@ -1675,6 +1678,7 @@ function buildNoteForm(note) {
           ${textField("Title", "note.title", note.title, { full: true })}
           ${textField("Subtitle / Deck", "note.subtitle", note.subtitle, { full: true })}
           ${textField("Cover Image URL", "note.coverImage", note.coverImage, { full: true, placeholder: "https://…" })}
+          ${textField("Substack Article URL (optional)", "note.substackUrl", note.substackUrl || "", { full: true, placeholder: "https://podacapital.substack.com/p/…" })}
         </div>
       </section>
 
@@ -1848,6 +1852,87 @@ async function saveNote(existingId) {
 
   closeModal();
   renderNotes();
+}
+
+/* ============================================================
+   Archive — state, upload, view
+   ============================================================ */
+const archiveState = { images: [] };
+
+function generateArchiveId() {
+  return `ARC-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function renderArchive() {
+  const images = archiveState.images;
+
+  adminMain.innerHTML = `
+    ${sectionBar("Archive", "Lookbook")}
+    <div style="margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <label class="btn btn--primary" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 16px;">
+        + Upload Images
+        <input type="file" id="archiveUploadInput" accept="image/*" multiple hidden />
+      </label>
+      <span id="archiveUploadStatus" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em;"></span>
+    </div>
+    ${images.length === 0
+      ? `<p class="admin-empty">No images yet. Upload your first one above.</p>`
+      : `<div class="archive-masonry admin-archive-masonry">
+          ${images.map(img => `
+            <div class="archive-masonry__item archive-masonry__item--admin">
+              <img src="${escapeHTML(img.url)}" alt="" loading="lazy" />
+              <button class="archive-delete-btn" data-archive-id="${escapeHTML(img.id)}" aria-label="Delete image" title="Delete">×</button>
+            </div>
+          `).join("")}
+        </div>`
+    }
+  `;
+
+  const uploadInput = document.getElementById("archiveUploadInput");
+  if (uploadInput) uploadInput.addEventListener("change", handleArchiveUpload);
+
+  adminMain.querySelectorAll(".archive-delete-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.archiveId;
+      if (!confirm("Remove this image from the archive?")) return;
+      try {
+        await window.PodaDB.deleteArchiveImage(id);
+        archiveState.images = archiveState.images.filter(i => i.id !== id);
+        renderArchive();
+      } catch (e) {
+        alert("Could not delete image. Check your connection.");
+      }
+    });
+  });
+}
+
+async function handleArchiveUpload(event) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = "";
+  if (!files.length) return;
+
+  const statusEl = document.getElementById("archiveUploadStatus");
+  statusEl.textContent = `Uploading ${files.length} image${files.length > 1 ? "s" : ""}…`;
+
+  let success = 0;
+  for (const file of files) {
+    try {
+      const dataUrl = await compressImage(file);
+      const url = await window.PodaDB.uploadImage(dataUrl);
+      const img = { id: generateArchiveId(), url, uploadedAt: new Date().toISOString() };
+      await window.PodaDB.upsertArchiveImage(img);
+      archiveState.images.unshift(img);
+      success++;
+    } catch (err) {
+      console.error("Archive upload failed:", err);
+    }
+  }
+
+  statusEl.textContent = success === files.length
+    ? `✓ ${success} uploaded`
+    : `${success}/${files.length} uploaded`;
+  setTimeout(() => { statusEl.textContent = ""; }, 4000);
+  renderArchive();
 }
 
 /* ============================================================

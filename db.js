@@ -38,8 +38,9 @@
     ? window.supabase.createClient(URL, KEY)
     : null;
 
-  const TABLE       = "items";
-  const NOTES_TABLE = "notes";
+  const TABLE          = "items";
+  const NOTES_TABLE    = "notes";
+  const ARCHIVE_TABLE  = "archive_images";
 
   /* —— Items: read all, ordered oldest→newest to match the old array order —— */
   async function getItems() {
@@ -130,6 +131,33 @@
     }
   }
 
+  /* —— Archive images: read all, newest first —— */
+  async function getArchiveImages() {
+    if (!client) return [];
+    const { data, error } = await client
+      .from(ARCHIVE_TABLE)
+      .select("data")
+      .order("created_at", { ascending: false });
+    if (error) { console.error("Failed to load archive images:", error.message); return []; }
+    return (data || []).map(row => row.data).filter(Boolean);
+  }
+
+  /* —— Archive images: upsert one —— */
+  async function upsertArchiveImage(img) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client
+      .from(ARCHIVE_TABLE)
+      .upsert({ id: img.id, data: img }, { onConflict: "id" });
+    if (error) { console.error("Failed to save archive image:", error.message); throw error; }
+  }
+
+  /* —— Archive images: delete one —— */
+  async function deleteArchiveImage(id) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client.from(ARCHIVE_TABLE).delete().eq("id", id);
+    if (error) { console.error("Failed to delete archive image:", error.message); throw error; }
+  }
+
   /* —— Images: turn a data URL into a Blob so we can upload a real file —— */
   function dataUrlToBlob(dataUrl) {
     const [meta, base64] = String(dataUrl).split(",");
@@ -195,6 +223,9 @@
     getNotes,
     upsertNote,
     deleteNote,
+    getArchiveImages,
+    upsertArchiveImage,
+    deleteArchiveImage,
     uploadImage,
     getSession,
     signIn,

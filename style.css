@@ -1825,6 +1825,97 @@ input {
 }
 
 /* ============================================================
+   Archive — Pinterest-style masonry grid
+   ============================================================ */
+
+.archive-masonry {
+  columns: 3 160px;
+  column-gap: clamp(6px, 1.5vw, 10px);
+  padding: clamp(16px, 4vw, 32px) 0;
+}
+
+.archive-masonry__item {
+  break-inside: avoid;
+  margin-bottom: clamp(6px, 1.5vw, 10px);
+  overflow: hidden;
+  display: block;
+  background: var(--image-bg);
+}
+
+.archive-masonry__item img {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: opacity 0.2s ease;
+}
+
+.archive-masonry__item img:hover {
+  opacity: 0.9;
+}
+
+/* Admin variant — delete button on hover */
+.archive-masonry__item--admin {
+  position: relative;
+}
+
+.archive-delete-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  appearance: none;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  border: none;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  border-radius: 2px;
+}
+
+.archive-masonry__item--admin:hover .archive-delete-btn {
+  opacity: 1;
+}
+
+@media (max-width: 560px) {
+  .archive-masonry {
+    columns: 2;
+  }
+}
+
+@media (max-width: 320px) {
+  .archive-masonry {
+    columns: 1;
+  }
+}
+
+/* —— Note article substack link —— */
+.note-article__substack {
+  margin: clamp(20px, 5vw, 32px) 0 0;
+  padding-top: clamp(16px, 4vw, 24px);
+  border-top: 1px solid var(--border);
+}
+
+.note-article__substack a {
+  font-size: clamp(0.9rem, 2.6vw, 1rem);
+  color: var(--purple-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-family: var(--font);
+}
+
+.note-article__substack a:hover {
+  opacity: 0.7;
+}
+
+/* ============================================================
    App shell — persistent sidebar + content panel (desktop only)
    Mobile keeps the old layout unchanged.
    ============================================================ */
