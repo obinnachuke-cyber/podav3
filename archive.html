@@ -4,24 +4,64 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Archive — Poda Capital</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="home-body">
-  <main class="home">
-    <div class="home-inner" style="align-items:flex-start;">
-      <p class="home-eyebrow" style="text-align:left;">
-        <a href="index.html" style="color:inherit;text-decoration:none;">Poda Capital</a> / Archive
-      </p>
-      <p style="color:rgba(57,255,88,0.5);font-size:clamp(0.85rem,2.5vw,1rem);font-weight:700;letter-spacing:0.14em;margin:0 0 10px;text-transform:uppercase;">
-        Coming soon
-      </p>
-      <p style="color:rgba(57,255,88,0.35);font-size:clamp(0.82rem,2.2vw,0.95rem);max-width:36rem;line-height:1.65;margin:0;">
-        A lookbook — a grid of inspirational images, references, and visual research. The things that inform the eye.
-      </p>
-    </div>
-  </main>
+<body>
+  <div class="app-shell" id="appShell">
+
+    <!-- Sidebar (desktop only) -->
+    <nav class="app-sidebar" id="appSidebar" aria-label="Site navigation">
+      <a class="app-sidebar__brand" href="index.html">Poda Capital</a>
+      <div class="app-sidebar__nav">
+        <a href="index.html"          class="app-sidebar__link">Home</a>
+        <a href="market-notes.html"   class="app-sidebar__link">Inbox</a>
+        <a href="closet.html"         class="app-sidebar__link">Bin</a>
+        <a href="archive.html"        class="app-sidebar__link app-sidebar__link--active">Archive</a>
+        <a href="drafts.html"         class="app-sidebar__link">Drafts</a>
+        <a href="about.html"          class="app-sidebar__link">About</a>
+        <div class="app-sidebar__divider"></div>
+        <a href="admin.html"          class="app-sidebar__link">Admin</a>
+        <a href="settings.html"       class="app-sidebar__link">Settings</a>
+      </div>
+    </nav>
+
+    <!-- Content panel -->
+    <div class="app-content">
+
+      <!-- Topbar -->
+      <div class="app-topbar">
+        <button class="app-topbar__toggle" id="sidebarToggle" aria-label="Toggle sidebar" aria-expanded="true">
+          <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <line x1="1" y1="1" x2="15" y2="1"/>
+            <line x1="1" y1="7" x2="15" y2="7"/>
+            <line x1="1" y1="13" x2="15" y2="13"/>
+          </svg>
+        </button>
+        <span class="app-topbar__title">Archive</span>
+        <a class="app-topbar__home" href="index.html">← Home</a>
+      </div>
+
+      <main class="portal-shell">
+        <section class="page-section">
+          <div class="section-bar">
+            <span class="section-bar__title">Archive</span>
+          </div>
+          <p class="subhead" style="margin-top:0;">Coming soon</p>
+          <p class="about__text" style="font-size:clamp(0.88rem,2.4vw,1rem);margin-top:12px;">
+            A lookbook — a grid of inspirational images, references, and visual research. The things that inform the eye.
+          </p>
+        </section>
+      </main>
+
+      <footer class="site-footer portal-shell">
+        <div class="footer-left">
+          <span class="footer-brand">Poda Capital</span>
+        </div>
+      </footer>
+
+    </div><!-- /.app-content -->
+  </div><!-- /.app-shell -->
+
+  <script src="shell.js"></script>
 </body>
 </html>

@@ -7,26 +7,54 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="site-header">
-    <a class="site-logo" href="index.html">Poda Capital</a>
-    <nav class="site-nav" aria-label="Primary">
-      <a href="index.html">Home</a>
-      <a href="market-notes.html">Inbox</a>
-      <a href="about.html">About</a>
+  <div class="app-shell" id="appShell">
+
+    <!-- Sidebar (desktop only) -->
+    <nav class="app-sidebar" id="appSidebar" aria-label="Site navigation">
+      <a class="app-sidebar__brand" href="index.html">Poda Capital</a>
+      <div class="app-sidebar__nav">
+        <a href="index.html"          class="app-sidebar__link">Home</a>
+        <a href="market-notes.html"   class="app-sidebar__link app-sidebar__link--active">Inbox</a>
+        <a href="closet.html"         class="app-sidebar__link">Bin</a>
+        <a href="archive.html"        class="app-sidebar__link">Archive</a>
+        <a href="drafts.html"         class="app-sidebar__link">Drafts</a>
+        <a href="about.html"          class="app-sidebar__link">About</a>
+        <div class="app-sidebar__divider"></div>
+        <a href="admin.html"          class="app-sidebar__link">Admin</a>
+        <a href="settings.html"       class="app-sidebar__link">Settings</a>
+      </div>
     </nav>
-  </header>
 
-  <main class="portal-shell">
-    <div class="note-page" id="notePage">
-      <p class="status-message" id="noteStatus">Loading…</p>
-    </div>
-  </main>
+    <!-- Content panel -->
+    <div class="app-content">
 
-  <footer class="site-footer portal-shell">
-    <div class="footer-left">
-      <span class="footer-brand">Poda Capital</span>
-    </div>
-  </footer>
+      <!-- Topbar -->
+      <div class="app-topbar">
+        <button class="app-topbar__toggle" id="sidebarToggle" aria-label="Toggle sidebar" aria-expanded="true">
+          <svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <line x1="1" y1="1" x2="15" y2="1"/>
+            <line x1="1" y1="7" x2="15" y2="7"/>
+            <line x1="1" y1="13" x2="15" y2="13"/>
+          </svg>
+        </button>
+        <span class="app-topbar__title" id="topbarTitle">Note</span>
+        <a class="app-topbar__home" href="market-notes.html">← Inbox</a>
+      </div>
+
+      <main class="portal-shell">
+        <div class="note-page" id="notePage">
+          <p class="status-message" id="noteStatus">Loading…</p>
+        </div>
+      </main>
+
+      <footer class="site-footer portal-shell">
+        <div class="footer-left">
+          <span class="footer-brand">Poda Capital</span>
+        </div>
+      </footer>
+
+    </div><!-- /.app-content -->
+  </div><!-- /.app-shell -->
 
   <script src="supabase.min.js"></script>
   <script src="supabase-config.js"></script>
@@ -35,6 +63,7 @@
     (async function () {
       const page   = document.getElementById("notePage");
       const status = document.getElementById("noteStatus");
+      const topbar = document.getElementById("topbarTitle");
 
       const id = new URLSearchParams(window.location.search).get("id");
       if (!id) { status.textContent = "Note not found."; return; }
@@ -51,6 +80,7 @@
 
       // Update page title
       document.title = `${note.title} — Poda Capital`;
+      if (topbar) topbar.textContent = note.title;
 
       // Format date
       const dateStr = note.publishedAt
@@ -72,20 +102,16 @@
         .map(block => block.trim())
         .filter(Boolean)
         .map(block => {
-          // Check every line in the block for an image tag
           const lines = block.split("\n").map(l => l.trim());
-          // Single-line block that is purely an image tag
           if (lines.length === 1 && IMG_TAG.test(lines[0])) {
             const url = lines[0].match(IMG_TAG)[1];
             return `<figure class="note-article__figure"><img src="${escHTML(url)}" alt="" loading="lazy" /></figure>`;
           }
-          // Mixed or text block — render as paragraph, but swap inline [img:] on own lines
           const inner = lines.map(line => {
             const m = line.match(IMG_TAG);
             if (m) return `</p><figure class="note-article__figure"><img src="${escHTML(m[1])}" alt="" loading="lazy" /></figure><p>`;
             return escHTML(line);
           }).join("<br />");
-          // Clean up empty <p> tags left by the inline swap
           return `<p>${inner}</p>`
             .replace(/<p><\/p>/g, "")
             .replace(/<br \/>(<\/p>|<figure)/g, "$1")
@@ -111,5 +137,6 @@
       `;
     })();
   </script>
+  <script src="shell.js"></script>
 </body>
 </html>

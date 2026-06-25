@@ -1826,3 +1826,187 @@ input {
   opacity: 0.7;
   outline: none;
 }
+
+/* ============================================================
+   App shell — persistent sidebar + content panel (desktop only)
+   Mobile keeps the old layout unchanged.
+   ============================================================ */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* ── Sidebar ── */
+.app-sidebar {
+  flex: 0 0 220px;
+  width: 220px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 97%, var(--purple-deep));
+  display: flex;
+  flex-direction: column;
+  padding: 28px 0 24px;
+  transition: flex-basis 0.2s ease, width 0.2s ease, opacity 0.15s ease, padding 0.2s ease;
+  z-index: 30;
+}
+
+.app-sidebar__brand {
+  display: block;
+  padding: 0 20px 28px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--purple-2);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 20px;
+  min-height: 36px;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-left: 2px solid transparent;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+
+.app-sidebar__link:hover,
+.app-sidebar__link:focus-visible {
+  color: var(--purple-2);
+  background: var(--purple-deep);
+  outline: none;
+}
+
+.app-sidebar__link--active {
+  color: var(--purple-2);
+  border-left-color: var(--purple-2);
+  background: color-mix(in srgb, var(--purple-deep) 70%, transparent);
+}
+
+.app-sidebar__divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 20px;
+}
+
+/* ── Content panel ── */
+.app-content {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: clip;
+}
+
+/* ── Topbar inside content panel ── */
+.app-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 max(var(--pad), env(safe-area-inset-left));
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 94%, var(--purple-deep));
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.app-topbar__toggle {
+  appearance: none;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  padding: 0;
+  min-height: 32px;
+  min-width: 32px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-family: inherit;
+  border-radius: 3px;
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+
+.app-topbar__toggle:hover,
+.app-topbar__toggle:focus-visible {
+  color: var(--purple-2);
+  background: var(--purple-deep);
+  border-color: var(--border);
+  outline: none;
+}
+
+.app-topbar__title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  flex: 1;
+}
+
+.app-topbar__home {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.app-topbar__home:hover { color: var(--purple-2); }
+
+/* Fullscreen: sidebar collapses to zero width */
+.app-shell--fullscreen .app-sidebar {
+  flex-basis: 0;
+  width: 0;
+  padding: 0;
+  opacity: 0;
+  border-right: none;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Mobile: hide sidebar + toggle entirely, content is full width */
+@media (max-width: 767px) {
+  .app-sidebar {
+    display: none;
+  }
+
+  .app-topbar__toggle {
+    display: none;
+  }
+
+  /* On mobile the topbar acts like a minimal header */
+  .app-topbar {
+    padding-left: max(var(--pad), env(safe-area-inset-left));
+    padding-top: env(safe-area-inset-top);
+    min-height: calc(44px + env(safe-area-inset-top));
+  }
+}
