@@ -1262,10 +1262,19 @@ input {
 }
 
 /* ============================================================
-   Home / index page — dark navy + neon green
+   Home / index page — medium grey + muted green, typewriter font
    ============================================================ */
+
+/* Colour tokens for the home page */
+:root {
+  --home-bg:     #3a3a3a;   /* dark-medium grey                */
+  --home-green:  #4a8c5c;   /* dark muted green, not neon      */
+  --home-green-dim: rgba(74, 140, 92, 0.42);
+  --home-font:   "Space Mono", "Courier New", Courier, monospace;
+}
+
 .home-body {
-  background: #080d2e;
+  background: var(--home-bg);
   /* smooth momentum scrolling on iOS */
   -webkit-overflow-scrolling: touch;
   /* crisp text rendering on retina */
@@ -1298,11 +1307,12 @@ input {
 
 .home-eyebrow {
   margin: 0 0 clamp(16px, 4vw, 32px);
+  font-family: var(--home-font);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(57, 255, 88, 0.45);
+  color: var(--home-green-dim);
   text-align: center;
 }
 
@@ -1310,7 +1320,6 @@ input {
 .home-nav {
   display: flex;
   flex-direction: column;
-  /* no gap — line-height handles rhythm */
   gap: 0;
   align-items: center;
   width: 100%;
@@ -1320,16 +1329,16 @@ input {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  /* pill padding: rest state has equal top/bottom, right matches left on hover */
   padding: 1px 20px;
   border-radius: 100px;
-  color: #39ff58;
+  font-family: var(--home-font);
+  color: var(--home-green);
   text-decoration: none;
   /* scale down on small phones so all 8 items fit without scrolling */
-  font-size: clamp(2rem, 10.5vw, 5rem);
-  font-weight: 800;
-  line-height: 1.18;
-  letter-spacing: -0.025em;
+  font-size: clamp(1.75rem, 9.5vw, 4.6rem);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
   /* smooth pill fill transition */
   transition: background 0.14s ease, color 0.14s ease;
   width: fit-content;
@@ -1339,21 +1348,21 @@ input {
 
 .home-nav__item:hover,
 .home-nav__item:focus-visible {
-  background: #39ff58;
-  color: #080d2e;
+  background: var(--home-green);
+  color: var(--home-bg);
   outline: none;
 }
 
 /* active tap feedback on touch devices */
 .home-nav__item:active {
-  background: #39ff58;
-  color: #080d2e;
+  background: var(--home-green);
+  color: var(--home-bg);
   opacity: 0.85;
 }
 
 .home-nav__item--active {
-  background: #39ff58;
-  color: #080d2e;
+  background: var(--home-green);
+  color: var(--home-bg);
 }
 
 .home-nav__lock {
