@@ -1299,9 +1299,9 @@ input {
 .home-inner {
   width: 100%;
   max-width: 600px;
-  /* center the block horizontally on all screen sizes */
   display: flex;
   flex-direction: column;
+  /* mobile: centre everything */
   align-items: center;
 }
 
@@ -1313,6 +1313,7 @@ input {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--home-green-dim);
+  /* mobile: centred */
   text-align: center;
 }
 
@@ -1321,8 +1322,28 @@ input {
   display: flex;
   flex-direction: column;
   gap: 0;
+  /* mobile: centred */
   align-items: center;
   width: 100%;
+}
+
+/* Desktop: flip everything to left-aligned */
+@media (min-width: 600px) {
+  .home {
+    justify-content: flex-start;
+  }
+
+  .home-inner {
+    align-items: flex-start;
+  }
+
+  .home-eyebrow {
+    text-align: left;
+  }
+
+  .home-nav {
+    align-items: flex-start;
+  }
 }
 
 .home-nav__item {
