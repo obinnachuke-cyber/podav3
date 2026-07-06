@@ -1700,21 +1700,14 @@ input {
 .home-nav__item {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 1px 20px;
+  gap: clamp(8px, 2vw, 16px);
+  padding: 2px 16px 2px 12px;
   border-radius: 100px;
   font-family: var(--home-font);
   color: var(--home-green);
   text-decoration: none;
-  /* scale down on small phones so all 8 items fit without scrolling */
-  font-size: clamp(1.75rem, 9.5vw, 4.6rem);
-  font-weight: 700;
-  line-height: 1.22;
-  letter-spacing: -0.02em;
-  /* smooth pill fill transition */
   transition: background 0.14s ease, color 0.14s ease;
   width: fit-content;
-  /* tap highlight off on iOS */
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -1725,7 +1718,6 @@ input {
   outline: none;
 }
 
-/* active tap feedback on touch devices */
 .home-nav__item:active {
   background: var(--home-green);
   color: var(--home-bg);
@@ -1737,6 +1729,51 @@ input {
   color: var(--home-bg);
 }
 
+/* Icon — scales with the text but stays proportionally small */
+.home-nav__icon {
+  width:  clamp(16px, 4vw, 36px);
+  height: clamp(16px, 4vw, 36px);
+  flex: 0 0 auto;
+  opacity: 0.8;
+  transition: opacity 0.14s ease;
+}
+
+.home-nav__item:hover .home-nav__icon,
+.home-nav__item--active .home-nav__icon {
+  opacity: 1;
+}
+
+/* Label: big word + tiny descriptor stacked */
+.home-nav__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.home-nav__word {
+  font-size: clamp(1.75rem, 9.5vw, 4.6rem);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+}
+
+.home-nav__sub {
+  font-size: clamp(0.55rem, 1.5vw, 0.7rem);
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  line-height: 1;
+  padding-bottom: 4px;
+}
+
+/* Keep sub visible but slightly more opaque on active/hover */
+.home-nav__item:hover .home-nav__sub,
+.home-nav__item--active .home-nav__sub {
+  opacity: 0.65;
+}
+
+/* Legacy — no longer used but kept for safety */
 .home-nav__lock {
   width: clamp(16px, 2.6vw, 24px);
   height: clamp(16px, 2.6vw, 24px);
