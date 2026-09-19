@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Sell with poda — poda</title>
+  <meta name="description" content="poda works with independent brands, vintage sellers, and selected personal closets. Every piece is reviewed against the current point of view before it enters the store." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <main class="portal-shell">
+        <section class="page-section" style="border-bottom:none;">
+          <div class="section-bar">
+            <span class="section-bar__label">Supply</span>
+            <span class="section-bar__title">Sell with poda</span>
+          </div>
+
+          <p class="about__text" style="max-width:62ch;">poda works with independent brands, vintage sellers, and personal closets — a narrow selection, chosen around the current thesis.</p>
+
+          <ol class="process-steps" aria-label="How it works">
+            <li><span>01</span> Submit</li>
+            <li><span>02</span> poda reviews fit</li>
+            <li><span>03</span> Terms &amp; pricing confirmed</li>
+            <li><span>04</span> Selected pieces enter a future Edit</li>
+            <li><span>05</span> Sale &amp; payout tracked</li>
+          </ol>
+
+          <form id="submitForm" class="submit-form" novalidate>
+            <div class="field-grid">
+              <div class="field"><label for="name">Name <span class="req">*</span></label><input id="name" name="name" required /></div>
+              <div class="field"><label for="email">Email <span class="req">*</span></label><input id="email" name="email" type="email" required /></div>
+              <div class="field"><label for="instagram">Instagram</label><input id="instagram" name="instagram" placeholder="@handle" /></div>
+              <div class="field field--full">
+                <label for="message">What are you offering? <span class="req">*</span></label>
+                <textarea id="message" name="message" required placeholder="Brands and pieces, condition, rough prices, sizes — whatever's useful. poda will follow up."></textarea>
+              </div>
+              <div class="field field--full">
+                <label>Photos</label>
+                <label class="upload-dropzone" for="imageInput"><span>＋ Add photos</span><input type="file" id="imageInput" accept="image/*" multiple hidden /></label>
+                <div class="upload-strip" id="imageStrip"></div>
+              </div>
+            </div>
+            <p class="field-error" id="formError" hidden></p>
+            <p class="field-success" id="formSuccess" hidden></p>
+            <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <button type="submit" class="btn btn--primary" id="submitBtn">Send</button>
+              <a class="product-buy product-buy--alt" id="instaLink" href="#" target="_blank" rel="noopener">Or DM on Instagram ↗</a>
+            </div>
+            <p class="about__text" style="font-size:11px;color:var(--text-faint);margin-top:14px;max-width:60ch;">Submission doesn't guarantee placement. Terms are agreed before publishing.</p>
+          </form>
+        </section>
+  </main>
+
+  <footer class="site-footer portal-shell"></footer>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script src="submit.js"></script>
+  <script>
+    PodaSubmit.wire({ subjectPrefix: "poda inventory submission", prompt: "What they're offering" });
+  </script>
+  <script src="subscribe.js"></script>
+  <script src="layout.js"></script>
+</body>
+</html>

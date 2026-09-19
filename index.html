@@ -3,125 +3,108 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Poda Capital</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <title>poda — selective retail / market intelligence</title>
+  <meta name="description" content="poda identifies what is moving, explains why it matters, and builds a store around its strongest expression. Selective retail / market intelligence. New York + Washington, DC." />
+  <meta property="og:title" content="poda — selective retail / market intelligence" />
+  <meta property="og:description" content="poda identifies what is moving, explains why it matters, and builds a store around its strongest expression." />
+  <meta property="og:type" content="website" />
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="home-body">
-  <main class="home">
-    <div class="home-inner">
+<body class="site-body">
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
 
-      <p class="home-eyebrow">Poda Capital</p>
-
-      <nav class="home-nav" aria-label="Primary">
-
-        <a href="index.html" class="home-nav__item home-nav__item--active">
-          <!-- house -->
-          <svg class="home-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <path d="M3 10.5L12 3l9 7.5V21a1 1 0 01-1 1H5a1 1 0 01-1-1V10.5z"/>
-            <path d="M9 22V12h6v10"/>
-          </svg>
-          <span class="home-nav__label">
-            <span class="home-nav__word">Home</span>
-            <span class="home-nav__sub">poda capital</span>
-          </span>
-        </a>
-
-        <a href="market-notes.html" class="home-nav__item">
-          <!-- envelope -->
-          <svg class="home-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <rect x="2" y="4" width="20" height="16" rx="1.5"/>
-            <path d="M2 7l10 7 10-7"/>
-          </svg>
-          <span class="home-nav__label">
-            <span class="home-nav__word">Inbox</span>
-            <span class="home-nav__sub">market notes</span>
-          </span>
-        </a>
-
-        <a href="closet.html" class="home-nav__item">
-          <!-- tag / price tag -->
-          <svg class="home-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-            <circle cx="7" cy="7" r="1.2" fill="currentColor" stroke="none"/>
-          </svg>
-          <span class="home-nav__label">
-            <span class="home-nav__word">Bin</span>
-            <span class="home-nav__sub">closet capital</span>
-          </span>
-        </a>
-
-        <a href="archive.html" class="home-nav__item">
-          <!-- image grid -->
-          <svg class="home-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <rect x="3" y="3" width="8" height="8" rx="1"/>
-            <rect x="13" y="3" width="8" height="8" rx="1"/>
-            <rect x="3" y="13" width="8" height="8" rx="1"/>
-            <rect x="13" y="13" width="8" height="8" rx="1"/>
-          </svg>
-          <span class="home-nav__label">
-            <span class="home-nav__word">Archive</span>
-            <span class="home-nav__sub">lookbook</span>
-          </span>
-        </a>
-
-        <a href="drafts.html" class="home-nav__item">
-          <!-- pencil -->
-          <svg class="home-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <path d="M12 20h9"/>
-            <path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"/>
-          </svg>
-          <span class="home-nav__label">
-            <span class="home-nav__word">Drafts</span>
-            <span class="home-nav__sub">unfinished thoughts</span>
-          </span>
-        </a>
-
-        <a href="about.html" class="home-nav__item">
-          <!-- info circle -->
-          <svg class="home-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <circle cx="12" cy="12" r="9"/>
-            <line x1="12" y1="8" x2="12" y2="8.5" stroke-width="2.2" stroke-linecap="round"/>
-            <line x1="12" y1="11.5" x2="12" y2="16" stroke-linecap="round"/>
-          </svg>
-          <span class="home-nav__label">
-            <span class="home-nav__word">About</span>
-            <span class="home-nav__sub">the project</span>
-          </span>
-        </a>
-
-        <a href="admin.html" class="home-nav__item">
-          <!-- lock -->
-          <svg class="home-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <rect x="5" y="11" width="14" height="9" rx="1.5"/>
-            <path d="M8 11V8a4 4 0 018 0v3"/>
-          </svg>
-          <span class="home-nav__label">
-            <span class="home-nav__word">Admin</span>
-            <span class="home-nav__sub">closet os</span>
-          </span>
-        </a>
-
-        <a href="settings.html" class="home-nav__item">
-          <!-- sliders -->
-          <svg class="home-nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-            <line x1="4" y1="6" x2="20" y2="6"/>
-            <line x1="4" y1="12" x2="20" y2="12"/>
-            <line x1="4" y1="18" x2="20" y2="18"/>
-            <circle cx="8"  cy="6"  r="2" fill="var(--home-bg)" stroke="currentColor" stroke-width="1.6"/>
-            <circle cx="16" cy="12" r="2" fill="var(--home-bg)" stroke="currentColor" stroke-width="1.6"/>
-            <circle cx="10" cy="18" r="2" fill="var(--home-bg)" stroke="currentColor" stroke-width="1.6"/>
-          </svg>
-          <span class="home-nav__label">
-            <span class="home-nav__word">Settings</span>
-            <span class="home-nav__sub">preferences</span>
-          </span>
-        </a>
-
-      </nav>
+  <!-- Split-screen hero -->
+  <section class="hero">
+    <div class="hero__inner">
+      <div class="hero__text">
+        <span class="hero__eyebrow" id="premiseDrop">DROP 001</span>
+        <p class="hero__status" id="premiseStatus">STATUS: IN ASSEMBLY</p>
+        <div class="hero__cta">
+          <a class="btn-solid" href="drop.html">View the Edit →</a>
+          <a class="btn-ghost" href="market-notes.html">Read the Inbox →</a>
+        </div>
+      </div>
+      <div class="hero__visual" aria-hidden="true">
+        <span class="hero__visual-number">01</span>
+      </div>
     </div>
+  </section>
+
+  <!-- Contextual strip -->
+  <div class="context-strip">
+    <span id="headerStatus">DROP 001 · IN ASSEMBLY</span>
+  </div>
+
+  <main class="home2">
+
+    <!-- B. Current thesis -->
+    <section class="thesis purple-band" id="thesis">
+      <div class="purple-band__inner">
+        <span class="eyebrow">Current thesis</span>
+        <p class="thesis__body" id="thesisBody">The first selection looks at the pieces that stay useful after trend cycles lose intensity: low profiles, long lines, restrained color, quietly technical construction, and products that improve through use.</p>
+        <ul class="thesis__keywords" aria-label="Selection vocabulary">
+          <li>Low profiles</li>
+          <li>Long lines</li>
+          <li>Restrained color</li>
+          <li>Quietly technical</li>
+          <li>Used well</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- E. The Edit preview -->
+    <section class="home-edit" id="homeEdit">
+      <div class="home-edit__head">
+        <span class="eyebrow">The Edit</span>
+        <a class="home-edit__all" href="drop.html">See the full edit →</a>
+      </div>
+      <div class="items-grid" id="homeEditGrid" aria-live="polite">
+        <p class="status-message">Loading the edit…</p>
+      </div>
+    </section>
+
+    <!-- Email signup -->
+    <section class="home-band" id="homeSignup">
+      <div class="purple-band">
+        <div class="purple-band__inner">
+          <h2 class="home-band__title">Get the Market Note by email</h2>
+          <p class="home-band__body">One note when it drops. No spam, unsubscribe anytime.</p>
+        </div>
+      </div>
+      <div class="home-band__form-wrap">
+        <div data-poda-subscribe="homepage"></div>
+      </div>
+    </section>
+
+    <!-- F. Sourcing desk -->
+    <section class="home-band">
+      <h2 class="home-band__title">Looking for something that is not in the current edit?</h2>
+      <p class="home-band__body">Send poda an exact piece, a reference, or simply a feeling. Requests are reviewed personally. Availability, product cost, and any service fee are confirmed before purchase.</p>
+      <a class="btn-solid" href="source.html">Open a request →</a>
+    </section>
+
+    <!-- G. Sell with poda -->
+    <section class="home-band home-band--alt">
+      <h2 class="home-band__title">Sell with poda</h2>
+      <p class="home-band__body">poda works with independent brands, vintage sellers, and selected personal closets. Every piece is reviewed against the current point of view before it enters the store. Submission does not guarantee acceptance.</p>
+      <a class="btn-ghost" href="sell.html">Submit inventory →</a>
+    </section>
+
+    <!-- Hidden mount so script.js boots inventory for renderHome -->
+    <div id="homeMount" hidden></div>
   </main>
+
+  <!-- H. Footer (filled by layout.js) -->
+  <footer class="site-footer"></footer>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script src="script.js"></script>
+  <script src="home.js"></script>
+  <script src="subscribe.js"></script>
+  <script src="layout.js"></script>
 </body>
 </html>

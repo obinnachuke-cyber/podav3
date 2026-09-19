@@ -1,8 +1,19 @@
 /* ============================================================
    Poda Capital — Admin (Closet OS)
-   Vanilla JS. localStorage-backed inventory operating system.
-   Separated into: constants, storage, calc, formatting/helpers,
-   view renderers, modal form (build / read / recalc / save).
+   Vanilla JS over a shared Supabase database (via window.PodaDB).
+
+   Poda is a curated consignment retailer: interesting closets supply
+   inventory, Poda selects the strongest pieces into recurring drops.
+   An item moves through five stages:
+
+     CLOSET     the owner has it; not offered for sale
+     AVAILABLE  the owner is willing to sell it
+     SELECTED   Poda picked it for an upcoming drop
+     LIVE       it's for sale in the current drop
+     SOLD       it sold
+
+   Consignors don't log in (admin-managed): the admin enters each
+   closet's items and moves them through the workflow here.
    ============================================================ */
 
 "use strict";
@@ -12,59 +23,57 @@ const STORAGE_KEY = "poda_inventory";
 
 const CATEGORIES = ["Shirt", "Jacket", "Pants", "Denim", "Knit", "Shoe", "Bag", "Accessory", "Other"];
 const CONDITIONS = ["New", "Excellent", "Very Good", "Good", "Fair"];
-const STATUSES = ["Closet", "Listed", "Sold"];
-const PURCHASE_PLATFORMS = ["Grailed", "Depop", "eBay", "Instagram", "Vestiaire", "StockX", "GOAT", "Archive", "Other"];
-const SOLD_PLATFORMS = ["Grailed", "Depop", "eBay", "Instagram", "Vestiaire", "StockX", "GOAT", "Archive", "Direct", "Other"];
+const STATUSES = ["Closet", "Available", "Selected", "Live", "Sold"];
 
-// Typical all-in fee % per platform. The expected economics use a single ASSUMED
-// fee = the average of these (actual fees are entered at the Sale stage).
-const STANDARD_PLATFORM_FEES = {
-  Grailed: 9, Depop: 10, eBay: 13, Instagram: 3, Vestiaire: 15, StockX: 9, GOAT: 9.5, Archive: 10, Other: 10
+// —— Overhaul additions ——
+// Source of supply (brief §2): drives the "source mix" metrics + card labels.
+const SOURCE_TYPES = ["brand", "vintage", "closet"];
+const SOURCE_LABELS = { brand: "Independent Brand", vintage: "Vintage Seller", closet: "Private Closet" };
+
+// Transaction type (brief §2/§9): decides which CTA the product shows.
+const TRANSACTION_TYPES = ["poda_sale", "assisted", "partner", "sourcing"];
+const TRANSACTION_LABELS = {
+  poda_sale: "Purchase through poda",
+  assisted:  "Request to purchase",
+  partner:   "View at partner",
+  sourcing:  "Source something similar"
 };
-const ASSUMED_FEE_PCT = (() => {
-  const values = Object.values(STANDARD_PLATFORM_FEES);
-  return Math.round((values.reduce((sum, v) => sum + v, 0) / values.length) * 10) / 10;
-})();
 
-// All potential listing platforms → the platform key holding that URL.
-const LISTING_URL_FIELDS = [
-  ["Grailed", "grailedUrl"], ["Depop", "depopUrl"], ["eBay", "ebayUrl"],
-  ["Instagram", "instagramUrl"], ["Vestiaire", "vestiaireUrl"], ["StockX", "stockxUrl"],
-  ["GOAT", "goatUrl"], ["Archive", "archiveUrl"], ["Other", "otherUrl"]
-];
+// Category → item-ID code (brief §8): PODA-[drop]-[code]-[seq].
+const CATEGORY_CODES = {
+  Shoe: "FW", Jacket: "OT", Shirt: "TP", Knit: "TP",
+  Pants: "BT", Denim: "BT", Bag: "AC", Accessory: "AC", Other: "OB"
+};
 
-// Lifecycle is linear: Closet → Listed → Sold. You can move one step forward or
-// back. Status is changed only from the card/row dropdown, never inside the form.
-const STAGE_INDEX = { Closet: 0, Listed: 1, Sold: 2 };
+// Default Poda commission (30–35% range in the brief). Per-item overridable.
+const DEFAULT_COMMISSION_PCT = 32;
+
+// Lifecycle is linear: Closet → Available → Selected → Live → Sold.
+// You can move one step forward or back from the card/row dropdown.
+const STAGE_INDEX = { Closet: 0, Available: 1, Selected: 2, Live: 3, Sold: 4 };
 
 const TRANSITIONS = {
-  Closet: ["Closet", "Listed"],
-  Listed: ["Closet", "Listed", "Sold"],
-  Sold: ["Listed", "Sold"]
+  Closet:    ["Closet", "Available"],
+  Available: ["Closet", "Available", "Selected"],
+  Selected:  ["Available", "Selected", "Live"],
+  Live:      ["Selected", "Live", "Sold"],
+  Sold:      ["Live", "Sold"]
 };
 
-// Fields owned by each lifecycle stage (dot-paths into the item). Used to CLEAR a
-// stage's data when an item is reverted below it — that info must be re-entered.
-// (Acquisition / Closet is the base stage and is never cleared.)
+// Fields owned by each stage (dot-paths). Cleared when an item is reverted
+// below that stage so the data is re-entered on the way back up. (Closet /
+// Available are the base — closet + availability info is never auto-cleared.)
 const STAGE_FIELDS = {
-  Listed: [
-    "season", "dateListed", "pricing.currentListPrice",
-    "platform.grailedUrl", "platform.depopUrl", "platform.ebayUrl", "platform.instagramUrl",
-    "platform.vestiaireUrl", "platform.stockxUrl", "platform.goatUrl", "platform.archiveUrl", "platform.otherUrl",
-    "platform.estimatedShipping", "platform.buyerPaysShipping", "platform.sellerPaysShipping"
-  ],
-  Sold: [
-    "dateSold", "soldActuals.soldPlatform", "soldActuals.finalSalePrice",
-    "soldActuals.finalPlatformFee", "soldActuals.finalPaymentFee", "soldActuals.finalShipping"
-  ]
+  Selected: ["dropNumber", "dateSelected", "pricing.currentListPrice"],
+  Live:     ["dateLive", "verified"],
+  Sold:     ["dateSold", "soldActuals.finalSalePrice"]
 };
 
-// Inputs required to legitimately sit at each stage (e.g. you can't be Sold without
-// a Sale Price). Any reached-stage requirement left blank is flagged on the card.
+// Inputs required to legitimately sit at each stage. Any reached-stage
+// requirement left blank is flagged on the card.
 const REQUIRED_FIELDS = {
-  Closet: [["dateAcquired", "Date Acquired"], ["costs.purchasePrice", "Cost"]],
-  Listed: [["pricing.currentListPrice", "Listing Price"]],
-  Sold: [["dateSold", "Date Sold"], ["soldActuals.soldPlatform", "Sold Platform"], ["soldActuals.finalSalePrice", "Sale Price"]]
+  Selected: [["dropNumber", "Drop #"], ["pricing.currentListPrice", "List Price"]],
+  Sold:     [["soldActuals.finalSalePrice", "Sold Price"]]
 };
 
 /* —— App state —— */
@@ -74,13 +83,12 @@ const state = {
   editingId: null,        // id being edited, or null for a new item
   draftImages: [],        // images in the open modal
   draftPrimary: "",       // primary image (data URL / URL) in the open modal
-  filters: { status: "All", category: "All", brand: "", platform: "All" }
+  filters: { status: "All", category: "All", owner: "All", brand: "" }
 };
 
 /* ============================================================
    Storage
    ============================================================ */
-// Read all items from the shared database (Supabase).
 async function loadItems() {
   return await window.PodaDB.getItems();
 }
@@ -89,7 +97,6 @@ function getItemById(id) {
   return state.items.find(item => item.id === id) || null;
 }
 
-// Create/update one item: update local state immediately, then save to the DB.
 async function upsertItem(item) {
   const index = state.items.findIndex(existing => existing.id === item.id);
   if (index >= 0) state.items[index] = item;
@@ -120,40 +127,52 @@ function blankItem() {
     primaryImage: "",
     brand: "",
     brandCode: "",
+    itemCode: "",            // PODA-[drop]-[cat]-[seq], e.g. PODA-001-FW-001
     itemName: "",
-    season: "",
     category: "",
+    categoryCode: "",        // FW | OT | TP | BT | AC | OB
     size: "",
+    measurements: "",        // free text, e.g. "Chest 21in, Length 28in"
+    material: "",
     color: "",
     condition: "",
+    conditionNotes: "",
+    season: "",              // era / season when known
     status: "Closet",
-    dateAcquired: "",
-    dateListed: "",
-    dateSold: "",
-    source: "",
-    purchasePlatform: "",
+
+    // —— Source / supply (brief §2) ——
+    sourceType: "brand",     // brand | vintage | closet
+    sourceName: "",          // e.g. "Independent Brand 01"
+
+    // —— Transaction (brief §2/§9): drives which CTA shows ——
+    transactionType: "poda_sale", // poda_sale | assisted | partner | sourcing
+    externalUrl: "",         // partner link when transactionType === "partner"
+
+    // —— Closet / consignment ——
+    closetOwner: "",         // which closet this piece belongs to
+    ownerMinPayout: 0,       // amount the owner is comfortable receiving
+    commissionPercent: DEFAULT_COMMISSION_PCT,
+
+    // —— Selection / drop ——
+    dropNumber: "",          // e.g. "001"
+    verified: false,         // Poda has the piece in hand + checked it
+
+    // —— Copy ——
     publicDescription: "",
+    selectionReason: "",     // "Why poda selected it" (brief §9)
     privateNotes: "",
-    costs: {
-      purchasePrice: 0, inboundShipping: 0, tax: 0,
-      cleaningCost: 0, repairCost: 0, authCost: 0, otherPrepCost: 0
-    },
-    pricing: {
-      originalListPrice: 0, currentListPrice: 0, expectedSalePrice: 0,
-      lowestAcceptablePrice: 0, markdownPlan: "",
-      compLow: 0, compMid: 0, compHigh: 0, compConfidence: ""
-    },
-    platform: {
-      primaryPlatform: "", websiteListed: false,
-      grailedUrl: "", depopUrl: "", ebayUrl: "", instagramUrl: "",
-      vestiaireUrl: "", stockxUrl: "", goatUrl: "", archiveUrl: "", otherUrl: "",
-      platformFeePercent: 0, paymentFeePercent: 0, estimatedShipping: 0,
-      buyerPaysShipping: false, sellerPaysShipping: false
-    },
-    soldActuals: {
-      dateSold: "", soldPlatform: "", finalSalePrice: 0,
-      finalPlatformFee: 0, finalPaymentFee: 0, finalShipping: 0
-    }
+
+    // —— Stage dates ——
+    dateAdded: new Date().toISOString().slice(0, 10),
+    dateSelected: "",
+    dateLive: "",
+    dateSold: "",
+
+    // Poda's list price lives in pricing.currentListPrice; the final sale
+    // price lives in soldActuals.finalSalePrice. Kept as sub-objects so the
+    // existing Excel/backup tooling keeps working unchanged.
+    pricing: { currentListPrice: 0 },
+    soldActuals: { finalSalePrice: 0 }
   };
 }
 
@@ -172,66 +191,39 @@ function daysBetween(startDate, endDate) {
   return Math.floor((end - start) / 86400000);
 }
 
-function agingStatusFor(days) {
-  if (days === null || days === undefined) return null;
-  if (days <= 14) return "Fresh";
-  if (days <= 30) return "Monitor";
-  if (days <= 60) return "Consider Markdown";
-  if (days <= 90) return "Reposition";
-  return "Stale";
-}
-
 /**
- * calc(item) — returns ALL derived values for an item.
- * Every view and the form read from this; no math lives elsewhere.
+ * calc(item) — every derived consignment figure for one item.
+ * commission is Poda's cut; the owner payout is what's left for the closet.
  */
 function calc(item) {
-  const c = item.costs || {};
-  const p = item.pricing || {};
-  const pl = item.platform || {};
+  const p  = item.pricing || {};
   const sa = item.soldActuals || {};
 
-  const totalCostBasis =
-    num(c.purchasePrice) + num(c.inboundShipping) + num(c.tax) +
-    num(c.cleaningCost) + num(c.repairCost) + num(c.authCost) + num(c.otherPrepCost);
+  const listPrice = num(p.currentListPrice);
+  const pct = item.commissionPercent === undefined || item.commissionPercent === null || item.commissionPercent === ""
+    ? DEFAULT_COMMISSION_PCT
+    : num(item.commissionPercent);
+  const frac = pct / 100;
 
-  const estimatedShipping = num(pl.estimatedShipping);
-  const sellerShips = Boolean(pl.sellerPaysShipping);
+  // Expected (while Selected / Live), from the list price.
+  const expectedCommission = listPrice * frac;
+  const expectedOwnerPayout = listPrice - expectedCommission;
 
-  // Expected economics are derived from the Listing Price using the assumed fee %.
-  const currentListPrice = num(p.currentListPrice);
-  const feeFraction = ASSUMED_FEE_PCT / 100;
-  const expectedFee = currentListPrice * feeFraction;
-  const expectedNetPayout = currentListPrice - expectedFee - (sellerShips ? estimatedShipping : 0);
-  const expectedNetProfit = expectedNetPayout - totalCostBasis;
-  const expectedMargin = expectedNetPayout > 0 ? expectedNetProfit / expectedNetPayout : 0;
-  const breakEvenPrice = feeFraction < 1
-    ? totalCostBasis / (1 - feeFraction) + (sellerShips ? estimatedShipping : 0)
-    : 0;
-  const markupPercent = totalCostBasis > 0 ? (currentListPrice - totalCostBasis) / totalCostBasis : 0;
-
-  // Sold actuals
-  const finalSalePrice = num(sa.finalSalePrice);
-  const finalNetPayout =
-    finalSalePrice - num(sa.finalPlatformFee) - num(sa.finalPaymentFee) - num(sa.finalShipping);
-  const finalNetProfit = finalNetPayout - totalCostBasis;
-  const finalMargin = finalNetPayout > 0 ? finalNetProfit / finalNetPayout : 0;
+  // Actual (once Sold), from the final sale price.
+  const soldPrice = num(sa.finalSalePrice);
+  const finalCommission = soldPrice * frac;       // Poda revenue on this piece
+  const ownerPayout = soldPrice - finalCommission; // owed to the closet owner
 
   const today = new Date().toISOString().slice(0, 10);
-  const soldDate = sa.dateSold || item.dateSold;
-  const daysToSell = (item.dateListed && soldDate) ? daysBetween(item.dateListed, soldDate) : null;
-  const daysListed = (item.dateListed && item.status !== "Sold") ? daysBetween(item.dateListed, today) : null;
-
-  const needsMarkdown = daysListed !== null && daysListed >= 30 && item.status === "Listed";
+  const soldDate = item.dateSold || sa.dateSold;
+  const daysToSell = (item.dateLive && soldDate) ? daysBetween(item.dateLive, soldDate) : null;
+  const daysLive = (item.dateLive && item.status === "Live") ? daysBetween(item.dateLive, today) : null;
 
   return {
-    totalCostBasis,
-    expectedFee, expectedNetPayout, expectedNetProfit, expectedMargin,
-    breakEvenPrice, markupPercent,
-    finalNetPayout, finalNetProfit, finalMargin,
-    daysToSell, daysListed,
-    agingStatus: agingStatusFor(daysListed),
-    needsMarkdown
+    listPrice, pct,
+    expectedCommission, expectedOwnerPayout,
+    soldPrice, finalCommission, ownerPayout,
+    daysToSell, daysLive
   };
 }
 
@@ -239,38 +231,35 @@ function calc(item) {
    Dashboard metrics — across all items
    ============================================================ */
 function dashboardMetrics(items) {
-  const active = items.filter(item => item.status !== "Sold");    // Closet + Listed
-  const listed = items.filter(item => item.status === "Listed");  // up for sale
-  const sold = items.filter(item => item.status === "Sold");
+  const byStatus = status => items.filter(item => item.status === status);
+  const available = byStatus("Available");
+  const selected  = byStatus("Selected");
+  const live      = byStatus("Live");
+  const sold       = byStatus("Sold");
 
-  const inventoryAtCost = active.reduce((sum, item) => sum + calc(item).totalCostBasis, 0);
-  const listedValue = listed.reduce((sum, item) => sum + num(item.pricing.currentListPrice), 0);
-  const expectedSaleValue = active.reduce((sum, item) => sum + num(item.pricing.currentListPrice), 0);
-  const expectedNetProfit = active.reduce((sum, item) => sum + calc(item).expectedNetProfit, 0);
-  const realizedProfit = sold.reduce((sum, item) => sum + calc(item).finalNetProfit, 0);
-  const capitalTiedUp = active.reduce((sum, item) => sum + calc(item).totalCostBasis, 0);
+  const gmv = sold.reduce((sum, item) => sum + calc(item).soldPrice, 0);
+  const podaRevenue = sold.reduce((sum, item) => sum + calc(item).finalCommission, 0);
+  const owedToConsignors = sold.reduce((sum, item) => sum + calc(item).ownerPayout, 0);
+  const avgSalePrice = sold.length ? gmv / sold.length : 0;
 
-  const listedDays = listed.map(item => calc(item).daysListed).filter(days => days !== null);
-  const averageDaysListed = listedDays.length
-    ? listedDays.reduce((sum, days) => sum + days, 0) / listedDays.length
-    : 0;
+  // Sell-through across pieces that reached the store (live + sold).
+  const throughDenom = sold.length + live.length;
+  const sellThroughRate = throughDenom > 0 ? sold.length / throughDenom : 0;
 
-  const sellThroughDenominator = sold.length + listed.length;
-  const sellThroughRate = sellThroughDenominator > 0 ? sold.length / sellThroughDenominator : 0;
+  const daysList = sold.map(item => calc(item).daysToSell).filter(v => v !== null);
+  const avgDaysToSell = daysList.length ? daysList.reduce((s, v) => s + v, 0) / daysList.length : 0;
 
-  const itemsNeedingMarkdown = items.filter(item => calc(item).needsMarkdown).length;
+  const closets = new Set(items.map(item => (item.closetOwner || "").trim()).filter(Boolean));
 
   return {
-    activeItems: active.length,
-    inventoryAtCost,
-    listedValue,
-    expectedSaleValue,
-    expectedNetProfit,
-    realizedProfit,
-    capitalTiedUp,
-    averageDaysListed,
-    sellThroughRate,
-    itemsNeedingMarkdown
+    totalItems: items.length,
+    closets: closets.size,
+    availableCount: available.length,
+    selectedCount: selected.length,
+    liveCount: live.length,
+    soldCount: sold.length,
+    gmv, podaRevenue, owedToConsignors, avgSalePrice,
+    sellThroughRate, avgDaysToSell
   };
 }
 
@@ -304,26 +293,22 @@ function escapeHTML(value) {
 
 function statusBadgeClass(status) {
   const map = {
-    "Closet": "badge--draft",   // dim — held in closet
-    "Listed": "badge--listed",  // purple — up for sale
-    "Sold": "badge--sold"       // faint / strikethrough
+    "Closet":    "badge--draft",
+    "Available": "badge--available",
+    "Selected":  "badge--selected",
+    "Live":      "badge--listed",
+    "Sold":      "badge--sold"
   };
   return map[status] || "badge--draft";
 }
 
-function agingClass(label) {
-  const map = {
-    "Fresh": "aging--fresh",
-    "Monitor": "aging--monitor",
-    "Consider Markdown": "aging--markdown",
-    "Reposition": "aging--reposition",
-    "Stale": "aging--stale"
-  };
-  return map[label] || "";
-}
-
 function statusBadge(status) {
   return `<span class="badge ${statusBadgeClass(status)}">${escapeHTML(status || "—")}</span>`;
+}
+
+function dropLabel(item) {
+  const n = String(item.dropNumber || "").trim();
+  return n ? `Drop ${n}` : "—";
 }
 
 function primaryImageUrl(item) {
@@ -338,11 +323,7 @@ function thumbCell(item) {
   return `<img class="table-thumb" src="${escapeHTML(url)}" alt="" loading="lazy" />`;
 }
 
-function profitCellClass(value) {
-  return value >= 0 ? "cell-pos" : "cell-neg";
-}
-
-/* —— Inline status dropdown (only valid transitions; locked when Sold) —— */
+/* —— Inline status dropdown (only valid transitions; locked when stuck) —— */
 function statusSelect(item) {
   const allowed = TRANSITIONS[item.status] || [item.status];
   const options = allowed.map(status =>
@@ -353,21 +334,18 @@ function statusSelect(item) {
 }
 
 /* ============================================================
-   Item ID generation
+   Item ID generation — PODA-YY-BRAND-CATEGORY-###
    ============================================================ */
 function makeBrandCode(brand) {
   return String(brand || "").toUpperCase().replace(/\s+/g, "").slice(0, 8);
 }
 
 function generateItemId(item) {
-  const yearSource = item.dateAcquired ? new Date(item.dateAcquired).getFullYear() : new Date().getFullYear();
-  const yy = String(yearSource).slice(-2);
+  const yy = String(new Date().getFullYear()).slice(-2);
   const brandCode = (item.brandCode || makeBrandCode(item.brand) || "UNK").toUpperCase().replace(/\s+/g, "");
-  const season = (item.season ? item.season.toUpperCase().replace(/\s+/g, "") : "") || "UNK";
   const category = (item.category || "ITEM").toUpperCase();
-  const prefix = `PODA-${yy}-${brandCode}-${season}-${category}-`;
+  const prefix = `PODA-${yy}-${brandCode}-${category}-`;
 
-  // Find the next free 3-digit sequence for this prefix.
   let max = 0;
   for (const existing of state.items) {
     if (existing.id && existing.id.startsWith(prefix) && existing.id !== item.id) {
@@ -375,8 +353,7 @@ function generateItemId(item) {
       if (Number.isFinite(tail) && tail > max) max = tail;
     }
   }
-  const seq = String(max + 1).padStart(3, "0");
-  return `${prefix}${seq}`;
+  return `${prefix}${String(max + 1).padStart(3, "0")}`;
 }
 
 /* ============================================================
@@ -395,12 +372,16 @@ function setView(view) {
 function renderCurrentView() {
   const renderers = {
     dashboard: renderDashboard,
-    all: renderAllItems,
-    closet: renderCloset,
-    listed: renderListed,
-    sold: renderSold,
-    notes: renderNotes,
-    archive: renderArchive
+    closets:   renderClosets,
+    available: renderAvailable,
+    selected:  renderSelected,
+    live:      renderLive,
+    sold:      renderSold,
+    all:       renderAllItems,
+    notes:     renderNotes,
+    drops:     renderDrops,
+    studies:   renderStudies,
+    subscribers: renderSubscribers
   };
   (renderers[state.view] || renderDashboard)();
 }
@@ -432,37 +413,39 @@ function renderDashboard() {
   const m = dashboardMetrics(state.items);
 
   const metrics = [
-    metricCard("Active Items", m.activeItems),
-    metricCard("Inventory at Cost", formatMoney(m.inventoryAtCost)),
-    metricCard("Listed Value", formatMoney(m.listedValue)),
-    metricCard("Expected Sale Value", formatMoney(m.expectedSaleValue)),
-    metricCard("Expected Net Profit", formatMoney(m.expectedNetProfit)),
-    metricCard("Realized Profit", formatMoney(m.realizedProfit)),
-    metricCard("Capital Tied Up", formatMoney(m.capitalTiedUp)),
-    metricCard("Avg Days Listed", m.averageDaysListed ? m.averageDaysListed.toFixed(0) : "0"),
-    metricCard("Sell-Through Rate", formatPercent(m.sellThroughRate)),
-    metricCard("Needs Markdown", m.itemsNeedingMarkdown)
+    metricCard("Closets", m.closets),
+    metricCard("Items Tracked", m.totalItems),
+    metricCard("Available", m.availableCount),
+    metricCard("Selected", m.selectedCount),
+    metricCard("Live", m.liveCount),
+    metricCard("Sold", m.soldCount),
+    metricCard("GMV", formatMoney(m.gmv)),
+    metricCard("Poda Revenue", formatMoney(m.podaRevenue), "commission on sold"),
+    metricCard("Owed to Consignors", formatMoney(m.owedToConsignors)),
+    metricCard("Avg Sale Price", formatMoney(m.avgSalePrice)),
+    metricCard("Sell-Through", formatPercent(m.sellThroughRate)),
+    metricCard("Avg Days to Sell", m.avgDaysToSell ? m.avgDaysToSell.toFixed(0) : "0")
   ].join("");
 
-  // 5 most recently added/modified — proxy "recent" by array order (newest pushed last).
-  const recent = [...state.items].slice(-5).reverse();
+  const recent = [...state.items].slice(-6).reverse();
 
   const recentTable = recent.length
     ? `
       <div class="table-wrap">
         <table class="admin-table">
           <thead>
-            <tr><th></th><th>Item ID</th><th>Brand</th><th>Name</th><th>Status</th><th class="cell-num">List Price</th></tr>
+            <tr><th></th><th>Item ID</th><th>Closet</th><th>Brand</th><th>Name</th><th>Status</th><th>Drop</th></tr>
           </thead>
           <tbody>
             ${recent.map(item => `
               <tr data-edit-id="${escapeHTML(item.id)}">
                 <td>${thumbCell(item)}</td>
                 <td class="cell-mono">${escapeHTML(item.id)}</td>
+                <td>${escapeHTML(item.closetOwner || "—")}</td>
                 <td class="cell-strong">${escapeHTML(item.brand)}</td>
                 <td>${escapeHTML(item.itemName)}</td>
                 <td>${statusBadge(item.status)}</td>
-                <td class="cell-num">${formatMoney(item.pricing.currentListPrice)}</td>
+                <td class="cell-mono">${escapeHTML(dropLabel(item))}</td>
               </tr>
             `).join("")}
           </tbody>
@@ -472,7 +455,7 @@ function renderDashboard() {
     : `<p class="admin-empty">No items yet. Use “+ New Item” to add your first piece.</p>`;
 
   adminMain.innerHTML = `
-    ${sectionBar("Closet OS", "Dashboard")}
+    ${sectionBar("Admin", "Dashboard")}
     <section class="metrics-grid metrics-grid--admin" aria-label="Dashboard metrics">${metrics}</section>
     <div class="section-bar"><span class="section-bar__title">Recently Updated</span></div>
     ${recentTable}
@@ -480,35 +463,74 @@ function renderDashboard() {
 }
 
 /* ============================================================
-   View: All Items
+   View: Closets — grouped by closet owner
    ============================================================ */
-function uniqueValues(selector) {
-  return [...new Set(state.items.map(selector).filter(Boolean))].sort();
+function renderClosets() {
+  const owners = [...new Set(state.items.map(i => (i.closetOwner || "").trim()).filter(Boolean))].sort();
+
+  const cards = owners.map(owner => {
+    const items = state.items.filter(i => (i.closetOwner || "").trim() === owner);
+    const count = s => items.filter(i => i.status === s).length;
+    const owed = items.filter(i => i.status === "Sold").reduce((sum, i) => sum + calc(i).ownerPayout, 0);
+
+    return `
+      <article class="closet-owner-card" data-owner="${escapeHTML(owner)}">
+        <div class="closet-owner-card__head">
+          <h3 class="closet-owner-card__name">${escapeHTML(owner)}</h3>
+          <span class="closet-owner-card__count">${items.length} piece${items.length === 1 ? "" : "s"}</span>
+        </div>
+        <dl class="item-ledger">
+          <div class="item-ledger__row"><dt>Available</dt><dd>${count("Available")}</dd></div>
+          <div class="item-ledger__row"><dt>Selected</dt><dd>${count("Selected")}</dd></div>
+          <div class="item-ledger__row"><dt>Live</dt><dd>${count("Live")}</dd></div>
+          <div class="item-ledger__row"><dt>Sold</dt><dd>${count("Sold")}</dd></div>
+          <div class="item-ledger__row"><dt>Payout owed</dt><dd>${formatMoney(owed)}</dd></div>
+        </dl>
+      </article>
+    `;
+  }).join("");
+
+  adminMain.innerHTML = `
+    ${sectionBar("Admin", "Closets")}
+    ${owners.length
+      ? `<section class="closet-owner-grid">${cards}</section>`
+      : `<p class="admin-empty">No closets yet. Add a piece and set its <strong>Closet Owner</strong> to start a closet.</p>`
+    }
+  `;
 }
 
-function filterBar() {
-  const statusOptions = ["All", ...STATUSES].map(s =>
-    `<option value="${escapeHTML(s)}"${state.filters.status === s ? " selected" : ""}>${escapeHTML(s)}</option>`).join("");
-  const categoryOptions = ["All", ...CATEGORIES].map(c =>
-    `<option value="${escapeHTML(c)}"${state.filters.category === c ? " selected" : ""}>${escapeHTML(c)}</option>`).join("");
-  const platformOptions = ["All", ...uniqueValues(item => item.purchasePlatform)].map(p =>
-    `<option value="${escapeHTML(p)}"${state.filters.platform === p ? " selected" : ""}>${escapeHTML(p)}</option>`).join("");
+/* ============================================================
+   Filter helpers (Available / All Items)
+   ============================================================ */
+function ownerValues() {
+  return [...new Set(state.items.map(i => (i.closetOwner || "").trim()).filter(Boolean))].sort();
+}
+
+function filterBar(showStatus) {
+  const statusOptions = showStatus
+    ? `<label class="field" style="max-width:180px">
+        <span class="filter-label">Status</span>
+        <select class="status-select" data-filter="status">
+          ${["All", ...STATUSES].map(s => `<option value="${escapeHTML(s)}"${state.filters.status === s ? " selected" : ""}>${escapeHTML(s)}</option>`).join("")}
+        </select>
+      </label>` : "";
 
   return `
     <section class="controls" aria-label="Filters">
-      <label class="field" style="max-width:200px">
-        <span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-faint)">Status</span>
-        <select class="status-select" data-filter="status">${statusOptions}</select>
+      ${statusOptions}
+      <label class="field" style="max-width:180px">
+        <span class="filter-label">Closet</span>
+        <select class="status-select" data-filter="owner">
+          ${["All", ...ownerValues()].map(o => `<option value="${escapeHTML(o)}"${state.filters.owner === o ? " selected" : ""}>${escapeHTML(o)}</option>`).join("")}
+        </select>
       </label>
-      <label class="field" style="max-width:200px">
-        <span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-faint)">Category</span>
-        <select class="status-select" data-filter="category">${categoryOptions}</select>
+      <label class="field" style="max-width:180px">
+        <span class="filter-label">Category</span>
+        <select class="status-select" data-filter="category">
+          ${["All", ...CATEGORIES].map(c => `<option value="${escapeHTML(c)}"${state.filters.category === c ? " selected" : ""}>${escapeHTML(c)}</option>`).join("")}
+        </select>
       </label>
-      <label class="field" style="max-width:200px">
-        <span style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-faint)">Platform</span>
-        <select class="status-select" data-filter="platform">${platformOptions}</select>
-      </label>
-      <label class="search-wrap" style="flex:1 1 200px">
+      <label class="search-wrap" style="flex:1 1 180px">
         <span class="visually-hidden">Brand filter</span>
         <input type="search" data-filter="brand" placeholder="Filter by brand…" value="${escapeHTML(state.filters.brand)}" autocomplete="off" />
       </label>
@@ -516,53 +538,54 @@ function filterBar() {
   `;
 }
 
-function applyFilters(items) {
+function applyFilters(items, { useStatus } = {}) {
   const f = state.filters;
   return items.filter(item => {
-    if (f.status !== "All" && item.status !== f.status) return false;
+    if (useStatus && f.status !== "All" && item.status !== f.status) return false;
+    if (f.owner !== "All" && (item.closetOwner || "").trim() !== f.owner) return false;
     if (f.category !== "All" && item.category !== f.category) return false;
-    if (f.platform !== "All" && item.purchasePlatform !== f.platform) return false;
     if (f.brand && !String(item.brand).toLowerCase().includes(f.brand.toLowerCase())) return false;
     return true;
   });
 }
 
-function renderAllItems() {
-  const rows = applyFilters(state.items).map(item => {
+/* ============================================================
+   View: Available inventory — the selection screen
+   ============================================================ */
+function renderAvailable() {
+  const items = applyFilters(state.items.filter(i => i.status === "Available"), { useStatus: false });
+
+  const rows = items.map(item => {
     const d = calc(item);
     return `
       <tr data-edit-id="${escapeHTML(item.id)}">
         <td>${thumbCell(item)}</td>
-        <td class="cell-mono">${escapeHTML(item.id)}</td>
+        <td>${escapeHTML(item.closetOwner || "—")}</td>
         <td class="cell-strong">${escapeHTML(item.brand)}</td>
         <td>${escapeHTML(item.itemName)}</td>
-        <td>${escapeHTML(item.category)}</td>
-        <td>${escapeHTML(item.size)}</td>
+        <td>${escapeHTML(item.category || "—")}</td>
+        <td>${escapeHTML(item.size || "—")}</td>
+        <td class="cell-num">${item.ownerMinPayout ? formatMoney(item.ownerMinPayout) : "—"}</td>
         <td data-no-edit>${statusSelect(item)}</td>
-        <td class="cell-num">${formatMoney(d.totalCostBasis)}</td>
-        <td class="cell-num">${formatMoney(item.pricing.currentListPrice)}</td>
-        <td class="cell-num ${profitCellClass(d.expectedNetProfit)}">${formatMoney(d.expectedNetProfit)}</td>
-        <td class="cell-num">${d.daysListed === null ? "—" : d.daysListed}</td>
-        <td>${d.agingStatus ? `<span class="aging ${agingClass(d.agingStatus)}">${escapeHTML(d.agingStatus)}</span>` : "—"}</td>
       </tr>
     `;
   }).join("");
 
   adminMain.innerHTML = `
-    ${sectionBar("Closet OS", "All Items")}
-    ${filterBar()}
-    ${state.items.length === 0
-      ? `<p class="admin-empty">No items yet.</p>`
+    ${sectionBar("Admin", "Available Inventory")}
+    <p class="admin-hint">Everything a closet owner is currently willing to sell. Set an item to <strong>Selected</strong> to pull it into a drop, then add its drop number and list price.</p>
+    ${filterBar(false)}
+    ${state.items.filter(i => i.status === "Available").length === 0
+      ? `<p class="admin-empty">Nothing marked Available yet.</p>`
       : `<div class="table-wrap">
           <table class="admin-table">
             <thead>
               <tr>
-                <th></th><th>Item ID</th><th>Brand</th><th>Name</th><th>Category</th><th>Size</th>
-                <th>Status</th><th class="cell-num">Cost Basis</th><th class="cell-num">List Price</th>
-                <th class="cell-num">Exp. Profit</th><th class="cell-num">Days Listed</th><th>Aging</th>
+                <th></th><th>Closet</th><th>Brand</th><th>Name</th><th>Category</th><th>Size</th>
+                <th class="cell-num">Min Payout</th><th>Move</th>
               </tr>
             </thead>
-            <tbody>${rows || `<tr><td colspan="12" class="admin-empty">No items match these filters.</td></tr>`}</tbody>
+            <tbody>${rows || `<tr><td colspan="8" class="admin-empty">No items match these filters.</td></tr>`}</tbody>
           </table>
         </div>`
     }
@@ -570,8 +593,7 @@ function renderAllItems() {
 }
 
 /* ============================================================
-   Item card — shared across Closet / Listed / Sold for consistent
-   styling. Each view supplies its own ledger pairs + extra content.
+   Item card — shared across Selected / Live / Sold
    ============================================================ */
 function itemImageBlock(item) {
   const url = primaryImageUrl(item);
@@ -581,20 +603,10 @@ function itemImageBlock(item) {
   return `<div class="item-image${url ? "" : " item-image--empty"}">${inner}</div>`;
 }
 
-// pairs: array of [label, valueHTML]. valueHTML is inserted as-is, so callers
-// must escape any free text themselves.
 function ledgerHtml(pairs) {
   return pairs.map(([label, value]) =>
     `<div class="item-ledger__row"><dt>${escapeHTML(label)}</dt><dd>${value}</dd></div>`
   ).join("");
-}
-
-function listingLink(item) {
-  const platform = item.platform || {};
-  const url = LISTING_URL_FIELDS.map(([, key]) => platform[key]).find(Boolean) || "";
-  return url
-    ? `<a class="card-link external-listing" href="${escapeHTML(url)}" target="_blank" rel="noopener">View listing ↗</a>`
-    : "";
 }
 
 function cardSection(title, pairs, extra = "") {
@@ -612,13 +624,7 @@ function metaLine(item) {
   return bits.length ? `<p class="card-meta">${escapeHTML(bits.join(" · "))}</p>` : "";
 }
 
-function hasListingUrl(item) {
-  const platform = item.platform || {};
-  return LISTING_URL_FIELDS.some(([, key]) => String(platform[key] || "").trim() !== "");
-}
-
-// Every required input still blank for the stages this item has reached. Returns the
-// full list so the card shows ALL gaps at once, not just the first.
+// Required inputs still blank for the stages this item has reached.
 function gapsFor(item) {
   const reached = STAGE_INDEX[item.status] ?? 0;
   const gaps = [];
@@ -627,16 +633,15 @@ function gapsFor(item) {
     if ((STAGE_INDEX[stage] ?? 0) > reached) return;
     fields.forEach(([path, label]) => {
       const value = getByPath(item, path);
-      // 0 is a valid value (e.g. free item, $0 cost) — only flag truly blank/missing
       if (value === undefined || value === null || value === "") gaps.push(label);
     });
   });
 
-  // Checks that aren't a single field. A listing needs a photo and at least one URL.
-  if (reached >= STAGE_INDEX.Listed) {
+  if (reached >= STAGE_INDEX.Live) {
     if (!primaryImageUrl(item)) gaps.push("Photo");
-    if (!hasListingUrl(item)) gaps.push("Listing URL");
+    if (!item.verified) gaps.push("Verify");
   }
+  if (reached >= STAGE_INDEX.Selected && !(item.closetOwner || "").trim()) gaps.push("Closet Owner");
 
   return gaps;
 }
@@ -652,43 +657,35 @@ function gapsBlock(item) {
   `;
 }
 
-// One card used by Closet / Listed / Sold. Shows the info groups for the item's
-// current stage: Acquisition always, Listing once Listed, Sale once Sold.
+// One card used by Selected / Live / Sold.
 function itemCard(item) {
   const d = calc(item);
   const stage = STAGE_INDEX[item.status] ?? 0;
 
-  const acquisition = cardSection("Acquisition", [
-    ["Date Acquired", escapeHTML(item.dateAcquired || "—")],
-    ["Source", escapeHTML(item.source || "—")],
-    ["Purchase Platform", escapeHTML(item.purchasePlatform || "—")],
-    ["Cost Basis", formatMoney(d.totalCostBasis)]
+  const closet = cardSection("Closet", [
+    ["Owner", escapeHTML(item.closetOwner || "—")],
+    ["Min Payout", item.ownerMinPayout ? formatMoney(item.ownerMinPayout) : "—"],
+    ["Commission", `${num(d.pct)}%`]
   ]);
 
-  let listing = "";
-  if (stage >= STAGE_INDEX.Listed) {
-    const aging = d.agingStatus
-      ? `<p class="card-aging aging ${agingClass(d.agingStatus)}">${escapeHTML(d.agingStatus)}</p>`
-      : "";
-    listing = cardSection("Listing", [
-      ["List Price", formatMoney(item.pricing.currentListPrice)],
-      ["Exp. Profit", `<span class="${profitCellClass(d.expectedNetProfit)}">${formatMoney(d.expectedNetProfit)}</span>`],
-      ["Exp. Margin", formatPercent(d.expectedMargin)],
-      ["Date Listed", escapeHTML(item.dateListed || "—")],
-      ["Days Listed", d.daysListed === null ? "—" : String(d.daysListed)]
-    ], `${aging}<div class="item-card__actions">${listingLink(item)}</div>`);
+  let selection = "";
+  if (stage >= STAGE_INDEX.Selected) {
+    selection = cardSection("Selection", [
+      ["Drop", escapeHTML(dropLabel(item))],
+      ["List Price", formatMoney(d.listPrice)],
+      ["Exp. Commission", formatMoney(d.expectedCommission)],
+      ["Exp. Owner Payout", formatMoney(d.expectedOwnerPayout)],
+      ["Verified", item.verified ? "Yes" : "No"]
+    ]);
   }
 
   let sale = "";
   if (stage >= STAGE_INDEX.Sold) {
-    const sa = item.soldActuals;
     sale = cardSection("Sale", [
-      ["Sale Price", formatMoney(sa.finalSalePrice)],
-      ["Net Payout", formatMoney(d.finalNetPayout)],
-      ["Net Profit", `<span class="${profitCellClass(d.finalNetProfit)}">${formatMoney(d.finalNetProfit)}</span>`],
-      ["Margin", formatPercent(d.finalMargin)],
-      ["Sold Platform", escapeHTML(sa.soldPlatform || "—")],
-      ["Date Sold", escapeHTML(item.dateSold || sa.dateSold || "—")],
+      ["Sold Price", formatMoney(d.soldPrice)],
+      ["Poda Commission", formatMoney(d.finalCommission)],
+      ["Owner Payout", `<span class="cell-pos">${formatMoney(d.ownerPayout)}</span>`],
+      ["Date Sold", escapeHTML(item.dateSold || "—")],
       ["Days to Sell", d.daysToSell === null ? "—" : String(d.daysToSell)]
     ]);
   }
@@ -706,8 +703,8 @@ function itemCard(item) {
           ${metaLine(item)}
         </div>
         ${gapsBlock(item)}
-        ${acquisition}
-        ${listing}
+        ${closet}
+        ${selection}
         ${sale}
         <div class="closet-card__status" data-no-edit>${statusSelect(item)}</div>
       </div>
@@ -716,58 +713,100 @@ function itemCard(item) {
 }
 
 /* ============================================================
-   View: Closet
+   View: Selected — grouped by drop
    ============================================================ */
-function renderCloset() {
-  const items = state.items.filter(item => item.status === "Closet");
-
+function renderSelected() {
+  const items = state.items.filter(i => i.status === "Selected");
   adminMain.innerHTML = `
-    ${sectionBar("Closet OS", "Closet")}
+    ${sectionBar("Admin", "Selected")}
+    <p class="admin-hint">Pieces picked for a drop. Once you physically have and verify one, set it to <strong>Live</strong> to publish it.</p>
     ${items.length
       ? `<div class="closet-grid">${items.map(itemCard).join("")}</div>`
-      : `<p class="admin-empty">Nothing in the closet yet. Items appear here when set to Closet.</p>`
+      : `<p class="admin-empty">Nothing selected yet. Pull pieces in from <strong>Available</strong>.</p>`
     }
   `;
 }
 
 /* ============================================================
-   View: Listed
+   View: Live — the current store
    ============================================================ */
-function renderListed() {
-  const items = state.items.filter(item => item.status === "Listed");
-
+function renderLive() {
+  const items = state.items.filter(i => i.status === "Live");
   adminMain.innerHTML = `
-    ${sectionBar("Closet OS", "Listed")}
+    ${sectionBar("Admin", "Live")}
+    <p class="admin-hint">Currently for sale on the public Drop. Set to <strong>Sold</strong> and enter the final price to record a sale.</p>
     ${items.length
       ? `<div class="closet-grid">${items.map(itemCard).join("")}</div>`
-      : `<p class="admin-empty">Nothing listed yet. Items appear here when set to Listed.</p>`
+      : `<p class="admin-empty">Nothing live yet.</p>`
     }
   `;
 }
 
 /* ============================================================
-   View: Sold
+   View: Sold — realized figures + payouts
    ============================================================ */
 function renderSold() {
-  const items = state.items.filter(item => item.status === "Sold");
+  const items = state.items.filter(i => i.status === "Sold");
 
-  const totalProfit = items.reduce((sum, item) => sum + calc(item).finalNetProfit, 0);
-  const margins = items.map(item => calc(item).finalMargin).filter(value => Number.isFinite(value));
-  const avgMargin = margins.length ? margins.reduce((sum, value) => sum + value, 0) / margins.length : 0;
-  const daysList = items.map(item => calc(item).daysToSell).filter(value => value !== null);
-  const avgDaysToSell = daysList.length ? daysList.reduce((sum, value) => sum + value, 0) / daysList.length : 0;
+  const gmv = items.reduce((sum, i) => sum + calc(i).soldPrice, 0);
+  const revenue = items.reduce((sum, i) => sum + calc(i).finalCommission, 0);
+  const owed = items.reduce((sum, i) => sum + calc(i).ownerPayout, 0);
+  const days = items.map(i => calc(i).daysToSell).filter(v => v !== null);
+  const avgDays = days.length ? days.reduce((s, v) => s + v, 0) / days.length : 0;
 
   adminMain.innerHTML = `
-    ${sectionBar("Closet OS", "Sold")}
+    ${sectionBar("Admin", "Sold")}
     <div class="summary-bar">
       <div><span>Items Sold</span><strong>${items.length}</strong></div>
-      <div><span>Realized Profit</span><strong>${formatMoney(totalProfit)}</strong></div>
-      <div><span>Avg Margin</span><strong>${formatPercent(avgMargin)}</strong></div>
-      <div><span>Avg Days to Sell</span><strong>${avgDaysToSell ? avgDaysToSell.toFixed(0) : "0"}</strong></div>
+      <div><span>GMV</span><strong>${formatMoney(gmv)}</strong></div>
+      <div><span>Poda Revenue</span><strong>${formatMoney(revenue)}</strong></div>
+      <div><span>Owed to Consignors</span><strong>${formatMoney(owed)}</strong></div>
+      <div><span>Avg Days to Sell</span><strong>${avgDays ? avgDays.toFixed(0) : "0"}</strong></div>
     </div>
     ${items.length
       ? `<div class="closet-grid">${items.map(itemCard).join("")}</div>`
       : `<p class="admin-empty">No sold items yet.</p>`
+    }
+  `;
+}
+
+/* ============================================================
+   View: All Items — full filterable table
+   ============================================================ */
+function renderAllItems() {
+  const rows = applyFilters(state.items, { useStatus: true }).map(item => {
+    const d = calc(item);
+    return `
+      <tr data-edit-id="${escapeHTML(item.id)}">
+        <td>${thumbCell(item)}</td>
+        <td class="cell-mono">${escapeHTML(item.id)}</td>
+        <td>${escapeHTML(item.closetOwner || "—")}</td>
+        <td class="cell-strong">${escapeHTML(item.brand)}</td>
+        <td>${escapeHTML(item.itemName)}</td>
+        <td data-no-edit>${statusSelect(item)}</td>
+        <td class="cell-mono">${escapeHTML(dropLabel(item))}</td>
+        <td class="cell-num">${d.listPrice ? formatMoney(d.listPrice) : "—"}</td>
+        <td class="cell-num">${item.status === "Sold" ? formatMoney(d.soldPrice) : "—"}</td>
+      </tr>
+    `;
+  }).join("");
+
+  adminMain.innerHTML = `
+    ${sectionBar("Admin", "All Items")}
+    ${filterBar(true)}
+    ${state.items.length === 0
+      ? `<p class="admin-empty">No items yet.</p>`
+      : `<div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th></th><th>Item ID</th><th>Closet</th><th>Brand</th><th>Name</th>
+                <th>Status</th><th>Drop</th><th class="cell-num">List</th><th class="cell-num">Sold</th>
+              </tr>
+            </thead>
+            <tbody>${rows || `<tr><td colspan="9" class="admin-empty">No items match these filters.</td></tr>`}</tbody>
+          </table>
+        </div>`
     }
   `;
 }
@@ -778,8 +817,6 @@ function renderSold() {
 const modalOverlay = document.getElementById("modalOverlay");
 const modalContent = document.getElementById("modalContent");
 
-// Field builders. `name` uses dot-paths (e.g. "costs.purchasePrice").
-// `opts.field` adds a data-field attribute used by the status state machine.
 function dataFieldAttr(opts) {
   return opts.field ? ` data-field="${opts.field}"` : "";
 }
@@ -802,7 +839,6 @@ function textField(label, name, value, opts = {}) {
 }
 
 function numberField(label, name, value, opts = {}) {
-  // Show 0 when it's been explicitly set; only leave blank when null/undefined/""
   const display = (value === null || value === undefined || value === "") ? "" : value;
   return textField(label, name, display, { ...opts, type: "number" });
 }
@@ -841,7 +877,6 @@ function checkboxField(label, name, checked) {
   `;
 }
 
-// Read-only calculated output, updated live by recalcForm().
 function calcField(label, id, value) {
   return `
     <div class="field field--calc">
@@ -851,18 +886,25 @@ function calcField(label, id, value) {
   `;
 }
 
+// Datalist of existing closet owners so the admin can reuse a closet quickly.
+function ownerDatalist() {
+  const owners = ownerValues();
+  return `<datalist id="ownerList">${owners.map(o => `<option value="${escapeHTML(o)}"></option>`).join("")}</datalist>`;
+}
+
 function buildForm(item) {
   const d = calc(item);
 
   return `
     <form id="itemForm" novalidate>
       <p class="field-error" id="formError" hidden></p>
+      ${ownerDatalist()}
 
       <!-- Status (locked — change from the item card/row) -->
       <section class="form-card">
         <div class="section-bar"><span class="section-bar__title">Status</span></div>
         <div class="form-section">
-          <div class="toggle-group" role="group" aria-label="Status (locked)">
+          <div class="toggle-group toggle-group--wrap" role="group" aria-label="Status (locked)">
             ${STATUSES.map(stage =>
               `<button type="button" class="toggle${item.status === stage ? " active" : ""}" disabled>${escapeHTML(stage)}</button>`
             ).join("")}
@@ -884,7 +926,7 @@ function buildForm(item) {
         </div>
       </section>
 
-      <!-- Item identity — always editable -->
+      <!-- Item identity -->
       <section class="form-card">
         <div class="section-bar"><span class="section-bar__title">Item</span></div>
         <div class="field-grid">
@@ -892,70 +934,72 @@ function buildForm(item) {
           ${textField("Item Name", "itemName", item.itemName)}
           ${selectField("Category", "category", item.category, CATEGORIES)}
           ${textField("Size", "size", item.size)}
+          ${textField("Measurements", "measurements", item.measurements, { placeholder: "e.g. Chest 21in · Length 28in" })}
+          ${textField("Material", "material", item.material, { placeholder: "e.g. Wool / nylon" })}
           ${textField("Color", "color", item.color)}
+          ${textField("Season / Era", "season", item.season, { placeholder: "e.g. FW03, when known" })}
           ${selectField("Condition", "condition", item.condition, CONDITIONS)}
+          ${textField("Condition Notes", "conditionNotes", item.conditionNotes, { placeholder: "Any flaws / wear" })}
           ${textareaField("Public Description", "publicDescription", item.publicDescription)}
+          ${textareaField("Why poda selected it", "selectionReason", item.selectionReason)}
           ${textareaField("Private Notes", "privateNotes", item.privateNotes)}
         </div>
       </section>
 
-      <!-- Acquisition (Closet stage) -->
-      <section class="form-card" data-stage="Closet">
-        <div class="section-bar"><span class="section-bar__title">Acquisition</span></div>
+      <!-- Source & transaction (drives the public CTA) -->
+      <section class="form-card">
+        <div class="section-bar"><span class="section-bar__title">Source &amp; Transaction</span></div>
         <div class="field-grid">
-          ${dateField("Date Acquired", "dateAcquired", item.dateAcquired)}
-          ${textField("Source / Seller", "source", item.source)}
-          ${selectField("Purchase Platform", "purchasePlatform", item.purchasePlatform, PURCHASE_PLATFORMS)}
-          ${numberField("Cost", "costs.purchasePrice", item.costs.purchasePrice)}
-          ${numberField("Inbound Shipping", "costs.inboundShipping", item.costs.inboundShipping)}
-          ${numberField("Tax", "costs.tax", item.costs.tax)}
-          ${numberField("Misc", "costs.otherPrepCost", item.costs.otherPrepCost)}
-          ${calcField("Total Cost Basis", "calcTotalCostBasis", formatMoney2(d.totalCostBasis))}
+          ${selectField("Source Type", "sourceType", item.sourceType, SOURCE_TYPES)}
+          ${textField("Source Name", "sourceName", item.sourceName, { placeholder: "e.g. Independent Brand 01" })}
+          ${selectField("Transaction Type", "transactionType", item.transactionType, TRANSACTION_TYPES)}
+          ${textField("Partner URL", "externalUrl", item.externalUrl, { placeholder: "Only for 'partner' items" })}
+          ${textField("Item ID", "itemCode", item.itemCode, { placeholder: "PODA-001-FW-001" })}
         </div>
       </section>
 
-      <!-- Listing (Listed stage) -->
-      <section class="form-card" data-stage="Listed">
-        <div class="section-bar"><span class="section-bar__title">Listing</span></div>
+      <!-- Closet / consignment (base) -->
+      <section class="form-card">
+        <div class="section-bar"><span class="section-bar__title">Closet</span></div>
         <div class="field-grid">
-          ${textField("Season / Year", "season", item.season)}
-          ${dateField("Date Listed", "dateListed", item.dateListed)}
-          ${numberField("Listing Price", "pricing.currentListPrice", item.pricing.currentListPrice, { required: true, placeholder: "Required" })}
-          ${numberField("Estimated Shipping", "platform.estimatedShipping", item.platform.estimatedShipping)}
-          ${checkboxField("Buyer Pays Shipping", "platform.buyerPaysShipping", item.platform.buyerPaysShipping)}
-          ${checkboxField("Seller Pays Shipping", "platform.sellerPaysShipping", item.platform.sellerPaysShipping)}
-          ${calcField(`Assumed Fee (${ASSUMED_FEE_PCT}%)`, "calcAssumedFee", formatMoney2(d.expectedFee))}
-          ${calcField("Expected Net Payout", "calcExpectedNetPayout", formatMoney2(d.expectedNetPayout))}
-          ${calcField("Expected Net Profit", "calcExpectedNetProfit", formatMoney2(d.expectedNetProfit))}
-          ${calcField("Expected Margin", "calcExpectedMargin", formatPercent(d.expectedMargin))}
-          ${calcField("Break-Even Price", "calcBreakEven", formatMoney2(d.breakEvenPrice))}
-          ${calcField("Markup %", "calcMarkup", formatPercent(d.markupPercent))}
+          <div class="field">
+            <label for="closetOwner">Closet Owner</label>
+            <input name="closetOwner" id="closetOwner" list="ownerList" value="${escapeHTML(item.closetOwner ?? "")}" placeholder="Whose closet?" />
+          </div>
+          ${numberField("Owner Min Payout", "ownerMinPayout", item.ownerMinPayout)}
+          ${numberField("Commission %", "commissionPercent", item.commissionPercent, { placeholder: String(DEFAULT_COMMISSION_PCT) })}
         </div>
       </section>
 
-      <!-- Listing URLs (Listed stage) -->
-      <section class="form-card" data-stage="Listed">
-        <div class="section-bar"><span class="section-bar__title">Listing URLs</span></div>
+      <!-- Selection / pricing (Selected stage) -->
+      <section class="form-card" data-stage="Selected">
+        <div class="section-bar"><span class="section-bar__title">Selection &amp; Pricing</span></div>
         <div class="field-grid">
-          ${LISTING_URL_FIELDS.map(([label, key]) =>
-            textField(`${label} URL`, `platform.${key}`, item.platform[key])
-          ).join("")}
+          ${textField("Drop #", "dropNumber", item.dropNumber, { placeholder: "e.g. 001" })}
+          ${dateField("Date Selected", "dateSelected", item.dateSelected)}
+          ${numberField("Poda List Price", "pricing.currentListPrice", item.pricing.currentListPrice, { required: true, placeholder: "Required" })}
+          ${calcField("Poda Commission", "calcCommission", formatMoney2(d.expectedCommission))}
+          ${calcField("Owner Payout", "calcOwnerPayout", formatMoney2(d.expectedOwnerPayout))}
         </div>
       </section>
 
-      <!-- Sale (Sold stage) — actual figures entered here -->
+      <!-- Verification / go-live (Live stage) -->
+      <section class="form-card" data-stage="Live">
+        <div class="section-bar"><span class="section-bar__title">Verification</span></div>
+        <div class="field-grid">
+          ${checkboxField("Verified — in hand, condition & measurements checked", "verified", item.verified)}
+          ${dateField("Date Live", "dateLive", item.dateLive)}
+        </div>
+      </section>
+
+      <!-- Sale (Sold stage) -->
       <section class="form-card" data-stage="Sold">
         <div class="section-bar"><span class="section-bar__title">Sale</span></div>
         <div class="field-grid">
           ${dateField("Date Sold", "dateSold", item.dateSold)}
-          ${selectField("Sold Platform", "soldActuals.soldPlatform", item.soldActuals.soldPlatform, SOLD_PLATFORMS)}
-          ${numberField("Sale Price", "soldActuals.finalSalePrice", item.soldActuals.finalSalePrice)}
-          ${numberField("Actual Platform Fee", "soldActuals.finalPlatformFee", item.soldActuals.finalPlatformFee)}
-          ${numberField("Actual Processing Fee", "soldActuals.finalPaymentFee", item.soldActuals.finalPaymentFee)}
-          ${numberField("Actual Shipping", "soldActuals.finalShipping", item.soldActuals.finalShipping)}
-          ${calcField("Net Payout", "calcFinalNetPayout", formatMoney2(d.finalNetPayout))}
-          ${calcField("Net Profit", "calcFinalNetProfit", formatMoney2(d.finalNetProfit))}
-          ${calcField("Margin", "calcFinalMargin", formatPercent(d.finalMargin))}
+          ${numberField("Final Sold Price", "soldActuals.finalSalePrice", item.soldActuals.finalSalePrice)}
+          ${calcField("Poda Commission", "calcFinalCommission", formatMoney2(d.finalCommission))}
+          ${calcField("Owner Payout", "calcFinalOwnerPayout", formatMoney2(d.ownerPayout))}
           ${calcField("Days to Sell", "calcDaysToSell", d.daysToSell === null ? "—" : d.daysToSell)}
         </div>
       </section>
@@ -1020,8 +1064,6 @@ function renderImageStrip() {
   }).join("");
 }
 
-// localStorage is ~5MB and strict on iOS, so full-res photos must be shrunk before
-// storing or saves fail silently. Downscale to MAX_IMAGE_DIM and JPEG-encode.
 const MAX_IMAGE_DIM = 1200;
 const IMAGE_QUALITY = 0.72;
 
@@ -1045,7 +1087,7 @@ function compressImage(file) {
           resolve(reader.result);
         }
       };
-      img.onerror = () => resolve(reader.result); // e.g. format canvas can't decode
+      img.onerror = () => resolve(reader.result);
       img.src = reader.result;
     };
     reader.onerror = () => resolve(null);
@@ -1057,8 +1099,6 @@ async function handleImageUpload(event) {
   const files = [...event.target.files];
   if (!files.length) return;
 
-  // Compress for fast uploads, then store the file in Supabase Storage and
-  // keep only its public URL on the item (no more bulky base64 in the record).
   for (const file of files) {
     const dataUrl = await compressImage(file);
     if (!dataUrl) continue;
@@ -1072,7 +1112,7 @@ async function handleImageUpload(event) {
     }
   }
 
-  event.target.value = ""; // let the same file be re-selected if needed
+  event.target.value = "";
 }
 
 /* ============================================================
@@ -1092,13 +1132,11 @@ function getByPath(object, path) {
   return path.split(".").reduce((node, key) => (node == null ? undefined : node[key]), object);
 }
 
-// Reset a stage's fields back to their blank defaults (used when reverting a stage).
 function clearStageFields(item, stage) {
   const defaults = blankItem();
   (STAGE_FIELDS[stage] || []).forEach(path => setByPath(item, path, getByPath(defaults, path)));
 }
 
-// Build an item object from the current form state (without persisting).
 function readForm() {
   const base = state.editingId ? structuredClone(getItemById(state.editingId)) : blankItem();
   base.images = [...state.draftImages];
@@ -1111,7 +1149,6 @@ function readForm() {
 
     let value;
     if (element.type === "checkbox") value = element.checked;
-    // Keep blank as null (not 0) so we can tell "not entered" from "explicitly 0"
     else if (element.type === "number") value = element.value === "" ? null : Number(element.value);
     else value = element.value;
 
@@ -1121,56 +1158,28 @@ function readForm() {
   return base;
 }
 
-// Recompute everything derived and refresh the read-only outputs + ID.
 function recalcForm() {
   const item = readForm();
   const d = calc(item);
 
   const outputs = {
-    calcTotalCostBasis: formatMoney2(d.totalCostBasis),
-    calcAssumedFee: formatMoney2(d.expectedFee),
-    calcExpectedNetPayout: formatMoney2(d.expectedNetPayout),
-    calcExpectedNetProfit: formatMoney2(d.expectedNetProfit),
-    calcExpectedMargin: formatPercent(d.expectedMargin),
-    calcBreakEven: formatMoney2(d.breakEvenPrice),
-    calcMarkup: formatPercent(d.markupPercent),
-    calcFinalNetPayout: formatMoney2(d.finalNetPayout),
-    calcFinalNetProfit: formatMoney2(d.finalNetProfit),
-    calcFinalMargin: formatPercent(d.finalMargin),
+    calcCommission: formatMoney2(d.expectedCommission),
+    calcOwnerPayout: formatMoney2(d.expectedOwnerPayout),
+    calcFinalCommission: formatMoney2(d.finalCommission),
+    calcFinalOwnerPayout: formatMoney2(d.ownerPayout),
     calcDaysToSell: d.daysToSell === null ? "—" : String(d.daysToSell)
   };
   Object.entries(outputs).forEach(([id, value]) => {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   });
-
-  // Live preview of the auto-generated ID (only when not yet saved with an ID).
-  const idField = document.getElementById("fieldItemId");
-  if (idField && !state.editingId) {
-    idField.value = (item.brand && item.season && item.category) ? generateItemId(item) : "";
-  }
 }
 
-// Any editable input recomputes the derived/read-only outputs. Buyer/Seller Pays
-// Shipping are mutually exclusive — checking one clears the other.
-function handleFormInput(event) {
-  const target = event && event.target;
-
-  if (target && target.type === "checkbox" && target.checked) {
-    if (target.name === "platform.buyerPaysShipping") {
-      const seller = document.querySelector('[name="platform.sellerPaysShipping"]');
-      if (seller) seller.checked = false;
-    } else if (target.name === "platform.sellerPaysShipping") {
-      const buyer = document.querySelector('[name="platform.buyerPaysShipping"]');
-      if (buyer) buyer.checked = false;
-    }
-  }
-
+function handleFormInput() {
   recalcForm();
 }
 
-// Show/hide whole stage cards: a stage card is hidden until the item reaches that
-// stage. Hidden cards keep their inputs in the DOM (values preserved, not wiped).
+// Show/hide stage cards: a stage card stays hidden until the item reaches it.
 function applyStageVisibility(status) {
   const form = document.getElementById("itemForm");
   if (!form) return;
@@ -1185,18 +1194,14 @@ async function saveItem() {
   const item = readForm();
   const errorBox = document.getElementById("formError");
 
-  // 1. Validate required fields.
   const missing = [];
   if (!item.brand.trim()) missing.push("Brand");
   if (!item.itemName.trim()) missing.push("Item Name");
   if (!item.category) missing.push("Category");
-  if (!item.status) missing.push("Status");
-  if ((item.status === "Listed" || item.status === "Sold") && !(num(item.pricing.currentListPrice) > 0)) {
-    missing.push("Listing Price");
-  }
-  if (item.status === "Sold" && !(num(item.soldActuals.finalSalePrice) > 0)) {
-    missing.push("Sale Price");
-  }
+  const stage = STAGE_INDEX[item.status] ?? 0;
+  if (stage >= STAGE_INDEX.Selected && !String(item.dropNumber || "").trim()) missing.push("Drop #");
+  if (stage >= STAGE_INDEX.Selected && !(num(item.pricing.currentListPrice) > 0)) missing.push("List Price");
+  if (stage >= STAGE_INDEX.Sold && !(num(item.soldActuals.finalSalePrice) > 0)) missing.push("Sold Price");
 
   if (missing.length) {
     errorBox.textContent = `Missing required field(s): ${missing.join(", ")}.`;
@@ -1205,15 +1210,13 @@ async function saveItem() {
     return;
   }
 
-  // 2. Generate/confirm ID.
   item.brandCode = item.brandCode || makeBrandCode(item.brand);
   if (!item.id) item.id = generateItemId(item);
 
-  // 3. Persist, 4. close, 5. re-render.
   try {
     await upsertItem(item);
   } catch (error) {
-    return; // upsertItem already alerted the user; keep the modal open
+    return;
   }
   closeModal();
   renderCurrentView();
@@ -1234,7 +1237,7 @@ function bindModalEvents() {
         try {
           await deleteItemById(state.editingId);
         } catch (error) {
-          return; // deleteItemById already alerted the user
+          return;
         }
         closeModal();
         renderCurrentView();
@@ -1248,7 +1251,6 @@ function bindModalEvents() {
   form.addEventListener("input", handleFormInput);
   form.addEventListener("change", handleFormInput);
 
-  // Image strip: click to set primary, × to remove.
   document.getElementById("imageStrip").addEventListener("click", event => {
     const removeBtn = event.target.closest("[data-remove-index]");
     if (removeBtn) {
@@ -1267,30 +1269,48 @@ function bindModalEvents() {
   });
 }
 
-// Delegated events on the main content area (rows, filters, inline status, +New).
 function bindMainEvents() {
   adminMain.addEventListener("click", event => {
-    if (event.target.closest("[data-new-item]")) {
-      openModal(null);
-      return;
-    }
-    if (event.target.closest("[data-new-note]")) {
-      openNoteModal(null);
-      return;
-    }
-    // Don't open the modal when interacting with inline controls.
+    if (event.target.closest("[data-new-item]")) { openModal(null); return; }
+    if (event.target.closest("[data-new-note]")) { openNoteModal(null); return; }
+    if (event.target.closest("[data-new-drop]")) { openDropModal(null); return; }
+    if (event.target.closest("[data-new-study]")) { openStudyModal(null); return; }
+    if (event.target.closest("[data-export-subscribers]")) { exportSubscribersCSV(); return; }
     if (event.target.closest("[data-no-edit]")) return;
 
-    // Note rows
     const noteRow = event.target.closest("[data-note-edit]");
     if (noteRow) { openNoteModal(noteRow.dataset.noteEdit); return; }
+
+    const dropRow = event.target.closest("[data-drop-edit]");
+    if (dropRow) { openDropModal(dropRow.dataset.dropEdit); return; }
+
+    const studyRow = event.target.closest("[data-study-edit]");
+    if (studyRow) { openStudyModal(studyRow.dataset.studyEdit); return; }
 
     const row = event.target.closest("[data-edit-id]");
     if (row) openModal(row.dataset.editId);
   });
 
-  // Inline status change.
+  // Inline status change — drives the whole lifecycle.
   adminMain.addEventListener("change", async event => {
+    const subStatusEl = event.target.closest("[data-subscriber-status-for]");
+    if (subStatusEl) {
+      const id = subStatusEl.dataset.subscriberStatusFor;
+      const newStatus = subStatusEl.value;
+      const sub = subscriberState.subscribers.find(s => s.id === id);
+      if (!sub) return;
+      try {
+        const patch = { status: newStatus };
+        if (newStatus === "UNSUBSCRIBED") patch.unsubscribedAt = new Date().toISOString();
+        const merged = await window.PodaDB.updateSubscriber(id, patch);
+        Object.assign(sub, merged);
+      } catch (error) {
+        alert("Could not update the subscriber. Check your connection and try again.");
+      }
+      renderCurrentView();
+      return;
+    }
+
     const statusEl = event.target.closest("[data-status-for]");
     if (statusEl) {
       const item = getItemById(statusEl.dataset.statusFor);
@@ -1299,11 +1319,7 @@ function bindMainEvents() {
         const newStatus = statusEl.value;
         const allowed = TRANSITIONS[oldStatus] || [];
 
-        // Ignore (and revert) any transition the rules don't permit.
-        if (!allowed.includes(newStatus)) {
-          renderCurrentView();
-          return;
-        }
+        if (!allowed.includes(newStatus)) { renderCurrentView(); return; }
 
         const oldIndex = STAGE_INDEX[oldStatus] ?? 0;
         const newIndex = STAGE_INDEX[newStatus] ?? 0;
@@ -1311,19 +1327,21 @@ function bindMainEvents() {
 
         if (newIndex > oldIndex) {
           // Moving forward — auto-stamp the stage date if not already set.
-          if (newStatus === "Listed" && !item.dateListed) item.dateListed = today;
+          if (newStatus === "Selected" && !item.dateSelected) item.dateSelected = today;
+          if (newStatus === "Live" && !item.dateLive) item.dateLive = today;
           if (newStatus === "Sold" && !item.dateSold) item.dateSold = today;
         } else if (newIndex < oldIndex) {
           // Reverting — clear every stage above the new one so it's re-entered.
           if (STAGE_INDEX.Sold > newIndex) clearStageFields(item, "Sold");
-          if (STAGE_INDEX.Listed > newIndex) clearStageFields(item, "Listed");
+          if (STAGE_INDEX.Live > newIndex) clearStageFields(item, "Live");
+          if (STAGE_INDEX.Selected > newIndex) clearStageFields(item, "Selected");
         }
 
         item.status = newStatus;
         try {
           await upsertItem(item);
         } catch (error) {
-          state.items = await loadItems(); // re-sync after a failed save
+          state.items = await loadItems();
         }
         renderCurrentView();
       }
@@ -1331,18 +1349,17 @@ function bindMainEvents() {
     }
 
     const filterEl = event.target.closest("[data-filter]");
-    if (filterEl) {
+    if (filterEl && filterEl.dataset.filter !== "brand") {
       state.filters[filterEl.dataset.filter] = filterEl.value;
-      renderAllItems();
+      renderCurrentView();
     }
   });
 
-  // Brand text filter (input event).
   adminMain.addEventListener("input", event => {
     const filterEl = event.target.closest('[data-filter="brand"]');
     if (filterEl) {
       state.filters.brand = filterEl.value;
-      renderAllItems();
+      renderCurrentView();
     }
   });
 }
@@ -1373,16 +1390,17 @@ function showLogin() {
   adminApp.hidden = true;
 }
 
-// Reveal the app and load the live inventory from the database.
 async function startApp() {
   if (appStarted) return;
   appStarted = true;
   loginGate.hidden = true;
   adminApp.hidden = false;
-  [state.items, noteState.notes, archiveState.images] = await Promise.all([
+  [state.items, noteState.notes, dropState.drops, studyState.studies, subscriberState.subscribers] = await Promise.all([
     loadItems(),
     window.PodaDB.getNotes().catch(() => []),
-    window.PodaDB.getArchiveImages().catch(() => [])
+    window.PodaDB.getDrops ? window.PodaDB.getDrops().catch(() => []) : Promise.resolve([]),
+    window.PodaDB.getStudies ? window.PodaDB.getStudies().catch(() => []) : Promise.resolve([]),
+    window.PodaDB.getSubscribers ? window.PodaDB.getSubscribers().catch(() => []) : Promise.resolve([])
   ]);
   setView("dashboard");
 }
@@ -1404,9 +1422,7 @@ function bindAuthEvents() {
       await window.PodaDB.signIn(email, password);
       await startApp();
     } catch (error) {
-      loginError.textContent = error && error.message
-        ? error.message
-        : "Sign in failed. Check your email and password.";
+      loginError.textContent = error && error.message ? error.message : "Sign in failed. Check your email and password.";
       loginError.hidden = false;
       console.error("Login error:", error);
     } finally {
@@ -1428,9 +1444,7 @@ function bindAuthEvents() {
 }
 
 /* ============================================================
-   Download the live inventory workbook (Excel). Built from the
-   current items, so it's empty when the closet is empty and
-   populates one row per item as you add them.
+   Download the inventory workbook (Excel).
    ============================================================ */
 async function exportToExcel() {
   if (!window.PodaExcel) {
@@ -1454,15 +1468,12 @@ async function exportToExcel() {
 }
 
 /* ============================================================
-   JSON backup + restore — a full-fidelity safety net.
-   Backup downloads every item (incl. image URLs) as JSON;
-   Restore reads such a file and writes the items back to the DB.
-   Unlike the Excel export, a backup can be re-imported to recover.
+   JSON backup + restore — full-fidelity safety net.
    ============================================================ */
 function downloadBackup() {
   const payload = {
     type: "poda-backup",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     count: state.items.length,
     items: state.items
@@ -1481,7 +1492,7 @@ function downloadBackup() {
 
 async function restoreFromFile(event) {
   const file = event.target.files && event.target.files[0];
-  event.target.value = ""; // let the same file be chosen again later
+  event.target.value = "";
   if (!file) return;
 
   let parsed;
@@ -1492,7 +1503,6 @@ async function restoreFromFile(event) {
     return;
   }
 
-  // Accept either a { items: [...] } backup envelope or a bare array.
   const list = Array.isArray(parsed) ? parsed
     : (parsed && Array.isArray(parsed.items) ? parsed.items : null);
   if (!list) {
@@ -1500,22 +1510,17 @@ async function restoreFromFile(event) {
     return;
   }
 
-  // Only restore objects that have a usable id.
   const items = list.filter(item => item && typeof item.id === "string" && item.id);
   if (!items.length) {
     alert("No valid items were found in that backup.");
     return;
   }
 
-  if (!confirm(
-    `Restore ${items.length} item(s) from this backup?\n` +
-    `Any existing item with the same ID will be overwritten.`
-  )) {
+  if (!confirm(`Restore ${items.length} item(s) from this backup?\nAny existing item with the same ID will be overwritten.`)) {
     return;
   }
 
-  let restored = 0;
-  let failed = 0;
+  let restored = 0, failed = 0;
   for (const item of items) {
     try {
       await window.PodaDB.upsertItem(item);
@@ -1537,34 +1542,21 @@ async function restoreFromFile(event) {
    ============================================================ */
 async function importFromBrowser() {
   let raw = null;
-  try {
-    raw = localStorage.getItem(STORAGE_KEY);
-  } catch (error) {
-    raw = null;
-  }
+  try { raw = localStorage.getItem(STORAGE_KEY); } catch (error) { raw = null; }
 
   let legacyItems = [];
-  try {
-    legacyItems = raw ? JSON.parse(raw) : [];
-  } catch (error) {
-    legacyItems = [];
-  }
+  try { legacyItems = raw ? JSON.parse(raw) : []; } catch (error) { legacyItems = []; }
 
   if (!Array.isArray(legacyItems) || !legacyItems.length) {
     alert("No saved items were found in this browser to import.");
     return;
   }
 
-  if (!confirm(`Import ${legacyItems.length} item(s) from this browser into the database?`)) {
-    return;
-  }
+  if (!confirm(`Import ${legacyItems.length} item(s) from this browser into the database?`)) return;
 
-  let imported = 0;
-  let failed = 0;
-
+  let imported = 0, failed = 0;
   for (const item of legacyItems) {
     try {
-      // Replace any embedded base64 images with uploaded files.
       const map = new Map();
       const uploaded = [];
       for (const img of Array.isArray(item.images) ? item.images : []) {
@@ -1574,9 +1566,7 @@ async function importFromBrowser() {
         uploaded.push(url);
       }
       item.images = uploaded;
-      if (item.primaryImage) {
-        item.primaryImage = map.get(item.primaryImage) || uploaded[0] || "";
-      }
+      if (item.primaryImage) item.primaryImage = map.get(item.primaryImage) || uploaded[0] || "";
 
       await window.PodaDB.upsertItem(item);
       imported++;
@@ -1592,11 +1582,11 @@ async function importFromBrowser() {
 }
 
 /* ============================================================
-   Market Notes — state, helpers, views, modal
+   Market Notes — Poda's public buy / sell / watch brain
    ============================================================ */
-const noteState = {
-  notes: []
-};
+const NOTE_CATEGORIES = ["buy", "sell", "watch"];
+
+const noteState = { notes: [] };
 
 function blankNote() {
   return {
@@ -1605,7 +1595,8 @@ function blankNote() {
     subtitle: "",
     body: "",
     coverImage: "",
-    substackUrl: "",        // optional link to Substack article
+    category: "buy",        // "buy" | "sell" | "watch"
+    substackUrl: "",
     status: "draft",        // "draft" | "published"
     publishedAt: "",
     createdAt: new Date().toISOString()
@@ -1627,13 +1618,19 @@ function noteDateLabel(note) {
   return new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-/* —— View: Notes list —— */
+function categoryBadge(category) {
+  const c = String(category || "").toLowerCase();
+  const cls = { buy: "badge--available", sell: "badge--selected", watch: "badge--listed" }[c] || "badge--draft";
+  return `<span class="badge ${cls}">${escapeHTML(c ? c.toUpperCase() : "—")}</span>`;
+}
+
 function renderNotes() {
   const notes = noteState.notes;
 
   const rows = notes.map(note => `
     <tr data-note-edit="${escapeHTML(note.id)}">
       <td class="cell-mono">${escapeHTML(note.id)}</td>
+      <td>${categoryBadge(note.category)}</td>
       <td class="cell-strong">${escapeHTML(note.title || "Untitled")}</td>
       <td>${escapeHTML(note.subtitle || "—")}</td>
       <td><span class="badge ${note.status === "published" ? "badge--listed" : "badge--draft"}">${escapeHTML(note.status)}</span></td>
@@ -1647,8 +1644,8 @@ function renderNotes() {
 
   adminMain.innerHTML = `
     <div class="section-bar section-bar--admin">
-      <span class="section-bar__label">Inbox</span>
-      <span class="section-bar__title">Market Notes</span>
+      <span class="section-bar__label">Research</span>
+      <span class="section-bar__title">Inbox</span>
       <button type="button" class="admin-newitem section-bar__action" data-new-note>+ New Note</button>
     </div>
     ${notes.length === 0
@@ -1656,10 +1653,7 @@ function renderNotes() {
       : `<div class="table-wrap">
           <table class="admin-table">
             <thead>
-              <tr>
-                <th>ID</th><th>Title</th><th>Subtitle</th>
-                <th>Status</th><th>Date</th><th></th>
-              </tr>
+              <tr><th>ID</th><th>Type</th><th>Title</th><th>Subtitle</th><th>Status</th><th>Date</th><th></th></tr>
             </thead>
             <tbody>${rows}</tbody>
           </table>
@@ -1668,7 +1662,101 @@ function renderNotes() {
   `;
 }
 
-/* —— Note modal form —— */
+/* ============================================================
+   Subscribers — email list (Module 1: capture only, no sending)
+   ============================================================ */
+const subscriberState = { subscribers: [] };
+const SUBSCRIBER_STATUSES = ["ACTIVE", "UNSUBSCRIBED", "SUPPRESSED"];
+
+function subscriberStatusBadgeClass(status) {
+  const map = {
+    ACTIVE: "badge--available",
+    UNSUBSCRIBED: "badge--draft",
+    SUPPRESSED: "badge--sold"
+  };
+  return map[status] || "badge--draft";
+}
+
+function subscriberDateLabel(sub) {
+  const d = sub.createdAt;
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function subscriberStatusSelect(sub) {
+  const options = SUBSCRIBER_STATUSES.map(status =>
+    `<option value="${escapeHTML(status)}"${status === sub.status ? " selected" : ""}>${escapeHTML(status)}</option>`
+  ).join("");
+  return `<select class="status-select" data-subscriber-status-for="${escapeHTML(sub.id)}" aria-label="Subscriber status">${options}</select>`;
+}
+
+function renderSubscribers() {
+  const subs = subscriberState.subscribers;
+  const activeCount = subs.filter(s => s.status === "ACTIVE").length;
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentCount = subs.filter(s => s.createdAt && new Date(s.createdAt).getTime() >= weekAgo).length;
+
+  const rows = subs.map(sub => `
+    <tr data-no-edit>
+      <td class="cell-strong">${escapeHTML(sub.email || "—")}</td>
+      <td>${escapeHTML(sub.firstName || "—")}</td>
+      <td>${escapeHTML(sub.source || "—")}</td>
+      <td><span class="badge ${subscriberStatusBadgeClass(sub.status)}">${escapeHTML(sub.status || "—")}</span></td>
+      <td>${escapeHTML(subscriberDateLabel(sub))}</td>
+      <td data-no-edit>${subscriberStatusSelect(sub)}</td>
+    </tr>
+  `).join("");
+
+  adminMain.innerHTML = `
+    <div class="section-bar section-bar--admin">
+      <span class="section-bar__label">Audience</span>
+      <span class="section-bar__title">Subscribers</span>
+      <button type="button" class="admin-newitem section-bar__action" data-export-subscribers>Export CSV</button>
+    </div>
+    <p class="subscriber-stats">
+      ${activeCount} active subscriber${activeCount === 1 ? "" : "s"} · ${recentCount} in the last 7 days
+    </p>
+    ${subs.length === 0
+      ? `<p class="admin-empty">No subscribers yet.</p>`
+      : `<div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th>Email</th><th>First name</th><th>Source</th><th>Status</th><th>Signed up</th><th></th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`
+    }
+  `;
+}
+
+function subscribersToCSV(subs) {
+  const header = ["email", "firstName", "source", "status", "consent", "consentAt", "createdAt"];
+  const escapeCSV = value => {
+    const str = String(value ?? "");
+    return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const lines = [header.join(",")];
+  subs.forEach(sub => {
+    lines.push(header.map(key => escapeCSV(sub[key])).join(","));
+  });
+  return lines.join("\n");
+}
+
+function exportSubscribersCSV() {
+  const csv = subscribersToCSV(subscriberState.subscribers);
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `poda_subscribers_${date}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function buildNoteForm(note) {
   return `
     <form id="noteForm" novalidate>
@@ -1677,10 +1765,19 @@ function buildNoteForm(note) {
       <section class="form-card">
         <div class="section-bar"><span class="section-bar__title">Note</span></div>
         <div class="field-grid">
+          <div class="field">
+            <label>Type</label>
+            <div class="toggle-group" role="group" style="max-width:280px">
+              ${NOTE_CATEGORIES.map(cat =>
+                `<button type="button" class="toggle note-cat-btn${note.category === cat ? " active" : ""}" data-note-cat="${cat}">${cat.toUpperCase()}</button>`
+              ).join("")}
+            </div>
+            <input type="hidden" name="note.category" id="noteCatInput" value="${escapeHTML(note.category || "buy")}" />
+          </div>
           ${textField("Title", "note.title", note.title, { full: true })}
           ${textField("Subtitle / Deck", "note.subtitle", note.subtitle, { full: true })}
           ${textField("Cover Image URL", "note.coverImage", note.coverImage, { full: true, placeholder: "https://…" })}
-          ${textField("Substack Article URL (optional)", "note.substackUrl", note.substackUrl || "", { full: true, placeholder: "https://podacapital.substack.com/p/…" })}
+          ${textField("Substack Article URL (optional)", "note.substackUrl", note.substackUrl || "", { full: true, placeholder: "https://…" })}
         </div>
       </section>
 
@@ -1697,9 +1794,6 @@ function buildNoteForm(note) {
               </label>
               <span id="noteBodyImageStatus" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em;"></span>
             </div>
-            <p style="font-size:10px;color:var(--text-faint);margin:6px 0 0;letter-spacing:0.06em;">
-              Or type <code style="background:var(--bg-box);padding:1px 5px;">[img: https://…]</code> on its own line anywhere in the body.
-            </p>
           </div>
         </div>
       </section>
@@ -1710,10 +1804,8 @@ function buildNoteForm(note) {
           <div class="field">
             <label>Status</label>
             <div class="toggle-group" role="group" style="max-width:240px">
-              <button type="button" class="toggle note-status-btn${note.status === "draft" ? " active" : ""}"
-                data-note-status="draft">Draft</button>
-              <button type="button" class="toggle note-status-btn${note.status === "published" ? " active" : ""}"
-                data-note-status="published">Published</button>
+              <button type="button" class="toggle note-status-btn${note.status === "draft" ? " active" : ""}" data-note-status="draft">Draft</button>
+              <button type="button" class="toggle note-status-btn${note.status === "published" ? " active" : ""}" data-note-status="published">Published</button>
             </div>
             <input type="hidden" name="note.status" id="noteStatusInput" value="${escapeHTML(note.status)}" />
           </div>
@@ -1745,7 +1837,16 @@ function openNoteModal(noteId = null) {
   modalOverlay.hidden = false;
   document.body.style.overflow = "hidden";
 
-  // Status toggle buttons
+  // Category toggle
+  modalContent.querySelectorAll(".note-cat-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      modalContent.querySelectorAll(".note-cat-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("noteCatInput").value = btn.dataset.noteCat;
+    });
+  });
+
+  // Status toggle
   modalContent.querySelectorAll(".note-status-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       modalContent.querySelectorAll(".note-status-btn").forEach(b => b.classList.remove("active"));
@@ -1758,7 +1859,6 @@ function openNoteModal(noteId = null) {
   document.getElementById("cancelNoteBtn").addEventListener("click", closeModal);
   document.getElementById("saveNoteBtn").addEventListener("click", () => saveNote(noteId));
 
-  // Inline image upload: compress, upload to Supabase, insert [img: url] at cursor
   document.getElementById("noteBodyImageInput").addEventListener("change", async event => {
     const file = event.target.files && event.target.files[0];
     event.target.value = "";
@@ -1772,8 +1872,6 @@ function openNoteModal(noteId = null) {
       const dataUrl = await compressImage(file);
       const url = await window.PodaDB.uploadImage(dataUrl);
       const tag = `\n\n[img: ${url}]\n\n`;
-
-      // Insert at cursor position, or append
       if (textarea && typeof textarea.selectionStart === "number") {
         const start = textarea.selectionStart;
         const before = textarea.value.slice(0, start);
@@ -1835,8 +1933,6 @@ async function saveNote(existingId) {
   }
 
   if (!note.id) note.id = generateNoteId();
-
-  // Auto-stamp publishedAt when publishing for the first time
   if (note.status === "published" && !note.publishedAt) {
     note.publishedAt = new Date().toISOString().slice(0, 10);
   }
@@ -1857,152 +1953,240 @@ async function saveNote(existingId) {
 }
 
 /* ============================================================
-   Archive — state, upload, view
+   Drops & Visual Studies (overhaul) — modeled on Notes
    ============================================================ */
-const archiveState = { images: [] };
+const DROP_STATUSES = ["In Assembly", "Live", "Archived"];
+const dropState = { drops: [] };
+const studyState = { studies: [] };
 
-function generateArchiveId() {
-  return `ARC-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+function blankDrop() {
+  return {
+    id: "", number: "", title: "", thesis: "", question: "",
+    status: "In Assembly", releaseDate: "", coverImage: "",
+    marketNoteId: "", visualStudyId: ""
+  };
+}
+function blankStudy() {
+  return {
+    id: "", studyNumber: "", title: "", framing: "", date: "",
+    coverImage: "", images: [], captions: [],
+    relatedNoteId: "", relatedDropId: ""
+  };
+}
+function genId(prefix) {
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+function linesToArray(value) {
+  return String(value || "").split("\n").map(s => s.trim()).filter(Boolean);
 }
 
-function renderArchive() {
-  const images = archiveState.images;
+/* —— Drops view —— */
+function renderDrops() {
+  const rows = dropState.drops.map(d => `
+    <tr data-drop-edit="${escapeHTML(d.id)}">
+      <td class="cell-mono">${escapeHTML(d.number || "—")}</td>
+      <td class="cell-strong">${escapeHTML(d.title || "Untitled")}</td>
+      <td>${escapeHTML(d.thesis || "—")}</td>
+      <td><span class="badge">${escapeHTML(d.status || "—")}</span></td>
+      <td>${escapeHTML(d.releaseDate || "—")}</td>
+    </tr>
+  `).join("");
 
   adminMain.innerHTML = `
     <div class="section-bar section-bar--admin">
-      <span class="section-bar__label">Archive</span>
-      <span class="section-bar__title">Lookbook</span>
-      <label class="admin-newitem section-bar__action" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-        + New Images
-        <input type="file" id="archiveUploadInput" accept="image/*" multiple hidden />
-      </label>
+      <span class="section-bar__label">Store</span>
+      <span class="section-bar__title">Drops</span>
+      <button type="button" class="admin-newitem section-bar__action" data-new-drop>+ New Drop</button>
     </div>
-    <p id="archiveUploadStatus" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em;min-height:1em;margin:0 0 12px;"></p>
-
-    <!-- Ctrl+V paste zone -->
-    <div id="archivePasteZone" tabindex="0"
-      style="margin-bottom:20px;padding:18px 20px;border:1px dashed var(--border-light);background:var(--bg-box);cursor:pointer;outline:none;transition:border-color 0.15s,background 0.15s;">
-      <p style="margin:0;font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-faint);">
-        Click here then Ctrl+V / ⌘V to paste an image
-      </p>
-      <p id="archivePasteStatus" style="margin:6px 0 0;font-size:10px;color:var(--text-dim);letter-spacing:0.08em;min-height:1em;"></p>
-    </div>
-
-    ${images.length === 0
-      ? `<p class="admin-empty">No images yet. Upload your first one above.</p>`
-      : `<div class="archive-masonry admin-archive-masonry">
-          ${images.map(img => `
-            <div class="archive-masonry__item archive-masonry__item--admin">
-              <img src="${escapeHTML(img.url)}" alt="" loading="lazy" />
-              <button class="archive-delete-btn" data-archive-id="${escapeHTML(img.id)}" aria-label="Delete image" title="Delete">×</button>
-            </div>
-          `).join("")}
-        </div>`
-    }
+    ${dropState.drops.length === 0
+      ? `<p class="admin-empty">No drops yet. Create Drop 001 to give The Edit a thesis and title.</p>`
+      : `<div class="table-wrap"><table class="admin-table">
+          <thead><tr><th>No.</th><th>Title</th><th>Thesis</th><th>Status</th><th>Release</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>`}
   `;
+}
 
-  const uploadInput = document.getElementById("archiveUploadInput");
-  if (uploadInput) uploadInput.addEventListener("change", handleArchiveUpload);
+function buildDropForm(d) {
+  return `
+    <form id="dropForm" novalidate>
+      <p class="field-error" id="dropFormError" hidden></p>
+      <section class="form-card">
+        <div class="section-bar"><span class="section-bar__title">Drop</span></div>
+        <div class="field-grid">
+          ${textField("Number", "number", d.number, { placeholder: "e.g. 001" })}
+          ${selectField("Status", "status", d.status, DROP_STATUSES)}
+          ${textField("Title", "title", d.title, { full: true, placeholder: "e.g. The current edit" })}
+          ${textField("Opening question", "question", d.question, { full: true, placeholder: "e.g. After hype, what remains?" })}
+          ${textareaField("Thesis", "thesis", d.thesis)}
+          ${dateField("Release date", "releaseDate", d.releaseDate)}
+          ${textField("Cover image URL", "coverImage", d.coverImage, { full: true, placeholder: "https://…" })}
+          ${textField("Related Note ID", "marketNoteId", d.marketNoteId, { placeholder: "optional" })}
+          ${textField("Related Visual Study ID", "visualStudyId", d.visualStudyId, { placeholder: "optional" })}
+        </div>
+      </section>
+    </form>
+  `;
+}
 
-  // Ctrl+V paste zone
-  const pasteZone   = document.getElementById("archivePasteZone");
-  const pasteStatus = document.getElementById("archivePasteStatus");
-  if (pasteZone) {
-    // Visual focus feedback
-    pasteZone.addEventListener("focus", () => {
-      pasteZone.style.borderColor = "var(--purple-2)";
-      pasteZone.style.background  = "var(--purple-deep)";
-    });
-    pasteZone.addEventListener("blur", () => {
-      pasteZone.style.borderColor = "";
-      pasteZone.style.background  = "";
-    });
-    // Click to focus so the user can immediately paste
-    pasteZone.addEventListener("click", () => pasteZone.focus());
+function openDropModal(dropId = null) {
+  const editing = dropId ? dropState.drops.find(d => d.id === dropId) : null;
+  const d = editing ? structuredClone(editing) : blankDrop();
 
-    pasteZone.addEventListener("paste", async e => {
-      e.preventDefault();
-      const items = Array.from(e.clipboardData.items || []);
-      const imageItems = items.filter(item => item.type.startsWith("image/"));
-      if (!imageItems.length) {
-        pasteStatus.textContent = "No image found in clipboard — try copying an image first.";
-        return;
-      }
+  modalContent.innerHTML = `
+    <div class="modal-head">
+      <h2 class="modal-title">${editing ? "Edit Drop" : "New Drop"}</h2>
+      <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">${buildDropForm(d)}</div>
+    <div class="modal-foot">
+      ${editing ? `<button type="button" class="btn btn--danger" id="deleteDropBtn">Delete</button>` : ""}
+      <button type="button" class="btn" id="cancelDropBtn">Cancel</button>
+      <button type="button" class="btn btn--primary" id="saveDropBtn">Save Drop</button>
+    </div>
+  `;
+  modalOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
 
-      pasteStatus.textContent = "Uploading…";
-      let success = 0;
-      let lastErr = null;
-      for (const item of imageItems) {
-        const file = item.getAsFile();
-        if (!file) continue;
-        try {
-          // Try to compress first; fall back to raw file if compress fails
-          let uploadInput = file;
-          try { uploadInput = await compressImage(file); } catch (_) { /* use raw */ }
-          const url = await window.PodaDB.uploadImage(uploadInput);
-          const img = { id: generateArchiveId(), url, uploadedAt: new Date().toISOString() };
-          await window.PodaDB.upsertArchiveImage(img);
-          archiveState.images.unshift(img);
-          success++;
-        } catch (err) {
-          lastErr = err;
-          console.error("Paste upload failed:", err);
-        }
-      }
-
-      if (success) {
-        pasteStatus.textContent = `✓ ${success} image${success > 1 ? "s" : ""} added`;
-        setTimeout(() => { if (pasteStatus) pasteStatus.textContent = ""; }, 4000);
-        renderArchive();
-      } else {
-        const msg = lastErr ? lastErr.message || String(lastErr) : "Unknown error";
-        pasteStatus.textContent = `Upload failed: ${msg}`;
-      }
-    });
-  }
-
-  adminMain.querySelectorAll(".archive-delete-btn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const id = btn.dataset.archiveId;
-      if (!confirm("Remove this image from the archive?")) return;
-      try {
-        await window.PodaDB.deleteArchiveImage(id);
-        archiveState.images = archiveState.images.filter(i => i.id !== id);
-        renderArchive();
-      } catch (e) {
-        alert("Could not delete image. Check your connection.");
-      }
-    });
+  document.getElementById("modalClose").addEventListener("click", closeModal);
+  document.getElementById("cancelDropBtn").addEventListener("click", closeModal);
+  document.getElementById("saveDropBtn").addEventListener("click", () => saveDrop(dropId));
+  const del = document.getElementById("deleteDropBtn");
+  if (del) del.addEventListener("click", async () => {
+    if (!confirm("Delete this drop permanently?")) return;
+    try { await window.PodaDB.deleteDrop(dropId); dropState.drops = dropState.drops.filter(x => x.id !== dropId); }
+    catch (e) { alert("Could not delete the drop."); return; }
+    closeModal(); renderDrops();
   });
 }
 
-async function handleArchiveUpload(event) {
-  const files = Array.from(event.target.files || []);
-  event.target.value = "";
-  if (!files.length) return;
+function readSimpleForm(formId, base) {
+  const form = document.getElementById(formId);
+  form.querySelectorAll("input[name], select[name], textarea[name]").forEach(el => {
+    const key = el.getAttribute("name");
+    if (!key) return;
+    base[key] = el.type === "checkbox" ? el.checked : el.value;
+  });
+  return base;
+}
 
-  const statusEl = document.getElementById("archiveUploadStatus");
-  statusEl.textContent = `Uploading ${files.length} image${files.length > 1 ? "s" : ""}…`;
+async function saveDrop(existingId) {
+  const base = existingId
+    ? structuredClone(dropState.drops.find(d => d.id === existingId) || blankDrop())
+    : blankDrop();
+  const d = readSimpleForm("dropForm", base);
+  const errorBox = document.getElementById("dropFormError");
 
-  let success = 0;
-  for (const file of files) {
-    try {
-      const dataUrl = await compressImage(file);
-      const url = await window.PodaDB.uploadImage(dataUrl);
-      const img = { id: generateArchiveId(), url, uploadedAt: new Date().toISOString() };
-      await window.PodaDB.upsertArchiveImage(img);
-      archiveState.images.unshift(img);
-      success++;
-    } catch (err) {
-      console.error("Archive upload failed:", err);
-    }
-  }
+  if (!String(d.number).trim()) { errorBox.textContent = "Drop number is required."; errorBox.hidden = false; return; }
+  if (!d.id) d.id = genId("drop");
 
-  statusEl.textContent = success === files.length
-    ? `✓ ${success} uploaded`
-    : `${success}/${files.length} uploaded`;
-  setTimeout(() => { statusEl.textContent = ""; }, 4000);
-  renderArchive();
+  try { await window.PodaDB.upsertDrop(d); }
+  catch (e) { alert("Could not save the drop."); return; }
+
+  const idx = dropState.drops.findIndex(x => x.id === d.id);
+  if (idx >= 0) dropState.drops[idx] = d; else dropState.drops.unshift(d);
+  closeModal(); renderDrops();
+}
+
+/* —— Studies view —— */
+function renderStudies() {
+  const rows = studyState.studies.map(s => `
+    <tr data-study-edit="${escapeHTML(s.id)}">
+      <td class="cell-mono">${escapeHTML(s.studyNumber || "—")}</td>
+      <td class="cell-strong">${escapeHTML(s.title || "Untitled")}</td>
+      <td>${escapeHTML(s.framing || "—")}</td>
+      <td>${escapeHTML((s.images || []).length + " img")}</td>
+      <td>${escapeHTML(s.date || "—")}</td>
+      <td><a class="card-link" href="study.html?id=${encodeURIComponent(s.id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">View ↗</a></td>
+    </tr>
+  `).join("");
+
+  adminMain.innerHTML = `
+    <div class="section-bar section-bar--admin">
+      <span class="section-bar__label">Lookbook</span>
+      <span class="section-bar__title">Visual Studies</span>
+      <button type="button" class="admin-newitem section-bar__action" data-new-study>+ New Study</button>
+    </div>
+    ${studyState.studies.length === 0
+      ? `<p class="admin-empty">No visual studies yet. A study gives the current thesis its images.</p>`
+      : `<div class="table-wrap"><table class="admin-table">
+          <thead><tr><th>No.</th><th>Title</th><th>Framing</th><th>Images</th><th>Date</th><th></th></tr></thead>
+          <tbody>${rows}</tbody></table></div>`}
+  `;
+}
+
+function buildStudyForm(s) {
+  return `
+    <form id="studyForm" novalidate>
+      <p class="field-error" id="studyFormError" hidden></p>
+      <section class="form-card">
+        <div class="section-bar"><span class="section-bar__title">Study</span></div>
+        <div class="field-grid">
+          ${textField("Number", "studyNumber", s.studyNumber, { placeholder: "e.g. 001" })}
+          ${dateField("Date", "date", s.date)}
+          ${textField("Title", "title", s.title, { full: true })}
+          ${textareaField("Framing (one sentence)", "framing", s.framing)}
+          ${textField("Cover image URL", "coverImage", s.coverImage, { full: true, placeholder: "https://…" })}
+          ${textareaField("Image URLs — one per line", "imagesText", (s.images || []).join("\n"))}
+          ${textareaField("Captions — one per line, matching images", "captionsText", (s.captions || []).join("\n"))}
+          ${textField("Related Note ID", "relatedNoteId", s.relatedNoteId, { placeholder: "optional" })}
+          ${textField("Related Drop ID", "relatedDropId", s.relatedDropId, { placeholder: "optional" })}
+        </div>
+      </section>
+    </form>
+  `;
+}
+
+function openStudyModal(studyId = null) {
+  const editing = studyId ? studyState.studies.find(s => s.id === studyId) : null;
+  const s = editing ? structuredClone(editing) : blankStudy();
+
+  modalContent.innerHTML = `
+    <div class="modal-head">
+      <h2 class="modal-title">${editing ? "Edit Study" : "New Study"}</h2>
+      <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">${buildStudyForm(s)}</div>
+    <div class="modal-foot">
+      ${editing ? `<button type="button" class="btn btn--danger" id="deleteStudyBtn">Delete</button>` : ""}
+      <button type="button" class="btn" id="cancelStudyBtn">Cancel</button>
+      <button type="button" class="btn btn--primary" id="saveStudyBtn">Save Study</button>
+    </div>
+  `;
+  modalOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
+
+  document.getElementById("modalClose").addEventListener("click", closeModal);
+  document.getElementById("cancelStudyBtn").addEventListener("click", closeModal);
+  document.getElementById("saveStudyBtn").addEventListener("click", () => saveStudy(studyId));
+  const del = document.getElementById("deleteStudyBtn");
+  if (del) del.addEventListener("click", async () => {
+    if (!confirm("Delete this study permanently?")) return;
+    try { await window.PodaDB.deleteStudy(studyId); studyState.studies = studyState.studies.filter(x => x.id !== studyId); }
+    catch (e) { alert("Could not delete the study."); return; }
+    closeModal(); renderStudies();
+  });
+}
+
+async function saveStudy(existingId) {
+  const base = existingId
+    ? structuredClone(studyState.studies.find(s => s.id === existingId) || blankStudy())
+    : blankStudy();
+  const s = readSimpleForm("studyForm", base);
+  const errorBox = document.getElementById("studyFormError");
+
+  // Convert the textarea fields into arrays.
+  s.images = linesToArray(s.imagesText); delete s.imagesText;
+  s.captions = linesToArray(s.captionsText); delete s.captionsText;
+
+  if (!String(s.title).trim()) { errorBox.textContent = "Title is required."; errorBox.hidden = false; return; }
+  if (!s.id) s.id = genId("study");
+
+  try { await window.PodaDB.upsertStudy(s); }
+  catch (e) { alert("Could not save the study."); return; }
+
+  const idx = studyState.studies.findIndex(x => x.id === s.id);
+  if (idx >= 0) studyState.studies[idx] = s; else studyState.studies.unshift(s);
+  closeModal(); renderStudies();
 }
 
 /* ============================================================
@@ -2017,7 +2201,6 @@ async function init() {
   bindMainEvents();
   bindAuthEvents();
 
-  // If already signed in (session remembered), go straight in; else show login.
   const session = window.PodaDB ? await window.PodaDB.getSession() : null;
   if (session) {
     await startApp();

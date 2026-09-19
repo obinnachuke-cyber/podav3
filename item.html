@@ -3,24 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Poda Closet — Asset</title>
+  <title>Piece — poda</title>
+  <meta name="description" content="A single piece from the current poda edit." />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body class="pdp-body">
-  <header class="site-header site-header--pdp">
-    <a class="site-logo" href="index.html">Poda Capital</a>
-    <nav class="site-nav nav--pdp" aria-label="Product navigation">
-      <a href="closet.html">← Closet</a>
-      <a href="market-notes.html">Notes</a>
-      <a href="about.html">About</a>
-    </nav>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
   </header>
 
   <main id="product-page" class="product-page portal-shell"></main>
 
   <footer class="site-footer portal-shell">
     <div class="footer-left">
-      <span class="footer-brand">Poda Capital</span>
+      <span class="footer-brand">poda</span>
       <a class="footer-admin" href="admin.html">Admin</a>
     </div>
     <nav class="footer-links" aria-label="Social">
@@ -43,5 +39,7 @@
   <script src="supabase-config.js"></script>
   <script src="db.js"></script>
   <script src="script.js"></script>
+  <script src="subscribe.js"></script>
+  <script src="layout.js"></script>
 </body>
 </html>

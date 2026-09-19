@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Inbox — poda</title>
-  <meta name="description" content="The Inbox is poda's research layer — the reasoning behind each selection. What is moving, why it matters, and what it means for the store." />
+  <title>The Edit — poda</title>
+  <meta name="description" content="The Edit is poda's current drop — a narrow, deliberate selection of pieces chosen around one thesis." />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -13,35 +13,18 @@
   </header>
 
   <main class="portal-shell">
-    <section id="market-notes" class="page-section">
+    <section class="page-section" style="border-bottom:none;">
 
-      <div class="section-bar">
-        <span class="section-bar__label">Research</span>
-        <span class="section-bar__title">Inbox</span>
-      </div>
-      <p class="about__text" style="margin:0 0 14px;max-width:60ch;">The reasoning behind the store — what's moving, and why it matters.</p>
-
-      <!-- BUY / SELL / WATCH filter -->
-      <div class="controls" role="tablist" aria-label="Note categories">
-        <div class="toggle-group">
-          <button type="button" class="toggle active" data-note-filter="all">All</button>
-          <button type="button" class="toggle" data-note-filter="buy">Buy</button>
-          <button type="button" class="toggle" data-note-filter="sell">Sell</button>
-          <button type="button" class="toggle" data-note-filter="watch">Watch</button>
-        </div>
+      <div class="purple-band">
+        <header id="dropHeader" class="drop-hero purple-band__inner">
+          <span class="drop-hero__eyebrow">The Edit</span>
+          <h1 class="drop-hero__title">Loading the edit…</h1>
+        </header>
       </div>
 
-      <!-- Inbox header bar -->
-      <div class="inbox-header">
-        <span class="inbox-header__from">From</span>
-        <span class="inbox-header__subject">Subject</span>
-        <span class="inbox-header__date">Date</span>
-      </div>
-
-      <!-- Rows injected by JS -->
-      <div id="inboxList" class="inbox-list">
-        <p id="marketNotesEmpty" class="status-message">Loading...</p>
-      </div>
+      <div id="dropControls"></div>
+      <section id="dropEmpty" class="status-message"></section>
+      <section id="dropGrid" class="items-grid" aria-live="polite"></section>
 
     </section>
   </main>

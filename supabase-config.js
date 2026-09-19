@@ -16,3 +16,9 @@ window.PODA_IMAGE_BUCKET = "item-images";
 // box instead of asking for the email every time. Your password is still
 // verified securely by Supabase.
 window.PODA_ADMIN_EMAIL = "obinnachuke@gmail.com";
+
+// —— Public contact (used by the "Buy — inquire" button and the Sell-to-Poda
+// form). These are safe to expose. Change the email to wherever you want buyer
+// enquiries and closet applications to land.
+window.PODA_CONTACT_EMAIL = "obinnachuke@gmail.com";
+window.PODA_INSTAGRAM = "podacapital";

@@ -390,6 +390,13 @@
   font-size: 0.88rem;
 }
 
+/* —— Subscribers summary line —— */
+.subscriber-stats {
+  margin: 0 0 16px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
 /* ============================================================
    Modal
    ============================================================ */

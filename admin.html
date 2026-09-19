@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Poda Capital — Closet OS</title>
+  <title>poda — admin</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="admin.css" />
 </head>
@@ -12,7 +12,7 @@
        stays hidden (and never loads data) until authentication succeeds. -->
   <div class="login-gate" id="loginGate" hidden>
     <form class="login-card" id="loginForm">
-      <h1 class="login-title">Poda Capital</h1>
+      <h1 class="login-title">poda</h1>
       <p class="login-sub">Admin sign in</p>
       <label class="field field--full">
         <span>Password</span>
@@ -25,8 +25,8 @@
 
   <!-- Admin app: revealed only after a successful login. -->
   <div class="admin-app" id="adminApp" hidden>
-    <header class="site-header">
-      <a class="site-logo" href="index.html">Poda Capital</a>
+    <header class="site-header site-header--admin">
+      <a class="site-logo" href="index.html">poda</a>
       <nav class="site-nav" aria-label="Admin">
         <a class="admin-public-link" href="index.html">← Public Site</a>
         <button type="button" class="admin-newitem" id="importBtn">Import from this browser</button>
@@ -42,13 +42,17 @@
       <aside class="admin-sidebar">
         <nav class="admin-nav" aria-label="Admin views">
           <button type="button" class="admin-nav__link active" data-view="dashboard">Dashboard</button>
-          <button type="button" class="admin-nav__link" data-view="all">All Items</button>
-          <button type="button" class="admin-nav__link" data-view="closet">Closet</button>
-          <button type="button" class="admin-nav__link" data-view="listed">Listed</button>
+          <button type="button" class="admin-nav__link" data-view="closets">Closets</button>
+          <button type="button" class="admin-nav__link" data-view="available">Available</button>
+          <button type="button" class="admin-nav__link" data-view="selected">Selected</button>
+          <button type="button" class="admin-nav__link" data-view="live">Live</button>
           <button type="button" class="admin-nav__link" data-view="sold">Sold</button>
+          <button type="button" class="admin-nav__link" data-view="all">All Items</button>
           <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;" />
-          <button type="button" class="admin-nav__link" data-view="notes">Market Notes</button>
-          <button type="button" class="admin-nav__link" data-view="archive">Archive</button>
+          <button type="button" class="admin-nav__link" data-view="drops">Drops</button>
+          <button type="button" class="admin-nav__link" data-view="studies">Visual Studies</button>
+          <button type="button" class="admin-nav__link" data-view="notes">Inbox</button>
+          <button type="button" class="admin-nav__link" data-view="subscribers">Subscribers</button>
         </nav>
       </aside>
 

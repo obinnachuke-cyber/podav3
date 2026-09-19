@@ -41,6 +41,10 @@
   const TABLE          = "items";
   const NOTES_TABLE    = "notes";
   const ARCHIVE_TABLE  = "archive_images";
+  const DROPS_TABLE    = "drops";
+  const STUDIES_TABLE  = "studies";
+  const SUBSCRIBERS_TABLE = "subscribers";
+  const PUBLIC_BUCKET  = "submissions"; // anon-writable bucket for form uploads
 
   /* —— Items: read all, ordered oldest→newest to match the old array order —— */
   async function getItems() {
@@ -158,6 +162,135 @@
     if (error) { console.error("Failed to delete archive image:", error.message); throw error; }
   }
 
+  /* ============================================================
+     Drops — one curated release (e.g. DROP 001), stored as JSON.
+     ============================================================ */
+  async function getDrops() {
+    if (!client) return [];
+    const { data, error } = await client
+      .from(DROPS_TABLE)
+      .select("data")
+      .order("created_at", { ascending: false });
+    if (error) { console.error("Failed to load drops:", error.message); return []; }
+    return (data || []).map(row => row.data).filter(Boolean);
+  }
+
+  async function upsertDrop(drop) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client
+      .from(DROPS_TABLE)
+      .upsert({ id: drop.id, data: drop }, { onConflict: "id" });
+    if (error) { console.error("Failed to save drop:", error.message); throw error; }
+  }
+
+  async function deleteDrop(id) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client.from(DROPS_TABLE).delete().eq("id", id);
+    if (error) { console.error("Failed to delete drop:", error.message); throw error; }
+  }
+
+  /* ============================================================
+     Visual Studies — the Lookbook layer, stored as JSON.
+     ============================================================ */
+  async function getStudies() {
+    if (!client) return [];
+    const { data, error } = await client
+      .from(STUDIES_TABLE)
+      .select("data")
+      .order("created_at", { ascending: false });
+    if (error) { console.error("Failed to load studies:", error.message); return []; }
+    return (data || []).map(row => row.data).filter(Boolean);
+  }
+
+  async function upsertStudy(study) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client
+      .from(STUDIES_TABLE)
+      .upsert({ id: study.id, data: study }, { onConflict: "id" });
+    if (error) { console.error("Failed to save study:", error.message); throw error; }
+  }
+
+  async function deleteStudy(id) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client.from(STUDIES_TABLE).delete().eq("id", id);
+    if (error) { console.error("Failed to delete study:", error.message); throw error; }
+  }
+
+  /* ============================================================
+     Subscribers — email list (Module 1: capture only, no sending).
+     Anonymous visitors may insert; only the signed-in admin may
+     read, update, or delete (see SUBSCRIBERS_SETUP.md for RLS).
+     ============================================================ */
+  function normalizeEmail(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function newId() {
+    return (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `sub-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  /* —— Subscribe: insert one row; duplicate email is reported, not thrown —— */
+  async function subscribe({ email, firstName, source }) {
+    if (!client) throw new Error("Database not configured.");
+    const normalized = normalizeEmail(email);
+    const now = new Date().toISOString();
+    const row = {
+      id: newId(),
+      data: {
+        email: normalized,
+        firstName: String(firstName || "").trim(),
+        source: source || "unknown",
+        status: "ACTIVE",
+        consent: true,
+        consentAt: now,
+        createdAt: now
+      }
+    };
+    const { error } = await client.from(SUBSCRIBERS_TABLE).insert(row);
+    if (error) {
+      if (error.code === "23505") return { ok: false, duplicate: true };
+      console.error("Failed to save subscriber:", error.message);
+      throw error;
+    }
+    return { ok: true, duplicate: false };
+  }
+
+  /* —— Subscribers: read all (admin only — enforced by RLS) —— */
+  async function getSubscribers() {
+    if (!client) return [];
+    const { data, error } = await client
+      .from(SUBSCRIBERS_TABLE)
+      .select("data")
+      .order("created_at", { ascending: false });
+    if (error) { console.error("Failed to load subscribers:", error.message); return []; }
+    return (data || []).map(row => row.data).filter(Boolean);
+  }
+
+  /* —— Subscribers: patch one row's data (status changes, etc.) —— */
+  async function updateSubscriber(id, patch) {
+    if (!client) throw new Error("Database not configured.");
+    const { data: existing, error: readError } = await client
+      .from(SUBSCRIBERS_TABLE)
+      .select("data")
+      .eq("id", id)
+      .single();
+    if (readError) { console.error("Failed to load subscriber:", readError.message); throw readError; }
+
+    const merged = { ...existing.data, ...patch, updatedAt: new Date().toISOString() };
+    const { error } = await client.from(SUBSCRIBERS_TABLE).update({ data: merged }).eq("id", id);
+    if (error) { console.error("Failed to update subscriber:", error.message); throw error; }
+    return merged;
+  }
+
+  /* —— Subscribers: delete one —— */
+  async function deleteSubscriber(id) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client.from(SUBSCRIBERS_TABLE).delete().eq("id", id);
+    if (error) { console.error("Failed to delete subscriber:", error.message); throw error; }
+  }
+
   /* —— Images: turn a data URL into a Blob so we can upload a real file —— */
   function dataUrlToBlob(dataUrl) {
     const [meta, base64] = String(dataUrl).split(",");
@@ -186,6 +319,23 @@
     }
 
     const { data } = client.storage.from(BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  /* —— Public form uploads: anyone can drop a photo into the
+     `submissions` bucket (used by Sell with poda + Sourcing). —— */
+  async function uploadPublicImage(input) {
+    if (!client) throw new Error("Database not configured.");
+    const blob = typeof input === "string" ? dataUrlToBlob(input) : input;
+    const ext = (blob.type && blob.type.split("/")[1]) || "jpg";
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error } = await client.storage
+      .from(PUBLIC_BUCKET)
+      .upload(path, blob, { contentType: blob.type, upsert: false });
+    if (error) { console.error("Public image upload failed:", error.message); throw error; }
+
+    const { data } = client.storage.from(PUBLIC_BUCKET).getPublicUrl(path);
     return data.publicUrl;
   }
 
@@ -226,7 +376,18 @@
     getArchiveImages,
     upsertArchiveImage,
     deleteArchiveImage,
+    getDrops,
+    upsertDrop,
+    deleteDrop,
+    getStudies,
+    upsertStudy,
+    deleteStudy,
+    subscribe,
+    getSubscribers,
+    updateSubscriber,
+    deleteSubscriber,
     uploadImage,
+    uploadPublicImage,
     getSession,
     signIn,
     signOut,
