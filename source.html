@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Source — poda</title>
+  <meta name="description" content="The Sourcing Desk turns unanswered demand into a directed search. Send poda an exact piece, a reference, or simply a feeling." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <main class="portal-shell">
+        <section class="page-section" style="border-bottom:none;">
+          <div class="section-bar">
+            <span class="section-bar__label">Sourcing Desk</span>
+            <span class="section-bar__title">Open a request</span>
+          </div>
+          <p class="about__text" style="max-width:62ch;">Send an exact piece, a reference, or a feeling — poda will look for it.</p>
+          <p class="about__text" style="max-width:62ch;color:var(--text-faint);font-size:12px;">Free to submit. Price and availability confirmed before commitment.</p>
+
+          <form id="submitForm" class="submit-form" novalidate>
+            <div class="field-grid">
+              <div class="field"><label for="name">Name <span class="req">*</span></label><input id="name" name="name" required /></div>
+              <div class="field"><label for="email">Email <span class="req">*</span></label><input id="email" name="email" type="email" required /></div>
+              <div class="field"><label for="instagram">Instagram</label><input id="instagram" name="instagram" placeholder="@handle" /></div>
+              <div class="field field--full">
+                <label for="message">What are you looking for? <span class="req">*</span></label>
+                <textarea id="message" name="message" required placeholder="An exact piece, a reference, or simply a feeling. Add size, budget, timing — whatever's useful."></textarea>
+              </div>
+              <div class="field field--full">
+                <label>Photos / references</label>
+                <label class="upload-dropzone" for="imageInput"><span>＋ Add photos</span><input type="file" id="imageInput" accept="image/*" multiple hidden /></label>
+                <div class="upload-strip" id="imageStrip"></div>
+              </div>
+            </div>
+            <p class="field-error" id="formError" hidden></p>
+            <p class="field-success" id="formSuccess" hidden></p>
+            <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <button type="submit" class="btn btn--primary" id="submitBtn">Send</button>
+              <a class="product-buy product-buy--alt" id="instaLink" href="#" target="_blank" rel="noopener">Or DM on Instagram ↗</a>
+            </div>
+          </form>
+        </section>
+  </main>
+
+  <footer class="site-footer portal-shell"></footer>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script src="submit.js"></script>
+  <script>
+    PodaSubmit.wire({ subjectPrefix: "poda sourcing request", prompt: "What you're looking for" });
+  </script>
+  <script src="subscribe.js"></script>
+  <script src="layout.js"></script>
+</body>
+</html>

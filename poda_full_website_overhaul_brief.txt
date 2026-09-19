@@ -1,0 +1,792 @@
+PODA CAPITAL — FULL WEBSITE OVERHAUL BRIEF FOR CLAUDE CODE
+
+You are reconfiguring the entire existing Poda Capital website. Treat this as a full strategic and visual overhaul—not a light reskin.
+
+First inspect the complete repository, identify the current framework, routes, components, styling system, content/data structure, assets, and any working functionality. Preserve useful infrastructure and adapt the implementation to the current stack. Do not replace the framework, introduce unnecessary dependencies, or destroy working integrations unless the current implementation makes the new experience impossible.
+
+Before editing:
+
+1. Audit the repository and summarize the existing architecture.
+2. Identify which components and functionality can be preserved.
+3. Create a short implementation plan.
+4. Then execute the complete redesign.
+5. After implementation, run the project, resolve errors, and verify every route at desktop and mobile sizes.
+
+Do not stop after the audit or provide mock code only. Make the changes directly in the repository.
+
+# 1. THE NEW PODA
+
+Poda is an independent, selective fashion retailer built around culturally informed product selections.
+
+Core positioning:
+
+“Poda identifies what is moving, explains why it matters, and builds a store around its strongest expression.”
+
+Category:
+
+SELECTIVE RETAIL / MARKET INTELLIGENCE
+NEW YORK + WASHINGTON, DC
+
+Poda is not:
+
+- A general fashion marketplace
+- A SaaS closet-management platform
+- A user-uploaded closet app
+- A mass consignment platform
+- A personal portfolio tracker
+- A conventional fashion blog
+- A store with hundreds of disconnected products
+- A generic luxury moodboard
+- A streetwear resale clone
+
+Remove, archive, or fully de-emphasize the former “Personal Closet OS,” “Closet Capital,” portfolio dashboard, public user profiles, open closet uploads, investment-style closet valuations, and similar concepts. Do not allow remnants of the old product direction to confuse the new site.
+
+Poda’s system is:
+
+- Market Notes are the reasoning.
+- The Lookbook is the world.
+- The Edit is the store.
+- The Sourcing Desk is the conversation.
+
+The larger operating sequence is:
+
+MARKET NOTE → THESIS → VISUAL STUDY → THE EDIT → DROP → SOURCING DESK → REVIEW
+
+Every section should feel connected to one current thesis. Research should lead to imagery. Imagery should lead to products. Products and unanswered demand should lead to sourcing requests. Customer behavior should help define the next thesis.
+
+# 2. BUSINESS MODEL
+
+Poda begins with narrowly curated, permissioned inventory sourced from:
+
+- Emerging and independent brands
+- Selected vintage sellers
+- Individual collectors and personal closets
+- Occasional Poda-owned inventory later
+
+Initial supply mix:
+
+- Emerging brands: approximately 40–50%
+- Vintage sellers: approximately 25–35%
+- Individual closets: approximately 15–25%
+
+Initial operating rules:
+
+- Zero owned-inventory exposure wherever possible
+- Products remain with the brand, seller, or owner until sold unless otherwise arranged
+- Poda controls selection, presentation, pricing recommendations, and markdown timing
+- Poda only presents pieces that it has permission to promote or sell
+- Initial drops should contain approximately 8–15 products
+- Initial target is 10–12 strong products from approximately two brands and two vintage sellers
+- Core price range: $175–$600
+- Initial concentration: $200–$450
+- Avoid filling the store with inexpensive products that create substantial handling work without sufficient contribution
+- Each item should generate at least approximately $40 of revenue for Poda
+- The assortment should feel scarce and deliberate
+
+The website must support different transaction types without visually fragmenting the store:
+
+1. Poda sale — Product can be purchased directly through Poda.
+2. Assisted purchase — Customer submits an inquiry or messages Poda to complete the purchase.
+3. Partner purchase — Product links to an approved external retailer or seller.
+4. Sourcing request — Product is not currently available, but the customer can ask Poda to locate it or something similar.
+
+Build the product data model so each item can have a transaction type and the correct CTA appears automatically.
+
+Do not build a fake checkout if the current repository has no real commerce infrastructure. If checkout does not exist, create a polished inquiry-led purchase flow that can later be connected to Shopify, Stripe, or another backend.
+
+# 3. BRAND AND VISUAL DIRECTION
+
+The site should feel like a combination of:
+
+- An internal research memo
+- A highly selective independent retailer
+- A cultural archive
+- A controlled editorial publication
+- A slightly dated corporate digital system made intentional
+
+The visual identity is “dark corporate,” monochrome, editorial, and email-inspired.
+
+It should feel intelligent, sparse, restrained, and specific. It should not look like a generic Shopify luxury template.
+
+Use:
+
+- Black, near-black, charcoal, bone, off-white, muted grey
+- Restrained accent color only when functionally useful
+- Thin borders
+- Dense but controlled metadata
+- Strong grids
+- Editorial image crops
+- Small uppercase utility labels
+- Large, clean thesis statements
+- Occasional timestamps, issue numbers, item numbers, statuses, and category labels
+- Email, memo, terminal, research-database, or archive references used subtly
+- Generous negative space
+- A balance between analytical structure and strong fashion imagery
+
+Avoid:
+
+- Gradients
+- Glassmorphism
+- Rounded cards everywhere
+- Excessive pill buttons
+- Huge generic luxury serif headlines
+- Empty “quiet luxury” clichés
+- Neon cyberpunk styling
+- Crypto or finance-dashboard aesthetics
+- Stock photography
+- Generic beige minimalism
+- Constant animations
+- Anything that resembles a fashion-tech SaaS landing page
+
+Typography should combine a clean grotesk/sans-serif with a mono or technical supporting typeface. Use serif typography only if it adds a meaningful editorial contrast. Use fonts already available in the project where suitable; otherwise use accessible web-safe or open-source choices without adding excessive loading overhead.
+
+Motion should be restrained: fast fades, controlled image reveals, subtle underline or border changes, and minimal hover movement. Respect prefers-reduced-motion.
+
+# 4. SITE ARCHITECTURE
+
+Create or reconfigure these primary destinations:
+
+1. Home
+2. Market Notes
+3. Market Note detail
+4. The Edit
+5. Product detail
+6. Lookbook
+7. Visual Study or Lookbook detail
+8. Source
+9. Sell with Poda
+10. About
+
+Primary navigation should prioritize:
+
+- Market Notes
+- The Edit
+- Lookbook
+- Source
+- Sell with Poda
+
+“About” can sit in the footer or secondary navigation if needed.
+
+Use clean, human-readable routes appropriate to the existing framework, such as:
+
+- /
+- /market-notes
+- /market-notes/[slug]
+- /edit
+- /edit/[slug]
+- /lookbook
+- /lookbook/[slug]
+- /source
+- /sell
+- /about
+
+If routing is not supported by the current architecture, reproduce this hierarchy using the strongest structure available in the existing stack.
+
+# 5. GLOBAL HEADER
+
+Create a compact, persistent header.
+
+Desktop:
+
+- Poda wordmark or existing Poda logo at left
+- Primary navigation arranged cleanly
+- Current-drop status or issue indicator
+- Search or index function only if it can be implemented cleanly
+- No oversized ecommerce header
+- No generic “Shop” label; the store is called “The Edit”
+
+Mobile:
+
+- Compact wordmark
+- Clear menu trigger
+- Full-screen or structured menu
+- Current drop and contact access
+- Preserve the analytical/editorial character
+
+The header can borrow subtle language from an email client or internal system but must remain easy to understand.
+
+# 6. HOMEPAGE
+
+The homepage should introduce the current Poda thesis and move the visitor naturally from analysis to product.
+
+Use this sequence:
+
+## A. Current Drop / Opening Premise
+
+Label:
+
+DROP 001
+STATUS: IN ASSEMBLY
+
+Primary statement:
+
+“After hype, what remains?”
+
+Supporting copy:
+
+“Poda identifies what is moving, explains why it matters, and builds a store around its strongest expression.”
+
+Include a visual or restrained image composition that establishes the current world.
+
+Primary CTA: VIEW THE EDIT
+Secondary CTA: READ THE MARKET NOTE
+
+If the drop is not live, use PREVIEW THE EDIT and JOIN DROP NOTICE.
+
+Do not use fake urgency, countdown clocks, or false scarcity.
+
+## B. Current Thesis
+
+Use the thesis statement:
+
+“The new uniform does not need a uniform.”
+
+Explain that the first selection looks at the pieces that remain useful after trend cycles lose intensity: low profiles, long lines, restrained color, quietly technical construction, and products that improve through use.
+
+Keywords can appear as controlled metadata:
+
+LOW PROFILES
+LONG LINES
+RESTRAINED COLOR
+QUIETLY TECHNICAL
+USED WELL
+
+## C. Featured Market Note
+
+Present one featured research-led article with issue number, title, short abstract, publication date, estimated reading time, relevant category, strong editorial image, and a “Read the note” CTA.
+
+The module should resemble an editorial memo or research finding without looking like a corporate PowerPoint slide.
+
+## D. Featured Visual Study
+
+Display a selected sequence of images tied directly to the current Market Note. Include study number, study title, one-sentence framing, controlled image grid, and a link to the full study.
+
+The relationship between Market Note and Visual Study should be obvious.
+
+## E. The Edit
+
+Display approximately 4–6 featured products on the homepage.
+
+Each product card should include product name, brand or source, category, size, condition if relevant, price, availability status, item number, image, and correct transaction indicator.
+
+Product imagery should dominate, while metadata remains clean and legible.
+
+Use statuses such as AVAILABLE, RESERVED, SOLD, EXTERNAL, SOURCE ON REQUEST, and COMING FRIDAY.
+
+Do not show products that are unavailable as if they can be purchased.
+
+## F. Sourcing Desk
+
+Headline:
+
+“Looking for something that is not in the current edit?”
+
+Supporting copy:
+
+“Send Poda an exact piece, a reference, or simply a feeling. Requests are reviewed personally. Availability, product cost, and any service fee are confirmed before purchase.”
+
+CTA: OPEN A REQUEST
+
+Requests should initially be free to submit. Do not promise that every request can be fulfilled.
+
+## G. Sell with Poda
+
+Use this copy direction:
+
+“Poda works with independent brands, vintage sellers, and selected personal closets. Every piece is reviewed against the current point of view before it enters the store.”
+
+CTA: SUBMIT INVENTORY
+
+Make clear that submission does not guarantee acceptance.
+
+## H. Footer
+
+Include PODA; SELECTIVE RETAIL / MARKET INTELLIGENCE; NEW YORK + WASHINGTON, DC; Instagram; X; Substack or newsletter; email/contact; all major site links; copyright; and current build/drop status.
+
+# 7. MARKET NOTES
+
+Market Notes are Poda’s research and analysis layer. They explain a cultural or commercial movement and establish the logic behind the current selection.
+
+Create a Market Notes index that feels like a research archive. Each entry should include issue number, title, thesis or abstract, date, reading time, categories/tags, related visual study, related edit/drop, and lead image.
+
+Allow filtering or indexing by topic only if it remains simple and useful.
+
+Potential categories:
+
+- Market Movement
+- Brand Strategy
+- Retail
+- Product
+- Resale
+- Consumer Behavior
+- Uniform
+- Independent Brands
+
+Market Note detail pages should include issue metadata, strong title and subtitle, lead image, clean long-form reading layout, section headings, pull statistics or observations, footnotes/source links when present, related Visual Study, related products from The Edit, previous/next note navigation, share function, and newsletter signup.
+
+Do not invent fabricated statistics, quotations, or external sources. Use clearly marked placeholder content where final research has not been supplied.
+
+Poda’s writing voice should be observational, analytical, controlled, and slightly detached. Avoid generic AI rhetoric, exaggerated declarations, excessive em dashes, and repetitive constructions such as “It is not X; it is Y.”
+
+# 8. THE EDIT
+
+The Edit is the commercial center of Poda. It should look like a retailer with a strong point of view, not an endless marketplace.
+
+The Edit index should include current drop number and title, current thesis, drop status, release date or “In Assembly,” product count, source mix, product grid, related Market Note, related Lookbook, and archived drops when available.
+
+The default experience should prioritize the current drop. Do not lead with numerous filters when there are only 8–15 products.
+
+Useful filters may include All, Available, Apparel, Footwear, Accessories, Brand, Vintage, and Closet. Only display controls that match real data.
+
+Product cards should feel precise and collectible but not financialized.
+
+Each card needs primary image, optional secondary hover image, brand, product title, size, condition, price, status, item ID, source type, and correct CTA behavior.
+
+Suggested item-ID convention:
+
+PODA-[DROP NUMBER]-[CATEGORY CODE]-[SEQUENCE]
+
+Examples:
+
+PODA-001-FW-001
+PODA-001-OT-002
+PODA-001-AC-003
+
+Category codes:
+
+- FW: Footwear
+- OT: Outerwear
+- TP: Tops
+- BT: Bottoms
+- AC: Accessories
+- OB: Objects
+
+# 9. PRODUCT DETAIL
+
+Every product detail page should support serious buying consideration.
+
+Include:
+
+- Image gallery
+- Brand
+- Full product title
+- Price
+- Size
+- Measurements
+- Condition
+- Condition notes
+- Material
+- Color
+- Era or season, when known
+- Source type
+- Location, when operationally relevant
+- Item ID
+- Availability
+- Shipping note
+- Returns note
+- Product description
+- Why Poda selected it
+- Related thesis
+- Related Market Note
+- Related Visual Study
+- Correct transaction CTA
+
+Possible CTAs:
+
+PURCHASE THROUGH PODA
+REQUEST TO PURCHASE
+VIEW AT PARTNER
+SOURCE SOMETHING SIMILAR
+JOIN RESTOCK NOTICE
+
+Build product pages around a reusable data structure. Do not hard-code every layout separately.
+
+For “Why Poda selected it,” use concise reasoning such as:
+
+“Selected for its low profile, restrained color, and ability to sit between workwear and daily uniform.”
+
+Avoid generic product-copy clichés.
+
+# 10. LOOKBOOK / VISUAL STUDIES
+
+The Lookbook is Poda’s visual archive. It establishes the world around each thesis. It should not feel like a disposable campaign gallery.
+
+The index should display studies with study number, title, related Market Note, related drop, date, short framing statement, and cover image.
+
+A study detail page should support full-bleed images, structured grids, captions, archival references, product still lifes, texture and construction details, related items from The Edit, and links back to the thesis and Market Note.
+
+Use a controlled editorial rhythm. Alternate full-width imagery, pairs, details, and text interruptions. Do not use a repetitive three-column image grid for the entire page.
+
+If the repository lacks final imagery, preserve the image slots with intentional neutral placeholders and clear asset names. Do not fill the experience with random stock images.
+
+# 11. SOURCING DESK
+
+Build a refined sourcing-request page.
+
+Opening copy:
+
+“Send Poda an exact piece, a reference, or simply a feeling. The Sourcing Desk turns unanswered demand into a directed search.”
+
+The request form should collect:
+
+- Name
+- Email
+- Instagram handle, optional
+- Request type
+- Exact item, category, reference, or open-ended direction
+- Brand, optional
+- Desired size
+- Budget range
+- Deadline or desired timing
+- Condition preference
+- Location
+- Reference-image upload, if supported
+- Reference links
+- Additional context
+- Preferred contact method
+
+Request-type options:
+
+- Exact item
+- Similar to a reference
+- Build around a feeling
+- Complete a look
+- Find a gift
+
+Budget ranges:
+
+- Under $200
+- $200–$350
+- $350–$600
+- $600–$1,000
+- $1,000+
+
+Explain clearly that submission is free; Poda reviews the request; availability, product price, shipping, and any service fee are confirmed before commitment; and submission does not guarantee fulfillment.
+
+Build form success, validation, loading, and error states. Connect it to existing backend/form infrastructure if available. Otherwise create a clean integration boundary and document what needs to be connected.
+
+# 12. SELL WITH PODA
+
+This page should recruit qualified supply without inviting indiscriminate uploads.
+
+Audience:
+
+- Independent brands
+- Vintage sellers
+- Individual collectors
+- Selected personal closets
+
+Explain:
+
+“Poda selects a narrow group of products around each current thesis. Partners retain ownership until sale unless another arrangement is agreed. Poda handles selection, presentation, demand generation, and purchase coordination.”
+
+Include a submission form with name, email, Instagram or website, seller type, location, brand/item information, product category, quantity available, expected price or payout, sizes, condition, image upload if supported, existing listing links, shipping capability, and additional notes.
+
+Include a clear process:
+
+1. Submit
+2. Poda reviews fit
+3. Terms and pricing are confirmed
+4. Selected pieces enter a future Edit
+5. Sale and payout are tracked
+
+State that Poda is selective; submission does not guarantee placement; no item is presented without owner permission; commercial terms are agreed before publishing; and Poda may recommend pricing and markdowns.
+
+Do not publicly display confidential commission or payout information.
+
+# 13. ABOUT
+
+Suggested copy direction:
+
+“Poda is an independent retail project working between market research, visual culture, and selective commerce. Each cycle begins with a question about what is moving. Poda develops a point of view, assembles its visual evidence, and selects the products that express it most clearly.
+
+The store is built through relationships with independent brands, vintage sellers, and individual collectors. The result is a narrow, changing edit rather than a permanent catalogue.”
+
+Include:
+
+SELECTIVE RETAIL / MARKET INTELLIGENCE
+NEW YORK + WASHINGTON, DC
+
+Do not over-explain the founder story unless existing approved founder copy already exists.
+
+# 14. CONTENT AND DATA ARCHITECTURE
+
+Centralize all editable content. Do not scatter product and editorial data throughout page components.
+
+Create suitable structured data for Drops, Products, Market Notes, and Visual Studies.
+
+Drops fields:
+
+- id
+- number
+- slug
+- title
+- thesis
+- status
+- releaseDate
+- coverImage
+- marketNoteId
+- visualStudyId
+- productIds
+
+Products fields:
+
+- id
+- slug
+- brand
+- title
+- description
+- selectionReason
+- category
+- price
+- currency
+- size
+- measurements
+- material
+- color
+- condition
+- conditionNotes
+- season
+- sourceType
+- sourceName
+- location
+- status
+- transactionType
+- externalUrl
+- images
+- dropId
+- relatedNoteId
+- relatedStudyId
+- publishedAt
+
+Market Notes fields:
+
+- id
+- issueNumber
+- slug
+- title
+- subtitle
+- abstract
+- body/content
+- author
+- date
+- readingTime
+- tags
+- leadImage
+- relatedDropId
+- relatedStudyId
+- relatedProductIds
+- status
+
+Visual Studies fields:
+
+- id
+- studyNumber
+- slug
+- title
+- framing
+- date
+- coverImage
+- images
+- captions
+- relatedNoteId
+- relatedDropId
+- relatedProductIds
+
+Use the project’s current data method when practical. If no CMS or database exists, use clean local data modules or JSON that can later be migrated.
+
+# 15. INTERNAL ADMIN REQUIREMENTS
+
+If an admin section already exists, reconfigure it around Poda’s actual operating model. Do not expose admin links publicly.
+
+Track:
+
+- Consignor or supplier
+- Seller type
+- Contact information
+- Item ID
+- Brand
+- Product name
+- Category
+- Images
+- Size
+- Measurements
+- Condition
+- Owner payout
+- Target selling price
+- Poda commission
+- Expected Poda revenue
+- Availability
+- Permission to list
+- Selected/not selected
+- Assigned drop
+- Date received
+- Date listed
+- Markdown history
+- Sales channel
+- Transaction status
+- Sale date
+- Gross sale value
+- Processing fees
+- Shipping cost
+- Net proceeds
+- Payout status
+- Notes
+
+Useful internal summary metrics:
+
+- Active products
+- Available inventory
+- Current-drop GMV
+- Average selling price
+- Average Poda revenue per item
+- Sell-through rate
+- 30/60/90-day sell-through
+- Items awaiting approval
+- Sold but unpaid
+- Supplier payouts due
+- Products by source type
+- Products by price band
+- Sourcing requests by budget and category
+
+Do not create fake analytics or hard-coded charts presented as live data.
+
+# 16. RESPONSIVE BEHAVIOR
+
+The finished site must work deliberately across large desktop, standard laptop, tablet, and mobile.
+
+On mobile, preserve strong typography without overflow; keep product metadata legible; convert complex grids intelligently; make images easy to browse; keep CTAs reachable; make forms easy to complete; avoid horizontal scrolling; test navigation and overlays; and reconsider hierarchy instead of simply stacking every desktop element.
+
+# 17. ACCESSIBILITY AND QUALITY
+
+Implement semantic HTML, logical heading structure, keyboard navigation, visible focus states, adequate contrast, descriptive alt text, accessible forms and validation, proper button and link semantics, reduced-motion support, responsive images, lazy loading where appropriate, stable layouts, and clear empty/loading/error/sold/unavailable states.
+
+Do not sacrifice usability to preserve the aesthetic.
+
+# 18. SEO AND METADATA
+
+Add or update page titles, meta descriptions, Open Graph metadata, social preview structure, canonical URLs where supported, structured product metadata where appropriate, article metadata for Market Notes, sitemap and robots configuration if supported, favicon, and existing brand assets.
+
+Use accurate descriptions. Do not describe Poda as a marketplace, financial platform, or AI company.
+
+# 19. CONTENT TO SEED THE BUILD
+
+Use the following initial theme:
+
+Drop: DROP 001 — IN ASSEMBLY
+Primary question: “After hype, what remains?”
+Thesis: “The new uniform does not need a uniform.”
+
+Visual vocabulary:
+
+- Low profiles
+- Long lines
+- Restrained color
+- Quietly technical
+- Used well
+
+Seed the project with approximately 10–12 realistic product records across emerging brands, vintage, and individual closets.
+
+Keep most seeded products between $200 and $450, with the complete range remaining approximately $175–$600.
+
+Clearly identify seeded records as replaceable sample content within the code. Do not use fake brand partnerships or claim that a real brand has authorized Poda to sell its products. When necessary, use neutral labels such as Independent Brand 01, Vintage Seller 01, and Private Collection 01.
+
+Do not fabricate testimonials, press coverage, customer counts, sales figures, or partner logos.
+
+# 20. COMPONENTS
+
+Create or refactor reusable components such as:
+
+- GlobalHeader
+- MobileNavigation
+- SiteFooter
+- DropStatus
+- ThesisHeader
+- MetadataRow
+- MarketNoteCard
+- ProductCard
+- ProductGrid
+- ProductStatus
+- TransactionCTA
+- VisualStudyCard
+- ImageSequence
+- SourceRequestForm
+- SellerSubmissionForm
+- NewsletterForm
+- RelatedContent
+- EmptyState
+- LoadingState
+- ErrorState
+
+Use names appropriate to the existing codebase conventions.
+
+# 21. WRITING STYLE
+
+All copy should sound observational, analytical, controlled, slightly detached, specific, and economically and culturally aware.
+
+Avoid:
+
+- “Where fashion meets…”
+- “More than a store”
+- “Not just X, but Y”
+- “Redefining the future of fashion”
+- “Curated for the modern individual”
+- “Timeless pieces that tell a story”
+- “Elevate your wardrobe”
+- Other generic luxury, startup, or AI-generated language
+
+Keep product descriptions short and evidence-based. Keep headings strong without turning every line into a slogan.
+
+# 22. IMPLEMENTATION RULES
+
+- Preserve useful existing functionality.
+- Use the current framework and package manager.
+- Reuse suitable existing Poda logos and assets.
+- Do not delete potentially valuable assets; move unused legacy elements into an archive location if appropriate.
+- Remove obsolete UI from active routes.
+- Centralize colors, spacing, typography, and borders into design tokens.
+- Maintain consistent component patterns.
+- Avoid unnecessary dependencies.
+- Do not embed secrets.
+- Do not invent backend integrations.
+- Do not create dead buttons.
+- Every CTA must work, navigate somewhere valid, open a valid form, or be visibly marked as unavailable.
+- If a function requires future backend configuration, build the UI and interface cleanly, then document the exact remaining connection.
+- Preserve Git history and do not run destructive Git commands.
+- Make the final implementation feel complete even when using replaceable sample content.
+
+# 23. ACCEPTANCE CRITERIA
+
+The redesign is complete only when:
+
+1. The old closet-management/SaaS positioning is no longer visible on the live site.
+2. A new visitor can understand Poda within ten seconds.
+3. Market Notes, Lookbook, The Edit, and Sourcing feel like parts of one system.
+4. The homepage clearly leads from thesis to imagery to products.
+5. The Edit supports 8–15 item drops without feeling empty.
+6. Products support direct, assisted, external, and sourcing transaction types.
+7. The site reflects the $175–$600 positioning.
+8. The experience feels like selective retail and market intelligence.
+9. Every primary route is responsive and navigable.
+10. All forms have functional client-side behavior and clear integration points.
+11. No fake partnership, statistic, testimonial, inventory status, or commerce capability is presented as real.
+12. There are no console errors, broken imports, missing routes, dead CTAs, or obvious layout failures.
+13. The website is visually specific to Poda rather than resembling a generic template.
+14. Content can be updated centrally without rewriting page components.
+15. The codebase is cleaner and easier to extend than it was before the overhaul.
+
+# 24. FINAL VERIFICATION
+
+After completing the implementation:
+
+1. Run the relevant lint, type-check, test, and build commands.
+2. Fix all errors caused by the redesign.
+3. Launch the local development server.
+4. Inspect every route.
+5. Verify desktop and mobile layouts.
+6. Test navigation, forms, product statuses, transaction CTAs, and related-content links.
+7. Check browser console output.
+8. Confirm that no legacy concept remains visible.
+9. Provide a concise completion report containing what was changed, files created or significantly modified, existing functionality preserved, tests and build checks run, integrations still requiring credentials or external setup, and exact instructions for replacing sample products, articles, and imagery.
+
+Do not ask me to approve every individual styling decision. Make strong, coherent choices based on this brief and complete the full overhaul.

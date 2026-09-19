@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Note — poda</title>
+  <meta name="description" content="A poda Inbox note — research and reasoning behind the current selection." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <main class="portal-shell">
+    <div class="note-page" id="notePage">
+      <p class="status-message" id="noteStatus">Loading…</p>
+    </div>
+  </main>
+
+  <footer class="site-footer portal-shell">
+    <div class="footer-left">
+      <span class="footer-brand">poda</span>
+    </div>
+  </footer>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script>
+    (async function () {
+      const page   = document.getElementById("notePage");
+      const status = document.getElementById("noteStatus");
+      const topbar = document.getElementById("topbarTitle");
+
+      const id = new URLSearchParams(window.location.search).get("id");
+      if (!id) { status.textContent = "Note not found."; return; }
+
+      let notes = [];
+      try { notes = await window.PodaDB.getNotes(); } catch (e) { /* offline */ }
+
+      const note = notes.find(n => n.id === id);
+
+      if (!note || note.status !== "published") {
+        status.textContent = "Note not found.";
+        return;
+      }
+
+      // Update page title
+      document.title = `${note.title} — poda`;
+      if (topbar) topbar.textContent = note.title;
+
+      // Format date
+      const dateStr = note.publishedAt
+        ? new Date(note.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+        : "";
+
+      function escHTML(s) {
+        return String(s || "")
+          .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+          .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+      }
+
+      // Render body: split on blank lines → blocks.
+      // A block that matches [img: url] becomes a figure; everything else is a paragraph.
+      const IMG_TAG = /^\[img:\s*(https?:\/\/[^\]]+)\]$/i;
+
+      const bodyHTML = String(note.body || "")
+        .split(/\n\s*\n/)
+        .map(block => block.trim())
+        .filter(Boolean)
+        .map(block => {
+          const lines = block.split("\n").map(l => l.trim());
+          if (lines.length === 1 && IMG_TAG.test(lines[0])) {
+            const url = lines[0].match(IMG_TAG)[1];
+            return `<figure class="note-article__figure"><img src="${escHTML(url)}" alt="" loading="lazy" /></figure>`;
+          }
+          const inner = lines.map(line => {
+            const m = line.match(IMG_TAG);
+            if (m) return `</p><figure class="note-article__figure"><img src="${escHTML(m[1])}" alt="" loading="lazy" /></figure><p>`;
+            return escHTML(line);
+          }).join("<br />");
+          return `<p>${inner}</p>`
+            .replace(/<p><\/p>/g, "")
+            .replace(/<br \/>(<\/p>|<figure)/g, "$1")
+            .replace(/(<\/figure>)<br \/>/g, "$1");
+        })
+        .join("");
+
+      page.innerHTML = `
+        <article class="note-article">
+          ${note.coverImage
+            ? `<div class="note-article__cover"><img src="${escHTML(note.coverImage)}" alt="" /></div>`
+            : ""}
+          <header class="note-article__header">
+            <p class="note-article__eyebrow">
+              <a href="market-notes.html">← Inbox</a>
+              <span>${note.issueNumber ? "No. " + escHTML(String(note.issueNumber)) + " · " : ""}${note.category ? escHTML(String(note.category).toUpperCase()) + " · " : ""}${dateStr ? escHTML(dateStr) : ""}</span>
+            </p>
+            <div class="purple-band">
+              <div class="purple-band__inner">
+                <h1 class="note-article__title">${escHTML(note.title)}</h1>
+                ${note.subtitle ? `<p class="note-article__subtitle">${escHTML(note.subtitle)}</p>` : ""}
+              </div>
+            </div>
+          </header>
+          <div class="note-article__body">${bodyHTML || "<p>—</p>"}</div>
+          ${note.substackUrl
+            ? `<p class="note-article__substack"><a href="${escapeHTML(note.substackUrl)}" target="_blank" rel="noopener">Read on Substack →</a></p>`
+            : ""}
+          <div class="note-article__signup">
+            <p class="note-article__signup-label">Get the next Market Note by email</p>
+            <div data-poda-subscribe="note-detail"></div>
+          </div>
+        </article>
+      `;
+
+      if (window.PodaSubscribe) {
+        const signupEl = page.querySelector("[data-poda-subscribe]");
+        if (signupEl) window.PodaSubscribe.mount(signupEl, { source: "note-detail" });
+      }
+    })();
+  </script>
+  <script src="subscribe.js"></script>
+  <script src="layout.js"></script>
+</body>
+</html>

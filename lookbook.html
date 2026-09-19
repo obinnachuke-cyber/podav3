@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Lookbook — poda</title>
+  <meta name="description" content="The Lookbook is poda's visual archive — the world around each thesis, told through Visual Studies." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="page-section" style="border-bottom:none;">
+      <div id="lookbookGrid" class="study-grid" aria-live="polite">
+        <p class="status-message" id="lookbookStatus">Loading studies…</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer portal-shell"></footer>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script src="lookbook.js"></script>
+  <script src="subscribe.js"></script>
+  <script src="layout.js"></script>
+</body>
+</html>

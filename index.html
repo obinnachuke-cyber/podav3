@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>poda — selective retail / market intelligence</title>
+  <meta name="description" content="poda identifies what is moving, explains why it matters, and builds a store around its strongest expression. Selective retail / market intelligence. New York + Washington, DC." />
+  <meta property="og:title" content="poda — selective retail / market intelligence" />
+  <meta property="og:description" content="poda identifies what is moving, explains why it matters, and builds a store around its strongest expression." />
+  <meta property="og:type" content="website" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="site-body">
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <!-- Split-screen hero -->
+  <section class="hero">
+    <div class="hero__inner">
+      <div class="hero__text">
+        <span class="hero__eyebrow" id="premiseDrop">DROP 001</span>
+        <p class="hero__status" id="premiseStatus">STATUS: IN ASSEMBLY</p>
+        <div class="hero__cta">
+          <a class="btn-solid" href="drop.html">View the Edit →</a>
+          <a class="btn-ghost" href="market-notes.html">Read the Inbox →</a>
+        </div>
+      </div>
+      <div class="hero__visual" aria-hidden="true">
+        <span class="hero__visual-number">01</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contextual strip -->
+  <div class="context-strip">
+    <span id="headerStatus">DROP 001 · IN ASSEMBLY</span>
+  </div>
+
+  <main class="home2">
+
+    <!-- B. Current thesis -->
+    <section class="thesis purple-band" id="thesis">
+      <div class="purple-band__inner">
+        <span class="eyebrow">Current thesis</span>
+        <p class="thesis__body" id="thesisBody">The first selection looks at the pieces that stay useful after trend cycles lose intensity: low profiles, long lines, restrained color, quietly technical construction, and products that improve through use.</p>
+        <ul class="thesis__keywords" aria-label="Selection vocabulary">
+          <li>Low profiles</li>
+          <li>Long lines</li>
+          <li>Restrained color</li>
+          <li>Quietly technical</li>
+          <li>Used well</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- E. The Edit preview -->
+    <section class="home-edit" id="homeEdit">
+      <div class="home-edit__head">
+        <span class="eyebrow">The Edit</span>
+        <a class="home-edit__all" href="drop.html">See the full edit →</a>
+      </div>
+      <div class="items-grid" id="homeEditGrid" aria-live="polite">
+        <p class="status-message">Loading the edit…</p>
+      </div>
+    </section>
+
+    <!-- Email signup -->
+    <section class="home-band" id="homeSignup">
+      <div class="purple-band">
+        <div class="purple-band__inner">
+          <h2 class="home-band__title">Get the Market Note by email</h2>
+          <p class="home-band__body">One note when it drops. No spam, unsubscribe anytime.</p>
+        </div>
+      </div>
+      <div class="home-band__form-wrap">
+        <div data-poda-subscribe="homepage"></div>
+      </div>
+    </section>
+
+    <!-- F. Sourcing desk -->
+    <section class="home-band">
+      <h2 class="home-band__title">Looking for something that is not in the current edit?</h2>
+      <p class="home-band__body">Send poda an exact piece, a reference, or simply a feeling. Requests are reviewed personally. Availability, product cost, and any service fee are confirmed before purchase.</p>
+      <a class="btn-solid" href="source.html">Open a request →</a>
+    </section>
+
+    <!-- G. Sell with poda -->
+    <section class="home-band home-band--alt">
+      <h2 class="home-band__title">Sell with poda</h2>
+      <p class="home-band__body">poda works with independent brands, vintage sellers, and selected personal closets. Every piece is reviewed against the current point of view before it enters the store. Submission does not guarantee acceptance.</p>
+      <a class="btn-ghost" href="sell.html">Submit inventory →</a>
+    </section>
+
+    <!-- Hidden mount so script.js boots inventory for renderHome -->
+    <div id="homeMount" hidden></div>
+  </main>
+
+  <!-- H. Footer (filled by layout.js) -->
+  <footer class="site-footer"></footer>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script src="script.js"></script>
+  <script src="home.js"></script>
+  <script src="subscribe.js"></script>
+  <script src="layout.js"></script>
+</body>
+</html>
