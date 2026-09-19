@@ -1278,6 +1278,9 @@ function bindMainEvents() {
     if (event.target.closest("[data-export-subscribers]")) { exportSubscribersCSV(); return; }
     if (event.target.closest("[data-no-edit]")) return;
 
+    const sendBtn = event.target.closest("[data-send-note]");
+    if (sendBtn) { openSendModal(sendBtn.dataset.sendNote); return; }
+
     const noteRow = event.target.closest("[data-note-edit]");
     if (noteRow) { openNoteModal(noteRow.dataset.noteEdit); return; }
 
@@ -1638,6 +1641,9 @@ function renderNotes() {
       <td>
         <a class="card-link" href="note.html?id=${encodeURIComponent(note.id)}" target="_blank" rel="noopener"
            onclick="event.stopPropagation()">View ↗</a>
+        ${note.status === "published"
+          ? `<button type="button" class="card-link" data-send-note="${escapeHTML(note.id)}" onclick="event.stopPropagation()">Send ↗</button>`
+          : ""}
       </td>
     </tr>
   `).join("");
@@ -1660,6 +1666,203 @@ function renderNotes() {
         </div>`
     }
   `;
+}
+
+/* ============================================================
+   Send Market Note by email (Module 2 — Resend, via /api/notes-send)
+   ============================================================ */
+let sendModalState = null;
+
+function sendModalExcerpt(note, maxLen = 220) {
+  const source = note.subtitle || note.body || "";
+  const text = String(source).replace(/\s+/g, " ").trim();
+  if (!text) return "Read the latest from poda.";
+  return text.length > maxLen ? `${text.slice(0, maxLen).trimEnd()}…` : text;
+}
+
+function activeSubscriberCount() {
+  return subscriberState.subscribers.filter(
+    s => s.status === "ACTIVE" && String(s.email || "").trim()
+  ).length;
+}
+
+function openSendModal(noteId) {
+  const note = noteState.notes.find(n => n.id === noteId);
+  if (!note) return;
+
+  sendModalState = { noteId, phase: "preview", result: null, error: null, confirmText: "" };
+  renderSendModal(note);
+
+  modalOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+
+function renderSendModal(note) {
+  const s = sendModalState;
+  const subject = note.title ? `poda Inbox: ${note.title}` : "poda Inbox";
+  const excerpt = sendModalExcerpt(note);
+  const activeCount = activeSubscriberCount();
+
+  const previewHTML = `
+    <div class="send-preview">
+      <p class="send-preview__meta">Subject: <strong>${escapeHTML(subject)}</strong></p>
+      <div class="send-preview__card">
+        ${note.coverImage ? `<img src="${escapeHTML(note.coverImage)}" alt="" class="send-preview__image" />` : ""}
+        <h3 class="send-preview__title">${escapeHTML(note.title || "Untitled")}</h3>
+        <p class="send-preview__excerpt">${escapeHTML(excerpt)}</p>
+        <span class="btn btn--primary send-preview__btn">Read the full note →</span>
+      </div>
+      <p class="send-preview__plain">Plain-text fallback is generated automatically from the same content.</p>
+    </div>
+  `;
+
+  let actionHTML = "";
+  if (s.phase === "preview") {
+    actionHTML = `
+      <div class="send-actions">
+        <button type="button" class="btn" id="sendTestBtn">Send test to me</button>
+        <button type="button" class="btn btn--primary" id="startBroadcastBtn">Send to active subscribers</button>
+      </div>
+      <p class="send-note-meta">${activeCount} active subscriber${activeCount === 1 ? "" : "s"} would receive this.</p>
+      ${s.error ? `<p class="field-error">${escapeHTML(s.error)}</p>` : ""}
+      ${s.result && s.result.mode === "test"
+        ? `<p class="field-success">Test sent to ${escapeHTML(s.result.to || "")}.</p>`
+        : ""}
+    `;
+  } else if (s.phase === "confirm") {
+    actionHTML = `
+      <div class="send-confirm">
+        <p class="send-confirm__warning">This sends a real email to <strong>${activeCount}</strong> active subscriber${activeCount === 1 ? "" : "s"}. This cannot be undone.</p>
+        <label class="field field--full">
+          <span>Type SEND to confirm</span>
+          <input type="text" id="sendConfirmInput" autocomplete="off" value="${escapeHTML(s.confirmText)}" />
+        </label>
+        ${s.priorSend
+          ? `<p class="field-error">Already sent as a broadcast on ${escapeHTML(new Date(s.priorSend.created_at).toLocaleString())} (${s.priorSend.succeeded}/${s.priorSend.attempted} delivered).
+              <label style="display:block;margin-top:6px;"><input type="checkbox" id="sendOverrideBox" /> Send again anyway</label></p>`
+          : ""}
+        ${s.error ? `<p class="field-error">${escapeHTML(s.error)}</p>` : ""}
+        <div class="send-actions">
+          <button type="button" class="btn" id="cancelBroadcastBtn">Cancel</button>
+          <button type="button" class="btn btn--primary" id="confirmBroadcastBtn" disabled>Confirm &amp; send</button>
+        </div>
+      </div>
+    `;
+  } else if (s.phase === "sending") {
+    actionHTML = `<p class="send-note-meta">Sending…</p>`;
+  } else if (s.phase === "done") {
+    const r = s.result || {};
+    actionHTML = `
+      <div class="send-result">
+        <p class="field-success">
+          Broadcast ${escapeHTML(r.status || "completed")} — ${r.succeeded || 0} sent, ${r.failed || 0} failed
+          ${r.skipped ? `, ${r.skipped} skipped (no email)` : ""}.
+        </p>
+        <div class="send-actions"><button type="button" class="btn" id="closeSendBtn">Close</button></div>
+      </div>
+    `;
+  }
+
+  modalContent.innerHTML = `
+    <div class="modal-head">
+      <h2 class="modal-title">Send: ${escapeHTML(note.title || "Untitled")}</h2>
+      <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      ${previewHTML}
+      ${actionHTML}
+    </div>
+  `;
+
+  bindSendModalButtons(note);
+}
+
+/* Binds fresh listeners to this render's buttons. Since renderSendModal()
+   fully replaces modalContent.innerHTML on every phase change, the previous
+   render's buttons (and their listeners) are discarded with them — this must
+   be called again after every render, exactly like bindModalEvents() does
+   for the item editor. Never delegate to the persistent #modalContent
+   container here, or listeners (and their closured `note`) would stack up
+   across separate modal opens. */
+function bindSendModalButtons(note) {
+  const byId = id => document.getElementById(id);
+
+  byId("modalClose")?.addEventListener("click", () => {
+    closeModal();
+    sendModalState = null;
+  });
+
+  byId("sendTestBtn")?.addEventListener("click", async () => {
+    const btn = byId("sendTestBtn");
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    sendModalState.error = null;
+    try {
+      const result = await window.PodaDB.sendNoteEmail({ noteId: note.id, mode: "test" });
+      if (!result.ok) throw new Error(result.error || "Test send failed.");
+      sendModalState.result = result;
+    } catch (e) {
+      sendModalState.error = e.message || "Test send failed.";
+    }
+    renderSendModal(note);
+  });
+
+  byId("startBroadcastBtn")?.addEventListener("click", () => {
+    sendModalState.phase = "confirm";
+    sendModalState.confirmText = "";
+    sendModalState.priorSend = null;
+    sendModalState.error = null;
+    renderSendModal(note);
+  });
+
+  byId("cancelBroadcastBtn")?.addEventListener("click", () => {
+    sendModalState.phase = "preview";
+    renderSendModal(note);
+  });
+
+  byId("sendConfirmInput")?.addEventListener("input", event => {
+    sendModalState.confirmText = event.target.value;
+    const confirmBtn = byId("confirmBroadcastBtn");
+    if (confirmBtn) confirmBtn.disabled = event.target.value.trim() !== "SEND";
+  });
+
+  byId("confirmBroadcastBtn")?.addEventListener("click", async () => {
+    const btn = byId("confirmBroadcastBtn");
+    if (btn.disabled) return;
+    btn.disabled = true;
+    sendModalState.phase = "sending";
+    renderSendModal(note);
+
+    const override = !!byId("sendOverrideBox")?.checked;
+    try {
+      const result = await window.PodaDB.sendNoteEmail({
+        noteId: note.id,
+        mode: "broadcast",
+        confirm: "SEND",
+        override
+      });
+      if (result.httpStatus === 409) {
+        sendModalState.phase = "confirm";
+        sendModalState.priorSend = result.priorSend;
+        sendModalState.error = result.error;
+      } else if (!result.ok) {
+        sendModalState.phase = "confirm";
+        sendModalState.error = result.error || "Send failed.";
+      } else {
+        sendModalState.phase = "done";
+        sendModalState.result = result;
+      }
+    } catch (e) {
+      sendModalState.phase = "confirm";
+      sendModalState.error = "Network error — please try again.";
+    }
+    renderSendModal(note);
+  });
+
+  byId("closeSendBtn")?.addEventListener("click", () => {
+    closeModal();
+    sendModalState = null;
+  });
 }
 
 /* ============================================================

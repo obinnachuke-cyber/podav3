@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Unsubscribe — poda</title>
+  <meta name="description" content="Unsubscribe from poda's Market Note emails." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="page-section" style="border-bottom:none;">
+      <div class="section-bar">
+        <span class="section-bar__label">Email preferences</span>
+        <span class="section-bar__title">Unsubscribe</span>
+      </div>
+
+      <div id="unsubscribeBox">
+        <p class="about__text" id="unsubscribeIntro" style="max-width:60ch;">Confirm you'd like to stop receiving poda's Market Note emails.</p>
+        <button type="button" class="btn-solid" id="unsubscribeBtn">Unsubscribe me</button>
+        <p class="field-error" id="unsubscribeError" hidden></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer portal-shell"></footer>
+
+  <script src="layout.js"></script>
+  <script>
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const token = (params.get("token") || "").trim();
+      const box = document.getElementById("unsubscribeBox");
+      const intro = document.getElementById("unsubscribeIntro");
+      const btn = document.getElementById("unsubscribeBtn");
+      const errorBox = document.getElementById("unsubscribeError");
+
+      if (!token) {
+        intro.textContent = "This unsubscribe link is missing its token — it may have been copied incorrectly.";
+        btn.hidden = true;
+        return;
+      }
+
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        btn.textContent = "Working…";
+        errorBox.hidden = true;
+
+        try {
+          const res = await fetch("/api/unsubscribe", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ token })
+          });
+          const result = await res.json().catch(() => null);
+
+          if (!res.ok || !result) {
+            throw new Error("request_failed");
+          }
+
+          intro.textContent = result.message || "Done.";
+          btn.remove();
+        } catch (e) {
+          errorBox.textContent = "Something went wrong. Please try again in a moment.";
+          errorBox.hidden = false;
+          btn.disabled = false;
+          btn.textContent = "Unsubscribe me";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -245,7 +245,8 @@
         status: "ACTIVE",
         consent: true,
         consentAt: now,
-        createdAt: now
+        createdAt: now,
+        unsubscribeToken: newId()
       }
     };
     const { error } = await client.from(SUBSCRIBERS_TABLE).insert(row);
@@ -364,6 +365,26 @@
     return () => data.subscription.unsubscribe();
   }
 
+  /* —— Module 2: trigger a Market Note email via the Cloudflare Function.
+     The admin's own Supabase access token authorizes the request server-side —
+     RESEND_API_KEY never touches this file or the browser. —— */
+  async function sendNoteEmail({ noteId, mode, confirm, override }) {
+    const session = await getSession();
+    if (!session) throw new Error("Sign in required.");
+
+    const res = await fetch("/api/notes-send", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({ noteId, mode, confirm, override })
+    });
+
+    const result = await res.json().catch(() => ({}));
+    return { httpStatus: res.status, ok: res.ok, ...result };
+  }
+
   window.PodaDB = {
     isConfigured,
     getItems,
@@ -391,6 +412,7 @@
     getSession,
     signIn,
     signOut,
-    onAuthChange
+    onAuthChange,
+    sendNoteEmail
   };
 })();

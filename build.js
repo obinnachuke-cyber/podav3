@@ -33,6 +33,7 @@ const INCLUDE = [
   "sell.html",
   "source.html",
   "study.html",
+  "unsubscribe.html",
 
   "style.css",
   "admin.css",

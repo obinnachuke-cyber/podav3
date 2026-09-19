@@ -478,6 +478,65 @@
   padding: 14px;
 }
 
+/* —— Send Market Note modal (Module 2) —— */
+.send-preview__meta {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.send-preview__card {
+  border: 1px solid var(--border);
+  background: var(--bg-box);
+  padding: 16px;
+  margin-bottom: 8px;
+}
+.send-preview__image {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  display: block;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+}
+.send-preview__title {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.send-preview__excerpt {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+.send-preview__btn {
+  display: inline-block;
+  pointer-events: none;
+}
+.send-preview__plain {
+  margin: 0 0 16px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-style: italic;
+}
+.send-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.send-note-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.send-confirm__warning {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--danger);
+}
+.send-result { margin-top: 4px; }
+
 .modal-foot {
   position: sticky;
   bottom: 0;
