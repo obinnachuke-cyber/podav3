@@ -27,6 +27,7 @@ const OUT = path.join(ROOT, "dist");
 // so nothing new can leak into the deployment by accident.
 const INCLUDE = [
   "_worker.js",
+  ".assetsignore",
 
   "index.html",
   "about.html",
