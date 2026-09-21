@@ -1,0 +1,24 @@
+name = "podav3"
+main = "./dist/_worker.js"
+compatibility_date = "2025-01-01"
+
+# Static site — same dist/ folder build.js has always produced.
+# Ordinary page requests fall through to this binding from _worker.js;
+# only the two /api/* routes are handled by the Worker script itself.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+# Plain (non-secret) runtime variables. These are safe to commit — they're
+# the same public Supabase URL/anon key already shipped in supabase-config.js,
+# and the site's own public URL. Row Level Security, not secrecy, protects
+# the anon key's access.
+[vars]
+SUPABASE_URL = "https://ajurlpmzhrihvubdjuln.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqdXJscG16aHJpaHZ1YmRqdWxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3ODg5MDYsImV4cCI6MjA5NzM2NDkwNn0.HQyZnwEMZJUkpAQv9Z5uvyR9xHYks3BmgcIP3lwfpbg"
+SITE_URL = "https://podapodapoda.co"
+
+# RESEND_API_KEY and ADMIN_EMAIL are NOT declared here — they are secrets.
+# Set them via the Cloudflare dashboard (Workers & Pages → this project →
+# Settings → Variables and Secrets → "Secret" type) or `wrangler secret put`.
+# Never add them to this file.

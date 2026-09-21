@@ -106,19 +106,23 @@ You should see **"Success. No rows returned."**
 
 ## Cloudflare setup (separate from Supabase)
 
-Two secrets should already exist (per your setup): `RESEND_API_KEY`, `ADMIN_EMAIL`.
-Two more values are needed by the new Cloudflare Pages Functions — these are
-**not secret** (they're the same public URL/key already sitting in
-`supabase-config.js`), but Pages Functions need them passed in as environment
-variables since they can't read your site's client-side JS:
+This project deploys as a **Cloudflare Worker with a static-assets binding**
+(see `wrangler.toml` at the repo root), not a plain static site — that's what
+lets it run server-side code (`_worker.js`) at all. Two kinds of configuration
+are involved:
 
-| Variable | Value | Type |
-|---|---|---|
-| `RESEND_API_KEY` | (already set) | Secret |
-| `ADMIN_EMAIL` | (already set) | Secret |
-| `SUPABASE_URL` | same value as `PODA_SUPABASE_URL` in `supabase-config.js` | Plain variable |
-| `SUPABASE_ANON_KEY` | same value as `PODA_SUPABASE_ANON_KEY` in `supabase-config.js` | Plain variable |
-| `SITE_URL` | `https://podapodapoda.co` | Plain variable |
+- **Plain (non-secret) variables** — `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+  `SITE_URL`. These are committed directly in `wrangler.toml`'s `[vars]` block
+  since they're the same public values already shipped in `supabase-config.js`
+  — no dashboard step needed for these.
+- **Secrets** — `RESEND_API_KEY`, `ADMIN_EMAIL`. These must **never** go in
+  `wrangler.toml` or any committed file. Set them in the Cloudflare dashboard:
+  **Workers & Pages → your `podav3` project → Settings → Variables and
+  Secrets → Add → type "Secret"**. You said these are already set — if the
+  project was previously configured as assets-only (no Worker script), you
+  may need to re-add them now that a real Worker entry point exists, since
+  Cloudflare rejects variables on an assets-only deployment.
 
-Set these in the Cloudflare Pages dashboard → your project → Settings →
-Environment variables (Production, and Preview if you test there too).
+If your actual Cloudflare Worker project name isn't `podav3`, update the
+`name` field at the top of `wrangler.toml` to match — it must match the
+existing Worker for a deploy to update it rather than create a new one.

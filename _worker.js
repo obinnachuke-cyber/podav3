@@ -1,11 +1,19 @@
 /* ============================================================
-   POST /api/notes-send — Cloudflare Pages Function
-   Sends a Market Note by email: a single test send to the admin,
-   or a broadcast to every ACTIVE subscriber via Resend's batch API.
+   _worker.js — Cloudflare Worker entry point (Workers + Static Assets)
 
-   RESEND_API_KEY is read only from `env` here — it never reaches
-   the browser. The caller's Supabase access token is verified
-   server-side against Supabase itself before anything else runs.
+   This repo deploys as a single Cloudflare Worker with a static-assets
+   binding (see wrangler.toml: `main` points to this file, copied into
+   dist/_worker.js by build.js; `[assets]` binds the rest of dist/ as
+   env.ASSETS). Cloudflare requires a real Worker script — not just a
+   static-assets binding — before it will accept runtime variables or
+   secrets, which is exactly what this file provides.
+
+   Routing: two POST API routes are handled here; every other request
+   (the whole static site) falls straight through to env.ASSETS.fetch().
+
+   Secrets (RESEND_API_KEY, ADMIN_EMAIL) and plain vars (SUPABASE_URL,
+   SUPABASE_ANON_KEY, SITE_URL) are read only from `env` — never
+   hardcoded here, never logged, never sent to the browser.
    ============================================================ */
 
 const RESEND_BATCH_LIMIT = 100;
@@ -19,7 +27,10 @@ function json(status, body) {
   });
 }
 
-/* —— Verify the caller is really the signed-in admin —— */
+/* ============================================================
+   /api/notes-send
+   ============================================================ */
+
 async function verifyAdmin(request, env) {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -47,7 +58,6 @@ async function verifyAdmin(request, env) {
   return { ok: true, token, email };
 }
 
-/* —— Thin Supabase REST helpers (acting as the verified admin's own session) —— */
 async function supabaseSelect(env, token, table, query) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${query}`, {
     headers: {
@@ -76,7 +86,6 @@ async function supabaseInsert(env, token, table, row) {
   }
 }
 
-/* —— Email content —— */
 function escapeHTML(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -149,7 +158,6 @@ function buildEmail(note, siteUrl, unsubscribeUrl) {
   return { subject, html, text };
 }
 
-/* —— Resend —— */
 async function sendViaResend(env, message) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -182,7 +190,9 @@ function chunk(array, size) {
   return out;
 }
 
-export async function onRequestPost({ request, env }) {
+async function handleNotesSend(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+
   let payload;
   try {
     payload = await request.json();
@@ -214,7 +224,6 @@ export async function onRequestPost({ request, env }) {
 
   const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
 
-  /* —— Test send: just the admin, no logging/guard needed —— */
   if (mode === "test") {
     const unsubscribeUrl = `${siteUrl}/unsubscribe.html?token=preview`;
     const { subject, html, text } = buildEmail(note, siteUrl, unsubscribeUrl);
@@ -243,7 +252,6 @@ export async function onRequestPost({ request, env }) {
     });
   }
 
-  /* —— Broadcast: requires the typed confirmation, duplicate-guard, batching —— */
   if (confirm !== "SEND") {
     return json(400, { error: "Type SEND to confirm a broadcast." });
   }
@@ -360,6 +368,60 @@ export async function onRequestPost({ request, env }) {
   return json(200, { ok: true, mode: "broadcast", attempted, succeeded, failed, skipped, status });
 }
 
-export async function onRequestGet() {
-  return json(405, { error: "Method not allowed." });
+/* ============================================================
+   /api/unsubscribe
+   ============================================================ */
+
+async function handleUnsubscribe(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (e) {
+    return json(400, { error: "Invalid request." });
+  }
+
+  const token = String((payload && payload.token) || "").trim();
+  if (!token) return json(400, { error: "Missing token." });
+
+  let res;
+  try {
+    res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/unsubscribe_by_token`, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_ANON_KEY,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ p_token: token })
+    });
+  } catch (e) {
+    return json(502, { error: "Could not reach the server. Please try again." });
+  }
+
+  if (!res.ok) {
+    return json(502, { error: "Could not process the request." });
+  }
+
+  const result = await res.json().catch(() => null);
+  const outcome = typeof result === "string" ? result : "not_found";
+
+  if (outcome === "ok") return json(200, { status: "ok", message: "You've been unsubscribed." });
+  if (outcome === "already") return json(200, { status: "already", message: "You were already unsubscribed." });
+  return json(200, { status: "not_found", message: "We couldn't find that subscription." });
 }
+
+/* ============================================================
+   Router — API routes handled here; everything else falls through
+   to the static assets binding (the existing dist/ site, unchanged).
+   ============================================================ */
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/api/notes-send") return handleNotesSend(request, env);
+    if (url.pathname === "/api/unsubscribe") return handleUnsubscribe(request, env);
+
+    return env.ASSETS.fetch(request);
+  }
+};

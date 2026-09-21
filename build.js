@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* ============================================================
-   build.js — Cloudflare Pages build step.
+   build.js — Cloudflare Worker (static assets) build step.
 
    This is a filter-and-copy step, not a bundler: it copies ONLY the
    files below into dist/, so internal planning docs, spreadsheets,
@@ -9,6 +9,10 @@
    home.html/index.html and every other page stay hand-authored,
    single-source files; this script never generates or duplicates
    page markup.
+
+   dist/_worker.js (copied from the repo-root _worker.js below) is
+   Cloudflare's Worker entry point — see wrangler.toml. Everything
+   else in dist/ is served as static assets via the ASSETS binding.
 
    Run: node build.js
    ============================================================ */
@@ -22,6 +26,8 @@ const OUT = path.join(ROOT, "dist");
 // new public page or script means adding it here — that's intentional,
 // so nothing new can leak into the deployment by accident.
 const INCLUDE = [
+  "_worker.js",
+
   "index.html",
   "about.html",
   "admin.html",
