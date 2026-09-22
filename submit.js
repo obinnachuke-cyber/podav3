@@ -3,9 +3,11 @@
    (Sell with poda + Sourcing Desk).
 
    Both forms are just: name + email + Instagram + one message
-   box + photos. Photos are compressed in the browser, uploaded
-   to the public `submissions` bucket, and their links are added
-   to a pre-filled email to poda (mailto can't attach files).
+   box + photos. Photos are compressed in the browser and uploaded
+   to the public `submissions` bucket; the submission itself
+   (including photo links) is sent server-side via the Cloudflare
+   Worker (/api/submit-request → Resend) — no mailto draft, no
+   dependence on the visitor having an email client configured.
 
    Usage on a page:
      PodaSubmit.wire({ subjectPrefix: "poda sourcing request",
@@ -131,29 +133,39 @@
         }
       }
 
-      submitBtn.textContent = "Opening email…";
+      submitBtn.textContent = "Sending…";
       successBox.hidden = false;
-      successBox.textContent = "Opening your email to send to poda…";
+      successBox.textContent = "Sending to poda…";
 
-      const lines = [
-        subjectPrefix + ":", "",
-        "Name: " + name,
-        "Email: " + from,
-        "Instagram: " + get("instagram"), "",
-        prompt + ":",
-        message
-      ];
-      if (urls.length) {
-        lines.push("", "Photos:");
-        urls.forEach(u => lines.push(u));
+      try {
+        const res = await fetch("/api/submit-request", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            subjectPrefix,
+            prompt,
+            name,
+            email: from,
+            instagram: get("instagram"),
+            message,
+            photos: urls
+          })
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || !result.ok) throw new Error((result && result.error) || "Send failed.");
+
+        successBox.textContent = "Sent — poda will follow up by email.";
+        form.reset();
+        files = [];
+        renderStrip();
+        reset();
+      } catch (err) {
+        console.error(err);
+        errorBox.textContent = "Could not send. Please try again, or DM poda on Instagram instead.";
+        errorBox.hidden = false;
+        successBox.hidden = true;
+        reset();
       }
-
-      window.location.href =
-        "mailto:" + email +
-        "?subject=" + encodeURIComponent(subjectPrefix + " — " + name) +
-        "&body=" + encodeURIComponent(lines.join("\n"));
-
-      setTimeout(reset, 2500);
     });
   }
 

@@ -412,6 +412,78 @@ async function handleUnsubscribe(request, env) {
 }
 
 /* ============================================================
+   /api/submit-request — Sourcing Desk + Sell-with-poda forms.
+   Public (no auth — anyone can submit a request/offer, same as
+   before when this just opened a mailto draft). Sends straight to
+   CONTACT_EMAIL server-side instead of relying on the visitor's
+   own email client.
+   ============================================================ */
+
+async function handleSubmitRequest(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (e) {
+    return json(400, { error: "Invalid request body." });
+  }
+
+  const clean = (value, max) => String(value || "").replace(/[\r\n]+/g, " ").trim().slice(0, max);
+
+  const subjectPrefix = clean(payload.subjectPrefix, 120) || "poda submission";
+  const prompt = clean(payload.prompt, 120) || "Message";
+  const name = clean(payload.name, 200);
+  const email = clean(payload.email, 200);
+  const instagram = clean(payload.instagram, 200);
+  const message = String(payload.message || "").trim().slice(0, 5000);
+  const photos = Array.isArray(payload.photos) ? payload.photos.slice(0, 10).map(u => String(u).trim()) : [];
+
+  if (!name || !email || !message) {
+    return json(400, { error: "Name, email, and message are required." });
+  }
+
+  const contactEmail = env.CONTACT_EMAIL;
+  if (!contactEmail) {
+    return json(500, { error: "Contact email isn't configured." });
+  }
+
+  const lines = [
+    `${subjectPrefix}:`, "",
+    `Name: ${name}`,
+    `Email: ${email}`,
+    `Instagram: ${instagram}`, "",
+    `${prompt}:`,
+    message
+  ];
+  if (photos.length) {
+    lines.push("", "Photos:");
+    photos.forEach(u => lines.push(u));
+  }
+  const text = lines.join("\n");
+  const html = `<pre style="font-family:inherit;white-space:pre-wrap;word-wrap:break-word;">${escapeHTML(text)}</pre>`;
+
+  let result;
+  try {
+    result = await sendViaResend(env, {
+      from: FROM_ADDRESS,
+      to: [contactEmail],
+      reply_to: email,
+      subject: `${subjectPrefix} — ${name}`,
+      html,
+      text
+    });
+  } catch (e) {
+    return json(502, { error: "Could not reach Resend." });
+  }
+  if (!result.ok) {
+    return json(502, { error: "Resend rejected the submission.", detail: result.body });
+  }
+
+  return json(200, { ok: true });
+}
+
+/* ============================================================
    Router — API routes handled here; everything else falls through
    to the static assets binding (the existing dist/ site, unchanged).
    ============================================================ */
@@ -421,6 +493,7 @@ export default {
 
     if (url.pathname === "/api/notes-send") return handleNotesSend(request, env);
     if (url.pathname === "/api/unsubscribe") return handleUnsubscribe(request, env);
+    if (url.pathname === "/api/submit-request") return handleSubmitRequest(request, env);
 
     return env.ASSETS.fetch(request);
   }

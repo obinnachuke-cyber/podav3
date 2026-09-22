@@ -17,6 +17,9 @@ binding = "ASSETS"
 SUPABASE_URL = "https://ajurlpmzhrihvubdjuln.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqdXJscG16aHJpaHZ1YmRqdWxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3ODg5MDYsImV4cCI6MjA5NzM2NDkwNn0.HQyZnwEMZJUkpAQv9Z5uvyR9xHYks3BmgcIP3lwfpbg"
 SITE_URL = "https://podapodapoda.co"
+# Where Sourcing Desk + Sell-with-poda submissions land (/api/submit-request).
+# Same value as PODA_CONTACT_EMAIL in supabase-config.js — keep both in sync.
+CONTACT_EMAIL = "twopoda@gmail.com"
 
 # RESEND_API_KEY and ADMIN_EMAIL are NOT declared here — they are secrets.
 # Set them via the Cloudflare dashboard (Workers & Pages → this project →
