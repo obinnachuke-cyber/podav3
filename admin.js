@@ -1642,7 +1642,7 @@ function renderNotes() {
         <a class="card-link" href="note.html?id=${encodeURIComponent(note.id)}" target="_blank" rel="noopener"
            onclick="event.stopPropagation()">View ↗</a>
         ${note.status === "published"
-          ? `<button type="button" class="card-link" data-send-note="${escapeHTML(note.id)}" onclick="event.stopPropagation()">Send ↗</button>`
+          ? `<button type="button" class="card-link" data-send-note="${escapeHTML(note.id)}">Send ↗</button>`
           : ""}
       </td>
     </tr>
