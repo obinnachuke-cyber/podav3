@@ -57,7 +57,13 @@ const INCLUDE = [
   "excel-export.js",
   "db.js",
   "supabase-config.js",
-  "supabase.min.js"
+  "supabase.min.js",
+
+  // Market Note Publishing Studio (Module 3) — vendored/committed, same
+  // pattern as supabase.min.js above. poda-editor.bundle.js is built from
+  // src/editor/** via `npm run build:editor`; see README.md.
+  "poda-dompurify.min.js",
+  "poda-editor.bundle.js"
 ];
 
 function copyFile(name) {

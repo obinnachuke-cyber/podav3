@@ -65,6 +65,12 @@
         <div id="modalContent"></div>
       </div>
     </div>
+
+    <!-- Market Note Publishing Studio: full-screen editor, built by
+         renderStudioShell() in admin.js. Separate from modalOverlay above
+         so it has room for a real writing canvas + side panel (see
+         admin.css .note-studio rules). -->
+    <div class="note-studio" id="noteStudioOverlay" hidden></div>
   </div>
 
   <script src="supabase.min.js"></script>
@@ -73,6 +79,14 @@
   <!-- ExcelJS: builds the downloadable inventory workbook in the browser. -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="excel-export.js"></script>
+  <!-- Market Note Publishing Studio (Module 3): DOMPurify sanitizes the
+       website HTML the editor generates; poda-editor.bundle.js is Tiptap
+       core + Poda's custom blocks, built from src/editor/** via
+       `npm run build:editor` (see README.md) — vendored/committed the
+       same way supabase.min.js is, so the site's deploy needs no build
+       step beyond the existing node build.js. -->
+  <script src="poda-dompurify.min.js"></script>
+  <script src="poda-editor.bundle.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>

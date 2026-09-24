@@ -1100,3 +1100,510 @@
 .login-card .btn {
   margin-top: 4px;
 }
+
+/* ============================================================
+   Market Note Publishing Studio (Module 3 — Tiptap)
+   Full-screen overlay, distinct from the small item/drop modal
+   (.modal-overlay), so it has room for a real writing canvas,
+   a settings panel, and — at wide viewports — a live preview
+   pane beside the editor. z-index sits just under .modal-overlay
+   (100) so the existing Send Test/Broadcast modal still layers
+   on top when opened from inside the Studio.
+   ============================================================ */
+.note-studio {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.note-studio[hidden] { display: none; }
+
+.note-studio__topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px max(var(--pad), env(safe-area-inset-left));
+  border-bottom: 1px solid var(--border);
+  min-height: 56px;
+}
+
+.note-studio__back {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 0 6px;
+}
+.note-studio__back:hover, .note-studio__back:focus-visible { color: var(--purple-2); outline: none; }
+
+.note-studio__status {
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  min-width: 90px;
+}
+.note-studio__status--saving { color: var(--signal); }
+.note-studio__status--saved { color: #6fae7c; }
+.note-studio__status--error { color: #c95151; }
+
+.note-studio__modes {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.note-studio__mode-btn {
+  appearance: none;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.note-studio__mode-btn--active { background: var(--purple); color: var(--text); border-color: var(--purple); }
+.note-studio__mode-btn:focus-visible { outline: 2px solid var(--purple-2); outline-offset: -2px; }
+
+.note-studio__settings-toggle {
+  display: none;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.note-studio__body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  overflow: hidden;
+}
+
+.note-studio__canvas {
+  overflow-y: auto;
+  padding: clamp(16px, 4vw, 40px) max(var(--pad), env(safe-area-inset-left));
+  -webkit-overflow-scrolling: touch;
+}
+
+.note-studio__measure {
+  width: min(720px, 100%);
+  margin: 0 auto;
+}
+
+.note-studio__live-preview {
+  display: none;
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+.note-studio__live-preview iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+
+.note-studio__panel {
+  width: 340px;
+  max-width: 100%;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  background: var(--bg-box);
+}
+.note-studio__panel[hidden] { display: none; }
+
+.note-studio__panel h3 {
+  margin: 0 0 12px;
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.note-studio__panel .field { margin-bottom: 14px; }
+
+.note-studio__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px max(var(--pad), env(safe-area-inset-left));
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.note-studio__actions .btn { min-height: 44px; }
+.note-studio__actions .field-error,
+.note-studio__actions .field-success {
+  width: 100%;
+  margin: 0;
+}
+
+.note-studio__preview-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+  display: block;
+}
+
+/* Desktop: settings panel visible inline; live preview pane appears at
+   very wide viewports while editing (side-by-side, per the responsive
+   spec's "editor and preview beside each other when width allows"). */
+@media (min-width: 768px) {
+  .note-studio__settings-toggle { display: none !important; }
+  .note-studio__panel[hidden] { display: block; }
+}
+@media (min-width: 1440px) {
+  .note-studio__body.note-studio__body--edit {
+    grid-template-columns: 1fr 1fr 340px;
+  }
+  .note-studio__body.note-studio__body--edit .note-studio__live-preview {
+    display: block;
+  }
+}
+
+/* Mobile / narrow: settings panel becomes its own full-screen sub-view,
+   toggled by a button in the topbar instead of sitting inline. */
+@media (max-width: 767px) {
+  .note-studio__panel {
+    position: fixed;
+    inset: 56px 0 0 0;
+    z-index: 5;
+    width: 100%;
+    border-left: none;
+  }
+  .note-studio__settings-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .note-studio__modes { width: 100%; order: 3; margin-left: 0; }
+  .note-studio__mode-btn { flex: 1; }
+}
+
+/* —— Shared editor chrome (pe- = "poda editor") —— */
+.pe-shell { display: flex; flex-direction: column; min-height: 100%; }
+
+.pe-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  margin-bottom: 16px;
+  background: var(--bg-box);
+  border: 1px solid var(--border);
+}
+.pe-toolbar__group { position: relative; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.pe-toolbar__btn {
+  appearance: none;
+  min-height: 40px;
+  min-width: 40px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.pe-toolbar__btn:hover, .pe-toolbar__btn:focus-visible { border-color: var(--border); color: var(--text); outline: none; }
+.pe-toolbar__btn--active { background: var(--purple); color: var(--text); border-color: var(--purple); }
+
+.pe-toolbar__menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.pe-toolbar__group--more .pe-toolbar__menu,
+.pe-toolbar__group--insert .pe-toolbar__menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  background: var(--bg-box);
+  border: 1px solid var(--border);
+  padding: 6px;
+  min-width: 200px;
+  flex-direction: column;
+}
+.pe-toolbar__group.pe-open .pe-toolbar__menu { display: flex; }
+
+.pe-toolbar__link-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  background: var(--bg-box);
+  border: 1px solid var(--border);
+  min-width: 260px;
+}
+.pe-toolbar__link-popover[hidden] { display: none; }
+.pe-toolbar__link-input {
+  flex: 1 1 160px;
+  min-height: 40px;
+  padding: 0 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 16px;
+}
+.pe-toolbar__link-error { width: 100%; margin: 0; font-size: 11px; color: #c95151; }
+
+@media (max-width: 767px) {
+  .pe-toolbar { position: sticky; top: 0; }
+  .pe-toolbar__group--format { flex: 1 1 auto; }
+}
+
+.pe-content {
+  flex: 1;
+}
+.pe-content .ProseMirror {
+  min-height: 320px;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text);
+}
+.pe-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.pe-content .ProseMirror h2 { font-family: var(--font-serif); font-size: 1.6rem; margin: 1.4em 0 0.5em; }
+.pe-content .ProseMirror h3 { font-family: var(--font-serif); font-size: 1.25rem; margin: 1.2em 0 0.5em; }
+.pe-content .ProseMirror blockquote { border-left: 2px solid var(--purple); margin: 1em 0; padding-left: 14px; color: var(--text-dim); }
+.pe-content .ProseMirror a { color: var(--purple-2); }
+.pe-content .ProseMirror ul, .pe-content .ProseMirror ol { padding-left: 1.4em; }
+.pe-content .ProseMirror hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+
+.pe-title-block { margin-bottom: 20px; }
+.pe-title-block__title {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 600;
+  line-height: 1.1;
+  padding: 4px 0;
+}
+.pe-title-block__title::placeholder { color: var(--text-faint); }
+.pe-title-block__subtitle {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  padding: 2px 0;
+}
+.pe-title-block__title:focus-visible,
+.pe-title-block__subtitle:focus-visible { outline: none; border-bottom: 1px dashed var(--border-light); }
+
+/* Shared control row on every custom node view */
+.pe-node-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.pe-node-controls__label {
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-right: auto;
+}
+.pe-node-controls__btn {
+  min-height: 32px;
+  min-width: 32px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.pe-node-controls__btn:hover, .pe-node-controls__btn:focus-visible { border-color: var(--border-light); color: var(--text); outline: none; }
+.pe-node-controls__btn--danger:hover { border-color: #c95151; color: #c95151; }
+
+/* Generic field/chip primitives reused across custom node views */
+.pe-field { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.pe-field--compact { margin: 0; flex: 1 1 140px; }
+.pe-field__label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+.pe-field__input {
+  min-height: 40px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px;
+}
+.pe-input--warning { border-color: #c9994b; }
+
+.pe-chip {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pe-chip--active { background: var(--purple); border-color: var(--purple); color: var(--text); }
+
+.pe-image__option-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+
+/* Thesis */
+.pe-thesis {
+  padding: 16px;
+  margin: 16px 0;
+  background: var(--purple);
+  border: 1px solid var(--purple);
+}
+.pe-thesis__eyebrow-input {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border-light);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 0;
+}
+.pe-thesis__content { min-height: 60px; }
+.pe-thesis__content p { color: var(--text); }
+
+/* Pull quote */
+.pe-pull-quote { padding: 16px; margin: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.pe-pull-quote__text {
+  width: 100%;
+  min-height: 70px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  line-height: 1.35;
+  font-style: italic;
+  resize: none;
+  padding: 0;
+}
+.pe-pull-quote__attribution {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-family: var(--font);
+  font-size: 11px;
+}
+
+/* Editorial image */
+.pe-image { margin: 16px 0; padding: 12px; border: 1px solid var(--border); }
+.pe-image__dropzone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 24px;
+  border: 1px dashed var(--border-light);
+  text-align: center;
+  justify-content: center;
+}
+.pe-image__dropzone--compact { padding: 16px; }
+.pe-image__dropzone--active { border-color: var(--purple-2); background: color-mix(in srgb, var(--bg-box) 90%, var(--purple-deep)); }
+.pe-image__hint { margin: 0; color: var(--text-faint); font-size: 12px; width: 100%; }
+.pe-image__error { color: #c95151; font-size: 12px; margin: 6px 0 0; width: 100%; }
+.pe-image__progress { width: 100%; height: 6px; background: var(--bg); border: 1px solid var(--border); margin-top: 10px; }
+.pe-image__progress-bar { height: 100%; width: 0%; background: var(--purple-2); transition: width 0.2s ease; }
+.pe-image__img { max-width: 100%; display: block; }
+.pe-image__preview--standard .pe-image__img { max-height: 360px; object-fit: cover; }
+.pe-image__fields { margin-top: 10px; }
+
+/* Image + text */
+.pe-image-text { margin: 16px 0; padding: 12px; border: 1px solid var(--border); }
+.pe-image-text__options { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 10px; }
+.pe-image-text__grid {
+  display: grid;
+  grid-template-columns: 1fr var(--pe-text-width, 50%);
+  gap: 16px;
+}
+.pe-image-text__grid--reverse { grid-template-columns: var(--pe-text-width, 50%) 1fr; }
+.pe-image-text__grid--reverse .pe-image-text__image-col { order: 2; }
+.pe-image-text__grid--reverse .pe-image-text__text-col { order: 1; }
+@media (max-width: 640px) {
+  .pe-image-text__grid, .pe-image-text__grid--reverse { grid-template-columns: 1fr; }
+  .pe-image-text__grid--reverse .pe-image-text__image-col,
+  .pe-image-text__grid--reverse .pe-image-text__text-col { order: initial; }
+}
+
+/* Product card */
+.pe-product-card { margin: 16px 0; padding: 12px; border: 1px solid var(--border); }
+.pe-product-card__fields { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+.pe-product-card__fields .pe-field { flex: 1 1 160px; margin: 0; }
+.pe-product-card__picker { margin: 10px 0; }
+.pe-product-card__results { max-height: 180px; overflow-y: auto; border: 1px solid var(--border); margin-top: 6px; }
+.pe-product-card__result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  min-height: 44px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+}
+.pe-product-card__result:hover, .pe-product-card__result:focus-visible { background: var(--bg-box-hover); color: var(--text); outline: none; }
+.pe-product-card__no-results { padding: 10px; margin: 0; color: var(--text-faint); font-size: 12px; }
+.pe-product-card__selected { font-size: 11px; color: var(--text-faint); margin: 6px 0 0; }
+.pe-product-card__image { margin: 10px 0; }
+.pe-product-card__image .pe-image__img { max-width: 200px; }
+
+/* Sources */
+.pe-sources { margin: 16px 0; padding: 12px; border: 1px solid var(--border); }
+.pe-sources__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.pe-sources__row:last-child { border-bottom: none; }

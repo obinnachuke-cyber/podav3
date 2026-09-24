@@ -1596,14 +1596,40 @@ function blankNote() {
     id: "",
     title: "",
     subtitle: "",
-    body: "",
+    slug: "",
+    body: "",                // legacy plain-text content (pre-Studio notes only — never written to by the Studio)
+    contentJson: null,       // Tiptap JSON — canonical content for notes written in the Studio
+    websiteHtml: "",         // sanitized HTML, regenerated from contentJson on every save
+    emailHtml: "",           // email-safe HTML, regenerated from contentJson on every save
     coverImage: "",
+    coverImageAlt: "",
     category: "buy",        // "buy" | "sell" | "watch"
     substackUrl: "",
     status: "draft",        // "draft" | "published"
+    emailSubject: "",
+    emailPreviewText: "",
     publishedAt: "",
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    updatedAt: ""
   };
+}
+
+// Slugs are validated against the already-loaded note list client-side
+// (same approach as generateNoteId() below) rather than a DB constraint —
+// notes.data is a single JSONB blob per row, so there's no schema-level
+// place to enforce this without a migration.
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function isSlugTaken(slug, excludeId) {
+  return noteState.notes.some(n => n.slug && n.slug === slug && n.id !== excludeId);
 }
 
 function generateNoteId() {
@@ -1960,199 +1986,494 @@ function exportSubscribersCSV() {
   URL.revokeObjectURL(url);
 }
 
-function buildNoteForm(note) {
-  return `
-    <form id="noteForm" novalidate>
-      <p class="field-error" id="noteFormError" hidden></p>
+/* ============================================================
+   Market Note Publishing Studio (Module 3 — Tiptap)
 
-      <section class="form-card">
-        <div class="section-bar"><span class="section-bar__title">Note</span></div>
-        <div class="field-grid">
-          <div class="field">
-            <label>Type</label>
-            <div class="toggle-group" role="group" style="max-width:280px">
-              ${NOTE_CATEGORIES.map(cat =>
-                `<button type="button" class="toggle note-cat-btn${note.category === cat ? " active" : ""}" data-note-cat="${cat}">${cat.toUpperCase()}</button>`
-              ).join("")}
-            </div>
-            <input type="hidden" name="note.category" id="noteCatInput" value="${escapeHTML(note.category || "buy")}" />
-          </div>
-          ${textField("Title", "note.title", note.title, { full: true })}
-          ${textField("Subtitle / Deck", "note.subtitle", note.subtitle, { full: true })}
-          ${textField("Cover Image URL", "note.coverImage", note.coverImage, { full: true, placeholder: "https://…" })}
-          ${textField("Substack Article URL (optional)", "note.substackUrl", note.substackUrl || "", { full: true, placeholder: "https://…" })}
-        </div>
-      </section>
+   Canonical content lives in note.contentJson (Tiptap JSON, via
+   window.PodaEditor — poda-editor.bundle.js, built from src/editor/**).
+   note.websiteHtml / note.emailHtml are regenerated from it on every
+   save; nothing here ever writes to the legacy `body` field. Notes
+   saved before this module existed have no contentJson — the first
+   time one is opened here, its legacy body is converted (in memory
+   only, not persisted until Save) so the admin sees real content
+   instead of a blank editor.
+   ============================================================ */
+const noteStudioOverlay = document.getElementById("noteStudioOverlay");
+let studio = null;
 
-      <section class="form-card">
-        <div class="section-bar"><span class="section-bar__title">Body</span></div>
-        <div class="field-grid">
-          ${textareaField("Body — blank line = new paragraph · [img: url] on its own line = inline image", "note.body", note.body, { full: true })}
-          <div class="field field--full">
-            <label style="margin-bottom:6px;display:block;">Insert inline image</label>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <label class="btn" style="cursor:pointer;min-height:36px;display:inline-flex;align-items:center;padding:0 14px;">
-                Upload image
-                <input type="file" id="noteBodyImageInput" accept="image/*" hidden />
-              </label>
-              <span id="noteBodyImageStatus" style="font-size:10px;color:var(--text-dim);letter-spacing:0.08em;"></span>
-            </div>
-          </div>
-        </div>
-      </section>
+function defaultEmailSubject(note) {
+  return note.title ? `poda Inbox: ${note.title}` : "poda Inbox";
+}
 
-      <section class="form-card">
-        <div class="section-bar"><span class="section-bar__title">Publish</span></div>
-        <div class="field-grid">
-          <div class="field">
-            <label>Status</label>
-            <div class="toggle-group" role="group" style="max-width:240px">
-              <button type="button" class="toggle note-status-btn${note.status === "draft" ? " active" : ""}" data-note-status="draft">Draft</button>
-              <button type="button" class="toggle note-status-btn${note.status === "published" ? " active" : ""}" data-note-status="published">Published</button>
-            </div>
-            <input type="hidden" name="note.status" id="noteStatusInput" value="${escapeHTML(note.status)}" />
-          </div>
-          ${dateField("Publish Date", "note.publishedAt",
-              note.publishedAt ? note.publishedAt.slice(0, 10) : new Date().toISOString().slice(0, 10))}
-        </div>
-      </section>
-    </form>
+// One-way, in-memory upgrade of the old "[img: url]" plain-text body
+// convention into Tiptap JSON — mirrors the parsing note.html has always
+// used for legacy notes. Only ever runs when opening a note that has no
+// contentJson yet; the original `body` field is left untouched.
+function legacyBodyToContentJSON(body) {
+  const IMG_TAG = /^\[img:\s*(https?:\/\/[^\]]+)\]$/i;
+  const blocks = String(body || "").split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+  const content = [];
+  blocks.forEach(block => {
+    const lines = block.split("\n").map(l => l.trim());
+    if (lines.length === 1 && IMG_TAG.test(lines[0])) {
+      content.push({ type: "podaImage", attrs: { src: lines[0].match(IMG_TAG)[1], alt: "", caption: "", display: "standard", align: "center" } });
+      return;
+    }
+    const text = lines.filter(l => !IMG_TAG.test(l)).join(" ");
+    if (text) content.push({ type: "paragraph", content: [{ type: "text", text }] });
+  });
+  if (!content.length) content.push({ type: "paragraph" });
+  return { type: "doc", content };
+}
+
+function setStudioStatus(kind, message) {
+  const el = document.getElementById("studioSaveStatus");
+  if (!el) return;
+  el.className = `note-studio__status${kind ? ` note-studio__status--${kind}` : ""}`;
+  el.textContent = message || "";
+}
+
+function studioBeforeUnload(event) {
+  if (studio && studio.dirty) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+}
+
+function studioMarkDirty() {
+  if (!studio) return;
+  studio.dirty = true;
+  scheduleAutosave();
+}
+
+function scheduleAutosave() {
+  if (!studio) return;
+  if (studio.autosaveTimer) clearTimeout(studio.autosaveTimer);
+  // Only autosave a note that already has an id (i.e. already saved once
+  // manually) — keeps the first save a deliberate action (no empty
+  // duplicate drafts from autosave) and is safe with a single admin
+  // account (no concurrent-edit conflicts to reconcile).
+  if (!studio.note.id) return;
+  studio.autosaveTimer = setTimeout(() => { saveStudioNote({ silent: true }); }, 4000);
+}
+
+function computeDerivedFields(note) {
+  const json = note.contentJson;
+  if (json && window.PodaEditor) {
+    note.websiteHtml = window.PodaEditor.renderWebsiteHTML(json);
+    note.emailHtml = window.PodaEditor.renderEmailHTML(json);
+    if (!note.emailPreviewText) note.emailPreviewText = window.PodaEditor.extractPlainText(json, 150);
+  }
+  if (!note.emailSubject) note.emailSubject = defaultEmailSubject(note);
+}
+
+function refreshStudioPreviewSource() {
+  if (!studio) return;
+  if (studio.editorHandle) studio.note.contentJson = studio.editorHandle.getJSON();
+  computeDerivedFields(studio.note);
+}
+
+function buildWebsitePreviewDoc(note) {
+  const dateStr = new Date(note.publishedAt || Date.now())
+    .toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  return `<!doctype html>
+<html><head><base href="${escapeHTML(window.location.origin)}/" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="style.css" /></head>
+<body><main class="portal-shell"><div class="note-page"><article class="note-article">
+${note.coverImage ? `<div class="note-article__cover"><img src="${escapeHTML(note.coverImage)}" alt="${escapeHTML(note.coverImageAlt || "")}" /></div>` : ""}
+<header class="note-article__header">
+  <p class="note-article__eyebrow"><span>${note.category ? escapeHTML(String(note.category).toUpperCase()) + " · " : ""}${escapeHTML(dateStr)}</span></p>
+  <div class="purple-band"><div class="purple-band__inner">
+    <h1 class="note-article__title">${escapeHTML(note.title || "Untitled")}</h1>
+    ${note.subtitle ? `<p class="note-article__subtitle">${escapeHTML(note.subtitle)}</p>` : ""}
+  </div></div>
+</header>
+<div class="note-article__body">${note.websiteHtml || "<p>Nothing to preview yet — write some content first.</p>"}</div>
+</article></div></main></body></html>`;
+}
+
+// Mirrors the outer shell _worker.js's buildEmail() sends (header, cover
+// image, unsubscribe footer) so this preview matches the real send as
+// closely as possible; the %%SITE_URL%% token product cards embed for
+// internal item links is resolved here (and by _worker.js at send time).
+function buildEmailPreviewDoc(note) {
+  const siteUrl = window.location.origin;
+  const bodyHtml = (note.emailHtml || "<p>Nothing to preview yet — write some content first.</p>")
+    .split("%%SITE_URL%%").join(siteUrl);
+  return `<!doctype html>
+<html><body style="margin:0;padding:0;background:#f5f5f3;font-family:Georgia,'Times New Roman',serif;color:#090909;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f3;padding:32px 0;">
+<tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #26262a;">
+<tr><td style="padding:24px 28px 0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#555555;">poda</td></tr>
+<tr><td style="padding:6px 28px 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#999790;">poda inbox</td></tr>
+${note.coverImage ? `<tr><td style="padding:0 28px 20px;"><img src="${escapeHTML(note.coverImage)}" alt="${escapeHTML(note.coverImageAlt || "")}" width="100%" style="display:block;max-width:100%;border:1px solid #26262a;" /></td></tr>` : ""}
+<tr><td style="padding:0 28px 8px;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.1;font-weight:600;color:#090909;">${escapeHTML(note.title || "poda")}</td></tr>
+${note.emailPreviewText ? `<tr><td style="padding:0 28px 20px;font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#666666;">${escapeHTML(note.emailPreviewText)}</td></tr>` : ""}
+<tr><td style="padding:0 28px 28px;">${bodyHtml}</td></tr>
+<tr><td style="padding:20px 28px;border-top:1px solid #26262a;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.08em;color:#999790;">
+poda &mdash; selective retail / market intelligence<br /><a href="#" style="color:#999790;">Unsubscribe (preview)</a>
+</td></tr></table></td></tr></table></body></html>`;
+}
+
+let livePreviewTimer = null;
+function updateLivePreview() {
+  if (!studio || studio.mode !== "edit") return;
+  const pane = document.getElementById("studioLivePreview");
+  if (!pane || !window.matchMedia("(min-width: 1440px)").matches) return;
+  clearTimeout(livePreviewTimer);
+  livePreviewTimer = setTimeout(() => {
+    if (!studio) return;
+    refreshStudioPreviewSource();
+    const iframe = pane.querySelector("iframe");
+    if (iframe) iframe.srcdoc = buildWebsitePreviewDoc(studio.note);
+  }, 500);
+}
+
+function applyStudioMode(mode) {
+  studio.mode = mode;
+  document.getElementById("studioBody").classList.toggle("note-studio__body--edit", mode === "edit");
+  document.getElementById("studioMeasure").hidden = mode !== "edit";
+  const websiteFrame = document.getElementById("studioWebsiteFrame");
+  const emailFrame = document.getElementById("studioEmailFrame");
+  websiteFrame.hidden = mode !== "website";
+  emailFrame.hidden = mode !== "email";
+
+  if (mode !== "edit") refreshStudioPreviewSource();
+  if (mode === "website") websiteFrame.srcdoc = buildWebsitePreviewDoc(studio.note);
+  if (mode === "email") emailFrame.srcdoc = buildEmailPreviewDoc(studio.note);
+  if (mode === "edit") updateLivePreview();
+
+  document.querySelectorAll(".note-studio__mode-btn").forEach(btn => {
+    btn.classList.toggle("note-studio__mode-btn--active", btn.dataset.studioMode === mode);
+  });
+}
+
+function renderStudioActions() {
+  const note = studio.note;
+  const canSend = note.status === "published" && !!note.id;
+  const actions = document.getElementById("studioActions");
+  actions.innerHTML = `
+    <button type="button" class="btn" id="studioSaveBtn" ${studio.saving ? "disabled" : ""}>Save Draft</button>
+    ${note.status === "published"
+      ? `<button type="button" class="btn" id="studioUnpublishBtn" ${studio.saving ? "disabled" : ""}>Unpublish</button>`
+      : `<button type="button" class="btn btn--primary" id="studioPublishBtn" ${studio.saving ? "disabled" : ""}>Publish</button>`}
+    <button type="button" class="btn" id="studioSendBtn" ${canSend ? "" : "disabled"} title="${canSend ? "" : "Publish the note first"}">Send Test / Broadcast…</button>
+    ${note.id ? `<a class="btn" href="note.html?id=${encodeURIComponent(note.id)}" target="_blank" rel="noopener">View ↗</a>` : ""}
+    ${studio.saveError ? `<p class="field-error">${escapeHTML(studio.saveError)}</p>` : ""}
   `;
+
+  document.getElementById("studioSaveBtn").addEventListener("click", () => saveStudioNote({}));
+  const publishBtn = document.getElementById("studioPublishBtn");
+  if (publishBtn) publishBtn.addEventListener("click", () => saveStudioNote({ publish: true }));
+  const unpublishBtn = document.getElementById("studioUnpublishBtn");
+  if (unpublishBtn) unpublishBtn.addEventListener("click", () => saveStudioNote({ unpublish: true }));
+  const sendBtn = document.getElementById("studioSendBtn");
+  if (sendBtn && canSend) sendBtn.addEventListener("click", () => openSendModal(note.id));
+}
+
+function renderSettingsPanel(panel) {
+  const note = studio.note;
+  panel.innerHTML = `
+    <h3>Note settings</h3>
+    <div class="field">
+      <label>Type</label>
+      <div class="toggle-group" role="group">
+        ${NOTE_CATEGORIES.map(cat =>
+          `<button type="button" class="toggle pe-chip${note.category === cat ? " pe-chip--active" : ""}" data-studio-cat="${cat}">${cat.toUpperCase()}</button>`
+        ).join("")}
+      </div>
+    </div>
+    <label class="field">
+      <span class="pe-field__label">Slug</span>
+      <input class="pe-field__input" id="studioSlugInput" type="text" value="${escapeHTML(note.slug || "")}" placeholder="auto-generated-from-title" />
+    </label>
+    <p class="field-error" id="studioSlugError" hidden></p>
+
+    <h3>Cover image</h3>
+    <div id="studioCoverField"></div>
+    <label class="field">
+      <span class="pe-field__label">Cover image alt text</span>
+      <input class="pe-field__input" id="studioCoverAltInput" type="text" value="${escapeHTML(note.coverImageAlt || "")}" />
+    </label>
+
+    <h3>Email</h3>
+    <label class="field">
+      <span class="pe-field__label">Email subject</span>
+      <input class="pe-field__input" id="studioEmailSubjectInput" type="text" value="${escapeHTML(note.emailSubject || "")}" placeholder="${escapeHTML(defaultEmailSubject(note))}" />
+    </label>
+    <label class="field">
+      <span class="pe-field__label">Preview text</span>
+      <textarea class="pe-field__input" id="studioEmailPreviewInput" rows="2">${escapeHTML(note.emailPreviewText || "")}</textarea>
+    </label>
+
+    <h3>Other</h3>
+    <label class="field">
+      <span class="pe-field__label">Substack article URL (optional)</span>
+      <input class="pe-field__input" id="studioSubstackInput" type="text" value="${escapeHTML(note.substackUrl || "")}" placeholder="https://…" />
+    </label>
+    <p class="field-error" id="studioMetaHint" style="color:var(--text-faint);">
+      ${note.publishedAt ? `Published ${escapeHTML(note.publishedAt)}` : "Not yet published."}
+      ${note.updatedAt ? ` · Last saved ${escapeHTML(new Date(note.updatedAt).toLocaleString())}` : ""}
+    </p>
+
+    <h3>Danger zone</h3>
+    <button type="button" class="btn btn--danger" id="studioDeleteBtn" ${note.id ? "" : "hidden"}>Delete Note</button>
+  `;
+
+  panel.querySelectorAll("[data-studio-cat]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      note.category = btn.dataset.studioCat;
+      panel.querySelectorAll("[data-studio-cat]").forEach(b => b.classList.toggle("pe-chip--active", b === btn));
+      studioMarkDirty();
+    });
+  });
+
+  const slugInput = document.getElementById("studioSlugInput");
+  slugInput.addEventListener("input", () => {
+    note.slug = slugify(slugInput.value);
+    if (slugInput.value !== note.slug) slugInput.value = note.slug;
+    const err = document.getElementById("studioSlugError");
+    if (isSlugTaken(note.slug, note.id)) {
+      err.textContent = `"${note.slug}" is already used by another note.`;
+      err.hidden = false;
+    } else {
+      err.hidden = true;
+    }
+    studioMarkDirty();
+  });
+
+  document.getElementById("studioCoverAltInput").addEventListener("input", e => { note.coverImageAlt = e.target.value; studioMarkDirty(); });
+  document.getElementById("studioEmailSubjectInput").addEventListener("input", e => { note.emailSubject = e.target.value; studioMarkDirty(); });
+  document.getElementById("studioEmailPreviewInput").addEventListener("input", e => { note.emailPreviewText = e.target.value; studioMarkDirty(); });
+  document.getElementById("studioSubstackInput").addEventListener("input", e => { note.substackUrl = e.target.value; studioMarkDirty(); });
+
+  renderCoverImageField(document.getElementById("studioCoverField"));
+
+  const deleteBtn = document.getElementById("studioDeleteBtn");
+  if (deleteBtn) {
+    deleteBtn.addEventListener("click", async () => {
+      if (!confirm("Delete this note permanently? This cannot be undone.")) return;
+      try {
+        await window.PodaDB.deleteNote(note.id);
+        noteState.notes = noteState.notes.filter(n => n.id !== note.id);
+      } catch (e) {
+        alert("Could not delete the note. Check your connection and try again.");
+        return;
+      }
+      studio.dirty = false;
+      closeNoteStudio();
+    });
+  }
+}
+
+function renderCoverImageField(container) {
+  const note = studio.note;
+  if (note.coverImage) {
+    container.innerHTML = `
+      <img src="${escapeHTML(note.coverImage)}" alt="" style="max-width:100%;display:block;margin-bottom:8px;border:1px solid var(--border);" />
+      <button type="button" class="btn btn--small" id="studioCoverReplace">Replace cover image</button>
+    `;
+    document.getElementById("studioCoverReplace").addEventListener("click", () => startCoverUpload(container));
+  } else {
+    container.innerHTML = `
+      <button type="button" class="btn btn--small" id="studioCoverUpload">Upload cover image</button>
+      <input type="file" id="studioCoverInput" accept="image/jpeg,image/png,image/webp" hidden />
+      <p class="pe-image__error" id="studioCoverError" hidden></p>
+    `;
+    document.getElementById("studioCoverUpload").addEventListener("click", () => startCoverUpload(container));
+  }
+}
+
+function startCoverUpload(container) {
+  let input = document.getElementById("studioCoverInput");
+  if (!input) {
+    input = document.createElement("input");
+    input.type = "file";
+    input.id = "studioCoverInput";
+    input.accept = "image/jpeg,image/png,image/webp";
+    input.hidden = true;
+    container.appendChild(input);
+  }
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    input.value = "";
+    if (!file) return;
+    const check = window.PodaEditor.validateImageFile(file);
+    const errorEl = document.getElementById("studioCoverError");
+    if (!check.ok) {
+      if (errorEl) { errorEl.textContent = check.error; errorEl.hidden = false; }
+      return;
+    }
+    try {
+      const url = await window.PodaDB.uploadNoteMedia(file, {});
+      studio.note.coverImage = url;
+      studioMarkDirty();
+      renderCoverImageField(container);
+    } catch (e) {
+      if (errorEl) { errorEl.textContent = e.message || "Upload failed."; errorEl.hidden = false; }
+    }
+  };
+  input.click();
+}
+
+function renderStudioShell() {
+  noteStudioOverlay.innerHTML = `
+    <div class="note-studio__topbar">
+      <button type="button" class="note-studio__back" data-studio-close>← Back</button>
+      <span class="note-studio__status" id="studioSaveStatus"></span>
+      <div class="note-studio__modes">
+        <button type="button" class="note-studio__mode-btn note-studio__mode-btn--active" data-studio-mode="edit">Edit</button>
+        <button type="button" class="note-studio__mode-btn" data-studio-mode="website">Website Preview</button>
+        <button type="button" class="note-studio__mode-btn" data-studio-mode="email">Email Preview</button>
+      </div>
+      <button type="button" class="btn note-studio__settings-toggle" data-studio-settings-toggle aria-label="Note settings">Settings</button>
+    </div>
+    <div class="note-studio__body note-studio__body--edit" id="studioBody">
+      <div class="note-studio__canvas">
+        <div class="note-studio__measure" id="studioMeasure">
+          <div class="pe-title-block">
+            <input type="text" id="studioTitleInput" class="pe-title-block__title" placeholder="Note title" value="${escapeHTML(studio.note.title || "")}" />
+            <input type="text" id="studioSubtitleInput" class="pe-title-block__subtitle" placeholder="Subtitle / dek (optional)" value="${escapeHTML(studio.note.subtitle || "")}" />
+          </div>
+          <div id="studioEditorMount"></div>
+        </div>
+        <iframe class="note-studio__preview-frame" id="studioWebsiteFrame" title="Website preview" hidden></iframe>
+        <iframe class="note-studio__preview-frame" id="studioEmailFrame" title="Email preview" hidden></iframe>
+      </div>
+      <div class="note-studio__live-preview" id="studioLivePreview"><iframe title="Live website preview"></iframe></div>
+      <aside class="note-studio__panel" id="studioPanel" hidden></aside>
+    </div>
+    <div class="note-studio__actions" id="studioActions"></div>
+  `;
+
+  document.querySelector("[data-studio-close]").addEventListener("click", closeNoteStudio);
+  document.querySelectorAll("[data-studio-mode]").forEach(btn => {
+    btn.addEventListener("click", () => applyStudioMode(btn.dataset.studioMode));
+  });
+  document.querySelector("[data-studio-settings-toggle]").addEventListener("click", () => {
+    const panel = document.getElementById("studioPanel");
+    panel.hidden = !panel.hidden;
+  });
+
+  document.getElementById("studioTitleInput").addEventListener("input", e => {
+    studio.note.title = e.target.value;
+    studioMarkDirty();
+    updateLivePreview();
+  });
+  document.getElementById("studioSubtitleInput").addEventListener("input", e => {
+    studio.note.subtitle = e.target.value;
+    studioMarkDirty();
+    updateLivePreview();
+  });
+
+  renderSettingsPanel(document.getElementById("studioPanel"));
+  renderStudioActions();
+
+  studio.editorHandle = window.PodaEditor.mount(document.getElementById("studioEditorMount"), {
+    content: studio.note.contentJson,
+    uploadImage: (file, opts) => window.PodaDB.uploadNoteMedia(file, opts || {}),
+    getProducts: () => state.items,
+    itemUrl: id => `item.html?id=${encodeURIComponent(id)}`,
+    onUpdate: () => { studioMarkDirty(); updateLivePreview(); },
+    onNotice: message => setStudioStatus("", message),
+  });
 }
 
 function openNoteModal(noteId = null) {
   const editing = noteId ? noteState.notes.find(n => n.id === noteId) : null;
   const note = editing ? structuredClone(editing) : blankNote();
+  if (!note.contentJson) note.contentJson = legacyBodyToContentJSON(note.body);
 
-  modalContent.innerHTML = `
-    <div class="modal-head">
-      <h2 class="modal-title">${editing ? "Edit Note" : "New Note"}</h2>
-      <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
-    </div>
-    <div class="modal-body">${buildNoteForm(note)}</div>
-    <div class="modal-foot">
-      ${editing ? `<button type="button" class="btn btn--danger" id="deleteNoteBtn">Delete</button>` : ""}
-      <button type="button" class="btn" id="cancelNoteBtn">Cancel</button>
-      <button type="button" class="btn btn--primary" id="saveNoteBtn">Save Note</button>
-    </div>
-  `;
+  studio = {
+    note,
+    mode: "edit",
+    dirty: false,
+    saving: false,
+    saveError: null,
+    autosaveTimer: null,
+    editorHandle: null,
+  };
 
-  modalOverlay.hidden = false;
+  renderStudioShell();
+  noteStudioOverlay.hidden = false;
   document.body.style.overflow = "hidden";
+  window.addEventListener("beforeunload", studioBeforeUnload);
+}
 
-  // Category toggle
-  modalContent.querySelectorAll(".note-cat-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      modalContent.querySelectorAll(".note-cat-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById("noteCatInput").value = btn.dataset.noteCat;
-    });
-  });
-
-  // Status toggle
-  modalContent.querySelectorAll(".note-status-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      modalContent.querySelectorAll(".note-status-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById("noteStatusInput").value = btn.dataset.noteStatus;
-    });
-  });
-
-  document.getElementById("modalClose").addEventListener("click", closeModal);
-  document.getElementById("cancelNoteBtn").addEventListener("click", closeModal);
-  document.getElementById("saveNoteBtn").addEventListener("click", () => saveNote(noteId));
-
-  document.getElementById("noteBodyImageInput").addEventListener("change", async event => {
-    const file = event.target.files && event.target.files[0];
-    event.target.value = "";
-    if (!file) return;
-
-    const statusEl = document.getElementById("noteBodyImageStatus");
-    const textarea = document.querySelector('[name="note.body"]');
-    statusEl.textContent = "Uploading…";
-
-    try {
-      const dataUrl = await compressImage(file);
-      const url = await window.PodaDB.uploadImage(dataUrl);
-      const tag = `\n\n[img: ${url}]\n\n`;
-      if (textarea && typeof textarea.selectionStart === "number") {
-        const start = textarea.selectionStart;
-        const before = textarea.value.slice(0, start);
-        const after  = textarea.value.slice(textarea.selectionEnd);
-        textarea.value = before + tag + after;
-        textarea.selectionStart = textarea.selectionEnd = start + tag.length;
-        textarea.focus();
-      } else if (textarea) {
-        textarea.value += tag;
-      }
-      statusEl.textContent = "✓ Image inserted";
-      setTimeout(() => { statusEl.textContent = ""; }, 3000);
-    } catch (err) {
-      statusEl.textContent = "Upload failed — try again.";
-      console.error(err);
-    }
-  });
-
-  const deleteBtn = document.getElementById("deleteNoteBtn");
-  if (deleteBtn) {
-    deleteBtn.addEventListener("click", async () => {
-      if (!confirm("Delete this note permanently?")) return;
-      try {
-        await window.PodaDB.deleteNote(noteId);
-        noteState.notes = noteState.notes.filter(n => n.id !== noteId);
-      } catch (e) {
-        alert("Could not delete the note. Check your connection and try again.");
-        return;
-      }
-      closeModal();
-      renderNotes();
-    });
+function closeNoteStudio() {
+  if (studio && studio.dirty) {
+    if (!window.confirm("You have unsaved changes. Leave without saving?")) return;
   }
+  if (studio) {
+    if (studio.autosaveTimer) clearTimeout(studio.autosaveTimer);
+    if (studio.editorHandle) studio.editorHandle.destroy();
+  }
+  window.removeEventListener("beforeunload", studioBeforeUnload);
+  studio = null;
+  noteStudioOverlay.hidden = true;
+  noteStudioOverlay.innerHTML = "";
+  document.body.style.overflow = "";
+  renderNotes();
 }
 
-function readNoteForm(existingId) {
-  const form = document.getElementById("noteForm");
-  const note = existingId
-    ? structuredClone(noteState.notes.find(n => n.id === existingId) || blankNote())
-    : blankNote();
+async function saveStudioNote(opts) {
+  if (!studio || studio.saving) return;
+  const note = studio.note;
 
-  form.querySelectorAll("input[name], select[name], textarea[name]").forEach(el => {
-    const key = el.getAttribute("name").replace("note.", "");
-    if (!key) return;
-    note[key] = el.type === "checkbox" ? el.checked : el.value;
-  });
-
-  return note;
-}
-
-async function saveNote(existingId) {
-  const note = readNoteForm(existingId);
-  const errorBox = document.getElementById("noteFormError");
-
-  if (!note.title.trim()) {
-    errorBox.textContent = "Title is required.";
-    errorBox.hidden = false;
+  if (!String(note.title || "").trim()) {
+    setStudioStatus("error", "Title is required.");
+    return;
+  }
+  if (!note.slug) note.slug = slugify(note.title);
+  if (!note.slug) {
+    setStudioStatus("error", "Slug is required.");
+    return;
+  }
+  if (isSlugTaken(note.slug, note.id)) {
+    setStudioStatus("error", `Slug "${note.slug}" is already used by another note.`);
     return;
   }
 
+  studio.saving = true;
+  studio.saveError = null;
+  renderStudioActions();
+  setStudioStatus("saving", "Saving…");
+
+  if (studio.editorHandle) note.contentJson = studio.editorHandle.getJSON();
+  computeDerivedFields(note);
+
   if (!note.id) note.id = generateNoteId();
-  if (note.status === "published" && !note.publishedAt) {
-    note.publishedAt = new Date().toISOString().slice(0, 10);
+  if (opts.publish) {
+    note.status = "published";
+    if (!note.publishedAt) note.publishedAt = new Date().toISOString().slice(0, 10);
+  } else if (opts.unpublish) {
+    note.status = "draft";
   }
+  note.updatedAt = new Date().toISOString();
 
   try {
     await window.PodaDB.upsertNote(note);
   } catch (e) {
-    alert("Could not save the note. Check your connection and try again.");
+    studio.saving = false;
+    studio.saveError = "Save failed — check your connection and try again.";
+    setStudioStatus("error", "Save failed");
+    renderStudioActions();
     return;
   }
 
-  const idx = noteState.notes.findIndex(n => n.id === note.id);
-  if (idx >= 0) noteState.notes[idx] = note;
-  else noteState.notes.unshift(note);
+  studio.saving = false;
+  studio.dirty = false;
 
-  closeModal();
-  renderNotes();
+  const idx = noteState.notes.findIndex(n => n.id === note.id);
+  if (idx >= 0) noteState.notes[idx] = structuredClone(note);
+  else noteState.notes.unshift(structuredClone(note));
+
+  setStudioStatus("saved", opts.silent ? "Autosaved" : (opts.publish ? "Published" : opts.unpublish ? "Unpublished" : "Saved"));
+  renderStudioActions();
+  const deleteBtn = document.getElementById("studioDeleteBtn");
+  if (deleteBtn) deleteBtn.hidden = !note.id;
 }
 
 /* ============================================================

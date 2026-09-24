@@ -20,3 +20,7 @@ desktop.ini
 *.xlsx.*
 *.xls
 
+# Editor bundle build tooling — dev-only, never deployed.
+# poda-editor.bundle.js (the built output) IS committed, same as supabase.min.js.
+/node_modules/
+

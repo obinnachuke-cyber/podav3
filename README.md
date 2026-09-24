@@ -17,8 +17,28 @@ Then visit `http://localhost:8090/index.html`.
 Supabase connection settings (project URL, anon key) live in
 `supabase-config.js` — that file is committed and public-safe (the anon key
 is designed to be exposed client-side; real protection comes from Supabase
-Row Level Security policies). See `OVERHAUL_SETUP.md`, `NOTES_SETUP.md`, and
-`SUBSCRIBERS_SETUP.md` for the SQL/RLS each content type needs.
+Row Level Security policies). See `OVERHAUL_SETUP.md`, `NOTES_SETUP.md`,
+`SUBSCRIBERS_SETUP.md`, and `MARKET_NOTES_STUDIO_SETUP.md` for the SQL/RLS
+each content type needs.
+
+### Market Note Publishing Studio (admin editor)
+
+`admin.html`'s Market Note editor is built on [Tiptap](https://tiptap.dev)
+core (no React — this is still a plain-script site). Its source lives in
+`src/editor/**`; the deployed site loads the **committed, built output**,
+`poda-editor.bundle.js`, exactly the way `supabase.min.js` is vendored —
+`build.js` and Cloudflare's build command (`node build.js`) never run npm.
+
+If you change anything under `src/editor/`, rebuild the bundle before
+committing:
+
+```
+npm install        # one-time, dev-only — see package.json devDependencies
+npm run build:editor
+```
+
+This regenerates `poda-editor.bundle.js` from source via esbuild. Commit
+the regenerated file alongside your source changes.
 
 ## Deploying to Cloudflare Pages
 
@@ -79,3 +99,7 @@ origin.
 - `admin.html`/`admin.js` are gated by real Supabase email/password auth —
   they ship in the deployed site (so the admin can log in from anywhere),
   but no admin action succeeds without a valid authenticated session.
+- The `note-media` Storage bucket (Market Note Studio images) is public to
+  **read** but restricted to the authenticated admin for **upload/delete** —
+  stricter than `item-images`, which allows any authenticated user. See
+  `MARKET_NOTES_STUDIO_SETUP.md`.

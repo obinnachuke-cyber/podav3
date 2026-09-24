@@ -103,14 +103,34 @@ function noteSubject(note) {
   return note.title ? `poda Inbox: ${note.title}` : "poda Inbox";
 }
 
+// Notes written in the Market Note Publishing Studio (Module 3) carry a
+// pre-rendered emailHtml fragment, generated from the same canonical
+// Tiptap JSON as the website (src/editor/render-email.js), stored at
+// save/publish time. Older notes have no emailHtml — those keep the
+// original excerpt-and-link teaser exactly as before.
 function buildEmail(note, siteUrl, unsubscribeUrl) {
   const noteUrl = `${siteUrl}/note.html?id=${encodeURIComponent(note.id)}`;
-  const excerpt = plainExcerpt(note);
-  const subject = noteSubject(note);
+  const subject = (note.emailSubject && note.emailSubject.trim()) || noteSubject(note);
   const issueLabel = note.issueNumber ? `No. ${escapeHTML(String(note.issueNumber))}` : "poda inbox";
 
   const imageBlock = note.coverImage
-    ? `<tr><td style="padding:0 28px 20px;"><img src="${escapeHTML(note.coverImage)}" alt="" width="100%" style="display:block;max-width:100%;border:1px solid #26262a;" /></td></tr>`
+    ? `<tr><td style="padding:0 28px 20px;"><img src="${escapeHTML(note.coverImage)}" alt="${escapeHTML(note.coverImageAlt || "")}" width="100%" style="display:block;max-width:100%;border:1px solid #26262a;" /></td></tr>`
+    : "";
+
+  const bodyBlock = note.emailHtml
+    ? `<tr><td style="padding:0 28px 28px;">${String(note.emailHtml).split("%%SITE_URL%%").join(siteUrl)}</td></tr>`
+    : `
+      <tr>
+        <td style="padding:0 28px 24px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#333333;">${escapeHTML(plainExcerpt(note))}</td>
+      </tr>
+      <tr>
+        <td style="padding:0 28px 32px;">
+          <a href="${noteUrl}" style="display:inline-block;background:#090909;color:#ffffff;text-decoration:none;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;padding:14px 24px;">Read the full note &rarr;</a>
+        </td>
+      </tr>`;
+
+  const previewTextBlock = note.emailPreviewText
+    ? `<tr><td style="padding:0 28px 20px;font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#666666;">${escapeHTML(note.emailPreviewText)}</td></tr>`
     : "";
 
   const html = `<!doctype html>
@@ -130,14 +150,8 @@ function buildEmail(note, siteUrl, unsubscribeUrl) {
             <tr>
               <td style="padding:0 28px 12px;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.1;font-weight:600;color:#090909;">${escapeHTML(note.title || "poda")}</td>
             </tr>
-            <tr>
-              <td style="padding:0 28px 24px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#333333;">${escapeHTML(excerpt)}</td>
-            </tr>
-            <tr>
-              <td style="padding:0 28px 32px;">
-                <a href="${noteUrl}" style="display:inline-block;background:#090909;color:#ffffff;text-decoration:none;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;padding:14px 24px;">Read the full note &rarr;</a>
-              </td>
-            </tr>
+            ${previewTextBlock}
+            ${bodyBlock}
             <tr>
               <td style="padding:20px 28px;border-top:1px solid #26262a;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.08em;color:#999790;">
                 poda &mdash; selective retail / market intelligence<br />
@@ -151,9 +165,10 @@ function buildEmail(note, siteUrl, unsubscribeUrl) {
   </body>
 </html>`;
 
-  const text =
-    `${note.title || "poda"}\n\n${excerpt}\n\nRead the full note: ${noteUrl}\n\n` +
-    `—\npoda — selective retail / market intelligence\nUnsubscribe: ${unsubscribeUrl}`;
+  const text = note.emailHtml
+    ? `${note.title || "poda"}\n\nRead online: ${noteUrl}\n\n—\npoda — selective retail / market intelligence\nUnsubscribe: ${unsubscribeUrl}`
+    : `${note.title || "poda"}\n\n${plainExcerpt(note)}\n\nRead the full note: ${noteUrl}\n\n` +
+      `—\npoda — selective retail / market intelligence\nUnsubscribe: ${unsubscribeUrl}`;
 
   return { subject, html, text };
 }

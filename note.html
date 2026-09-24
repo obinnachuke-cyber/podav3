@@ -27,6 +27,10 @@
   <script src="supabase.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="db.js"></script>
+  <!-- Defense-in-depth: note.websiteHtml is already sanitized when the
+       Studio saves it (src/editor/render-website.js), but this page is
+       what actually calls innerHTML with it, so it sanitizes again. -->
+  <script src="poda-dompurify.min.js"></script>
   <script>
     (async function () {
       const page   = document.getElementById("notePage");
@@ -61,36 +65,44 @@
           .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
       }
 
-      // Render body: split on blank lines → blocks.
-      // A block that matches [img: url] becomes a figure; everything else is a paragraph.
+      // Render body: notes written in the Market Note Publishing Studio
+      // (Module 3) store pre-rendered, pre-sanitized HTML in websiteHtml,
+      // generated from Tiptap JSON (see src/editor/render-website.js).
+      // Older notes have no websiteHtml — those fall back to the original
+      // plain-text convention (blank line = paragraph, [img: url] = figure).
       const IMG_TAG = /^\[img:\s*(https?:\/\/[^\]]+)\]$/i;
 
-      const bodyHTML = String(note.body || "")
-        .split(/\n\s*\n/)
-        .map(block => block.trim())
-        .filter(Boolean)
-        .map(block => {
-          const lines = block.split("\n").map(l => l.trim());
-          if (lines.length === 1 && IMG_TAG.test(lines[0])) {
-            const url = lines[0].match(IMG_TAG)[1];
-            return `<figure class="note-article__figure"><img src="${escHTML(url)}" alt="" loading="lazy" /></figure>`;
-          }
-          const inner = lines.map(line => {
-            const m = line.match(IMG_TAG);
-            if (m) return `</p><figure class="note-article__figure"><img src="${escHTML(m[1])}" alt="" loading="lazy" /></figure><p>`;
-            return escHTML(line);
-          }).join("<br />");
-          return `<p>${inner}</p>`
-            .replace(/<p><\/p>/g, "")
-            .replace(/<br \/>(<\/p>|<figure)/g, "$1")
-            .replace(/(<\/figure>)<br \/>/g, "$1");
-        })
-        .join("");
+      function legacyBodyHTML(body) {
+        return String(body || "")
+          .split(/\n\s*\n/)
+          .map(block => block.trim())
+          .filter(Boolean)
+          .map(block => {
+            const lines = block.split("\n").map(l => l.trim());
+            if (lines.length === 1 && IMG_TAG.test(lines[0])) {
+              const url = lines[0].match(IMG_TAG)[1];
+              return `<figure class="note-article__figure"><img src="${escHTML(url)}" alt="" loading="lazy" /></figure>`;
+            }
+            const inner = lines.map(line => {
+              const m = line.match(IMG_TAG);
+              if (m) return `</p><figure class="note-article__figure"><img src="${escHTML(m[1])}" alt="" loading="lazy" /></figure><p>`;
+              return escHTML(line);
+            }).join("<br />");
+            return `<p>${inner}</p>`
+              .replace(/<p><\/p>/g, "")
+              .replace(/<br \/>(<\/p>|<figure)/g, "$1")
+              .replace(/(<\/figure>)<br \/>/g, "$1");
+          })
+          .join("");
+      }
+
+      const rawBodyHTML = note.websiteHtml || legacyBodyHTML(note.body) || "<p>—</p>";
+      const bodyHTML = window.DOMPurify ? window.DOMPurify.sanitize(rawBodyHTML) : escHTML(rawBodyHTML);
 
       page.innerHTML = `
         <article class="note-article">
           ${note.coverImage
-            ? `<div class="note-article__cover"><img src="${escHTML(note.coverImage)}" alt="" /></div>`
+            ? `<div class="note-article__cover"><img src="${escHTML(note.coverImage)}" alt="${escHTML(note.coverImageAlt || "")}" /></div>`
             : ""}
           <header class="note-article__header">
             <p class="note-article__eyebrow">
@@ -104,9 +116,9 @@
               </div>
             </div>
           </header>
-          <div class="note-article__body">${bodyHTML || "<p>—</p>"}</div>
+          <div class="note-article__body">${bodyHTML}</div>
           ${note.substackUrl
-            ? `<p class="note-article__substack"><a href="${escapeHTML(note.substackUrl)}" target="_blank" rel="noopener">Read on Substack →</a></p>`
+            ? `<p class="note-article__substack"><a href="${escHTML(note.substackUrl)}" target="_blank" rel="noopener">Read on Substack →</a></p>`
             : ""}
           <div class="note-article__signup">
             <p class="note-article__signup-label">Get the next Market Note by email</p>

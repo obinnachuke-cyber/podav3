@@ -1257,6 +1257,215 @@ button.card-link {
   background: var(--image-bg);
 }
 
+/* ============================================================
+   Market Note Publishing Studio — rich content blocks.
+   Rendered from note.websiteHtml (Tiptap JSON → sanitized HTML,
+   see src/editor/render-website.js). Legacy notes (plain `body`
+   text, the .note-article__figure rules above) are unaffected.
+   ============================================================ */
+.note-article__figure-img {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--border);
+  background: var(--image-bg);
+}
+.note-article__caption {
+  margin: 8px 0 0;
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.note-article__figure--wide {
+  width: min(1100px, 92vw);
+  max-width: 92vw;
+  margin-left: 50%;
+  transform: translateX(-50%);
+}
+.note-article__figure--full {
+  width: 100vw;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+}
+.note-article__figure--standard.note-article__figure--align-left,
+.note-article__figure--standard.note-article__figure--align-right {
+  max-width: 60%;
+}
+.note-article__figure--standard.note-article__figure--align-left { margin-right: auto; }
+.note-article__figure--standard.note-article__figure--align-right { margin-left: auto; }
+@media (max-width: 700px) {
+  .note-article__figure--standard.note-article__figure--align-left,
+  .note-article__figure--standard.note-article__figure--align-right {
+    max-width: 100%;
+  }
+}
+
+/* Poda Thesis — reuses .purple-band exactly (defined further below);
+   only the inner typography is specific to the thesis block. */
+.note-article__thesis { margin: clamp(28px, 6vw, 48px) 0; padding: 0; }
+.note-article__thesis .purple-band__inner { padding-block: 40px; }
+.note-article__thesis-eyebrow {
+  margin: 0 0 12px;
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.note-article__thesis-body p {
+  margin: 0 0 1em;
+  font-family: var(--font-serif);
+  font-size: clamp(1.1rem, 3vw, 1.4rem);
+  line-height: 1.5;
+}
+.note-article__thesis-body p:last-child { margin-bottom: 0; }
+
+.note-article__pull-quote {
+  margin: clamp(28px, 6vw, 48px) 0;
+  padding: clamp(20px, 4vw, 32px) 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+.note-article__pull-quote-text {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 4.5vw, 2.1rem);
+  line-height: 1.3;
+  font-style: italic;
+  color: var(--text);
+}
+.note-article__pull-quote-attribution {
+  display: block;
+  margin-top: 14px;
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-style: normal;
+}
+
+.note-article__two-col {
+  display: grid;
+  grid-template-columns: 1fr var(--pe-text-width, 50%);
+  gap: clamp(20px, 4vw, 40px);
+  align-items: center;
+  margin: clamp(28px, 6vw, 48px) 0;
+}
+.note-article__two-col--image-right {
+  grid-template-columns: var(--pe-text-width, 50%) 1fr;
+}
+/* data-width, not inline style — DOMPurify's default config (deliberately)
+   strips the style attribute, so the text-width preset travels as a plain
+   attribute matched against these fixed rules instead. */
+.note-article__two-col[data-width="40"] { --pe-text-width: 40%; }
+.note-article__two-col[data-width="60"] { --pe-text-width: 60%; }
+.note-article__two-col--image-right .note-article__two-col-image { order: 2; }
+.note-article__two-col--image-right .note-article__two-col-text { order: 1; }
+.note-article__two-col-image img {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--border);
+  background: var(--image-bg);
+}
+.note-article__two-col-text p {
+  margin: 0 0 1em;
+  font-size: clamp(0.9rem, 2.6vw, 1rem);
+  line-height: 1.72;
+}
+.note-article__two-col-text p:last-child { margin-bottom: 0; }
+@media (max-width: 700px) {
+  .note-article__two-col,
+  .note-article__two-col--image-right {
+    grid-template-columns: 1fr;
+  }
+  .note-article__two-col--image-right .note-article__two-col-image,
+  .note-article__two-col--image-right .note-article__two-col-text {
+    order: initial;
+  }
+}
+
+.note-article__product-card {
+  display: flex;
+  gap: 20px;
+  margin: clamp(20px, 5vw, 32px) 0;
+  padding: clamp(16px, 3vw, 24px);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease;
+}
+.note-article__product-card:hover,
+.note-article__product-card:focus-visible {
+  border-color: var(--border-light);
+  outline: none;
+}
+.note-article__product-image {
+  flex: 0 0 clamp(96px, 22vw, 160px);
+}
+.note-article__product-image img {
+  width: 100%;
+  display: block;
+  border: 1px solid var(--border);
+  background: var(--image-bg);
+}
+.note-article__product-info { min-width: 0; }
+.note-article__product-brand {
+  margin: 0 0 4px;
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.note-article__product-name {
+  margin: 0 0 4px;
+  font-family: var(--font-serif);
+  font-size: clamp(1rem, 2.8vw, 1.2rem);
+}
+.note-article__product-price { margin: 0 0 8px; font-size: 0.95rem; color: var(--text-dim); }
+.note-article__product-commentary { margin: 0 0 10px; font-size: 0.9rem; line-height: 1.6; color: var(--text-dim); }
+.note-article__product-cta {
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 560px) {
+  .note-article__product-card { flex-direction: column; }
+  .note-article__product-image { flex: none; width: 100%; max-width: 220px; }
+}
+
+.note-article__sources {
+  margin: clamp(28px, 6vw, 40px) 0 0;
+  padding-top: clamp(16px, 4vw, 24px);
+  border-top: 1px solid var(--border);
+}
+.note-article__sources-label {
+  margin: 0 0 12px;
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.note-article__sources-list { margin: 0; padding: 0; list-style: none; }
+.note-article__source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.note-article__source:last-child { border-bottom: none; }
+.note-article__source-name { color: var(--text-faint); }
+.note-article__source-title { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+.note-article__source-date { margin-left: auto; color: var(--text-faint); font-family: var(--font); font-size: 11px; }
+
 /* —— About —— */
 .about__text {
   margin: 0;

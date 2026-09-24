@@ -1,0 +1,18 @@
+{
+  "name": "poda-editor-build",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Dev-only build tooling for the Poda Market Note Publishing Studio (Tiptap editor). Not part of the deployed site — only the committed output of `npm run build:editor` (poda-editor.bundle.js) ships. The site itself has no build pipeline; see build.js and README.md.",
+  "scripts": {
+    "build:editor": "node scripts/build-editor.js"
+  },
+  "devDependencies": {
+    "@tiptap/core": "^2.11.5",
+    "@tiptap/pm": "^2.11.5",
+    "@tiptap/starter-kit": "^2.11.5",
+    "@tiptap/extension-link": "^2.11.5",
+    "@tiptap/extension-placeholder": "^2.11.5",
+    "@tiptap/html": "^2.11.5",
+    "esbuild": "^0.24.2"
+  }
+}

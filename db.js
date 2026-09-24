@@ -45,6 +45,7 @@
   const STUDIES_TABLE  = "studies";
   const SUBSCRIBERS_TABLE = "subscribers";
   const PUBLIC_BUCKET  = "submissions"; // anon-writable bucket for form uploads
+  const NOTE_MEDIA_BUCKET = "note-media"; // Market Note Studio images — admin-only write/delete (see MARKET_NOTES_STUDIO_SETUP.md)
 
   /* —— Items: read all, ordered oldest→newest to match the old array order —— */
   async function getItems() {
@@ -340,6 +341,59 @@
     return data.publicUrl;
   }
 
+  /* —— Market Note Studio: images for note bodies/covers. Requires a signed-in
+     admin session (the note-media bucket's RLS has no anon insert/delete —
+     stricter than item-images — see MARKET_NOTES_STUDIO_SETUP.md). Uses a raw
+     XHR against the Storage REST endpoint (instead of the JS client's
+     .upload()) purely so upload progress is observable in the editor UI. —— */
+  async function uploadNoteMedia(file, options) {
+    if (!client) throw new Error("Database not configured.");
+    const session = await getSession();
+    if (!session) throw new Error("Sign in required.");
+
+    const onProgress = (options && options.onProgress) || (() => {});
+    const ext = ((file.type && file.type.split("/")[1]) || "jpg").replace("jpeg", "jpg");
+    const rand = (window.crypto && crypto.randomUUID) ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10);
+    const path = `${Date.now()}-${rand}.${ext}`;
+
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${URL}/storage/v1/object/${NOTE_MEDIA_BUCKET}/${path}`);
+      xhr.setRequestHeader("apikey", KEY);
+      xhr.setRequestHeader("Authorization", `Bearer ${session.access_token}`);
+      xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+      xhr.setRequestHeader("x-upsert", "false");
+      xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress((e.loaded / e.total) * 100); };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else reject(new Error(`Upload failed (status ${xhr.status}). Please try again.`));
+      };
+      xhr.onerror = () => reject(new Error("Upload failed — check your connection and try again."));
+      xhr.send(file);
+    });
+
+    const { data } = client.storage.from(NOTE_MEDIA_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  /* —— Market Note Studio: best-effort delete of a note-media object by its
+     public URL. Never blocks the editor if it fails (e.g. already deleted,
+     or the bucket isn't set up yet) — replacing an image in the studio
+     should never fail just because cleanup of the old file did. —— */
+  async function deleteNoteMedia(publicUrl) {
+    if (!client) return;
+    const marker = `/object/public/${NOTE_MEDIA_BUCKET}/`;
+    const idx = String(publicUrl || "").indexOf(marker);
+    if (idx === -1) return;
+    const path = publicUrl.slice(idx + marker.length);
+    if (!path) return;
+    try {
+      await client.storage.from(NOTE_MEDIA_BUCKET).remove([path]);
+    } catch (e) {
+      console.error("Failed to delete note media:", e && e.message);
+    }
+  }
+
   /* —— Auth (admin only) —— */
   async function getSession() {
     if (!client) return null;
@@ -409,6 +463,8 @@
     deleteSubscriber,
     uploadImage,
     uploadPublicImage,
+    uploadNoteMedia,
+    deleteNoteMedia,
     getSession,
     signIn,
     signOut,
