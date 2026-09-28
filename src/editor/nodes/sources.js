@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { isSafeUrl } from "../safe-url.js";
-import { updateNodeAttrs, deleteSelfNode, el } from "./utils.js";
+import { updateNodeAttrs, deleteSelfNode, stopEvent, el } from "./utils.js";
 
 // Sources — a repeatable (name, title, url, date) list. The toolbar only
 // ever inserts one of these per document (see studio.js insertSources) and
@@ -108,6 +108,7 @@ export const PodaSources = Node.create({
 
       return {
         dom,
+        stopEvent: stopEvent(dom),
         update(updatedNode) {
           if (updatedNode.type.name !== "podaSources") return false;
           node = updatedNode;

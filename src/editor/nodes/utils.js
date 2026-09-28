@@ -49,6 +49,22 @@ export function moveSelfNode(editor, getPos, direction) {
   view.dispatch(tr);
 }
 
+// NodeViews render real DOM (inputs, textareas, buttons) outside ProseMirror's
+// managed content. Without this, ProseMirror's own mousedown/click handling
+// resolves any click landing inside an atom node's view — even one that hits
+// a nested <input> — to that node's single position, hands the browser's own
+// focus to the editor's contenteditable root instead of the input, and sets
+// a NodeSelection over the whole node. Typing then replaces the "selected"
+// node with the typed text, and Backspace deletes it outright. Blocking every
+// event ProseMirror would otherwise see from this dom (verified via a
+// deliberately narrower keydown-only version that did NOT fix this) leaves
+// the native browser focus/typing behavior on our own inputs alone. Pass
+// contentDOM for node views that also hold real ProseMirror content (e.g.
+// PodaThesis, PodaImageText), so events inside it still reach the editor.
+export function stopEvent(dom, contentDOM) {
+  return event => dom.contains(event.target) && !(contentDOM && contentDOM.contains(event.target));
+}
+
 export function el(tag, className, attrs) {
   const node = document.createElement(tag);
   if (className) node.className = className;

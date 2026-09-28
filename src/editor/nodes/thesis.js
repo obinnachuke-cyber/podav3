@@ -1,5 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { updateNodeAttrs, buildControlRow, el } from "./utils.js";
+import { updateNodeAttrs, buildControlRow, stopEvent, el } from "./utils.js";
 
 // Poda Thesis — the site's existing purple editorial band (style.css
 // .purple-band), repurposed as a callout the admin can drop into a Note.
@@ -53,6 +53,7 @@ export const PodaThesis = Node.create({
       return {
         dom,
         contentDOM,
+        stopEvent: stopEvent(dom, contentDOM),
         update(updatedNode) {
           if (updatedNode.type.name !== "podaThesis") return false;
           node = updatedNode;

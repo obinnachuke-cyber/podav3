@@ -1,5 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { updateNodeAttrs, buildControlRow, el } from "./utils.js";
+import { updateNodeAttrs, buildControlRow, stopEvent, el } from "./utils.js";
 
 export const PodaPullQuote = Node.create({
   name: "podaPullQuote",
@@ -54,6 +54,7 @@ export const PodaPullQuote = Node.create({
 
       return {
         dom,
+        stopEvent: stopEvent(dom),
         update(updatedNode) {
           if (updatedNode.type.name !== "podaPullQuote") return false;
           node = updatedNode;

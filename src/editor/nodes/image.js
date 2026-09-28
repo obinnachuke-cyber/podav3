@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { validateImageFile } from "../validate-upload.js";
-import { updateNodeAttrs, buildControlRow, el } from "./utils.js";
+import { updateNodeAttrs, buildControlRow, stopEvent, el } from "./utils.js";
 
 // Editorial Image — Poda's dedicated image block. Atomic (no ProseMirror
 // text content): all editing happens through the node view's own controls
@@ -186,6 +186,7 @@ export const PodaImage = Node.create({
 
       return {
         dom,
+        stopEvent: stopEvent(dom),
         update(updatedNode) {
           if (updatedNode.type.name !== "podaImage") return false;
           // Only rebuild the DOM for structural changes. Alt/caption text

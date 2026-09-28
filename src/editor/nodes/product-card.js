@@ -1,7 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { validateImageFile } from "../validate-upload.js";
 import { isSafeUrl } from "../safe-url.js";
-import { updateNodeAttrs, buildControlRow, el } from "./utils.js";
+import { updateNodeAttrs, buildControlRow, stopEvent, el } from "./utils.js";
 
 // Product Card — either linked to an existing Poda item (The Edit) or an
 // external URL. `getProducts` is supplied by the host app (already-loaded
@@ -206,6 +206,7 @@ export const PodaProductCard = Node.create({
 
       return {
         dom,
+        stopEvent: stopEvent(dom),
         update(updatedNode) {
           if (updatedNode.type.name !== "podaProductCard") return false;
           // name/brand/price/commentary/externalUrl are typed into live

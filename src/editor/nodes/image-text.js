@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { validateImageFile } from "../validate-upload.js";
-import { updateNodeAttrs, buildControlRow, el } from "./utils.js";
+import { updateNodeAttrs, buildControlRow, stopEvent, el } from "./utils.js";
 
 // Image + Text Section — laptop shows an image column beside a text column
 // (side + width configurable); style.css stacks it vertically below a
@@ -152,6 +152,7 @@ export const PodaImageText = Node.create({
       return {
         dom,
         contentDOM,
+        stopEvent: stopEvent(dom, contentDOM),
         update(updatedNode) {
           if (updatedNode.type.name !== "podaImageText") return false;
           // imageAlt is deliberately excluded: it's typed into a live
