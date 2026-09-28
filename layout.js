@@ -124,7 +124,7 @@
     `;
     if (window.PodaSubscribe) {
       const el = footer.querySelector("[data-poda-subscribe]");
-      if (el) window.PodaSubscribe.mount(el, { source: "footer" });
+      if (el) window.PodaSubscribe.mount(el, { source: "footer", compact: true });
     }
   }
 

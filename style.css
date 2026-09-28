@@ -9,42 +9,50 @@
 :root {
   color-scheme: light;
 
-  /* —— Light editorial palette: white + lighter forest green —— */
-  --bg: #FFFFFF;                /* pure white                */
-  --bg-box: #F5F7F5;            /* faint green-tinted surface — card/panel surfaces */
-  --bg-box-hover: #EBEFEB;      /* hover surface              */
-  --text: #1B211C;              /* near-black, warm dark green-charcoal */
-  --text-dim: #4B5850;          /* muted dark green-gray      */
-  --text-faint: #7C8880;        /* faint muted green-gray     */
-  --border: rgba(27, 33, 28, 0.14);   /* fine light-mode border   */
-  --border-light: rgba(27, 33, 28, 0.24);
-  --image-bg: #F5F7F5;          /* image slot backdrop        */
+  /* —— poda editorial terminal palette —— */
+  --poda-paper: #f1f2ef;         /* main page background — light grey, not bright white */
+  --poda-surface: #e7ebe5;
+  --poda-sage: #c5d8c8;          /* tickers, active states, thesis blocks, labels, selected nav */
+  --poda-sage-strong: #aec7b4;   /* small primary buttons / hover only — used sparingly */
+  --poda-ink: #121713;           /* dark text — always on light backgrounds, never white-on-sage */
+  --poda-muted: #667068;
+  --poda-border: rgba(18, 23, 19, 0.22);
+  --poda-white: #fafbf8;
 
-  /* Kept for compatibility with rules still referencing these names —
-     both now resolve to the same dark ink used against the paper base. */
-  --warm-grey: #1B211C;
-  --grey-2: #333B34;
-  --border-on-light: rgba(27, 33, 28, 0.17);
+  /* —— Legacy variable names, aliased to the tokens above ——
+     Hundreds of rules across this file still reference --bg/--text/
+     --accent/--purple* by name; aliasing (rather than renaming every
+     consuming rule) re-themes the whole site from this one block. */
+  --bg: var(--poda-paper);
+  --bg-box: var(--poda-surface);
+  --bg-box-hover: color-mix(in srgb, var(--poda-surface), black 4%);
+  --text: var(--poda-ink);
+  --text-dim: var(--poda-muted);
+  --text-faint: color-mix(in srgb, var(--poda-muted), var(--poda-paper) 35%);
+  --border: var(--poda-border);
+  --border-light: var(--poda-border);
+  --image-bg: var(--poda-surface);
 
-  /* Editorial highlight band — used sparingly, not for ordinary UI. */
-  --band-purple: var(--accent);
-  --band-purple-text: #FFFFFF;
+  --warm-grey: var(--poda-ink);
+  --grey-2: var(--poda-muted);
+  --border-on-light: var(--poda-border);
 
-  /* Forest green — the single primary accent, used selectively. Lighter
-     than the initial pass so it reads as fresh rather than heavy against
-     the pure white background. */
-  --accent: #2F6E4E;
-  --accent-2: #5FA37D;
+  /* Editorial highlight band (.purple-band) — light sage + dark ink,
+     never white-on-pale-green. Used sparingly: thesis callouts, active
+     nav/labels — not ordinary UI. */
+  --band-purple: var(--poda-sage);
+  --band-purple-text: var(--poda-ink);
+
+  /* Dark green is reserved for hover states / small primary buttons only
+     (--accent), not large surfaces. */
+  --accent: var(--poda-sage-strong);
+  --accent-2: var(--poda-ink);
   --danger: #A84B3F;            /* muted red — rare status use only */
 
-  /* Legacy names, still forest-green-family so badges/chips read as one
-     accent instead of two: --purple-2 is the light "text on solid chip"
-     colour, --signal is the single restrained functional accent
-     (statuses only, used sparingly). */
-  --purple: #2F6E4E;           /* legacy name: accent surface  */
-  --purple-2: #FFFFFF;         /* legacy name: accent / links  */
-  --purple-deep: #245A3D;      /* legacy name: deep accent     */
-  --purple-glow: rgba(47, 110, 78, 0.10);
+  --purple: var(--poda-sage-strong);   /* legacy name: accent surface  */
+  --purple-2: var(--poda-ink);         /* legacy name: text on solid chip */
+  --purple-deep: var(--poda-sage-strong);  /* legacy name: deep accent */
+  --purple-glow: rgba(18, 23, 19, 0.10);   /* legacy name: subtle ink glow for box-shadows */
   --signal: #96723A;           /* muted brass — status only    */
 
   --header-h: 56px;
@@ -211,10 +219,14 @@ input {
 }
 
 .site-nav a:hover,
-.site-nav a:focus-visible,
-.site-nav a.is-active {
-  color: var(--accent-2);
+.site-nav a:focus-visible {
+  color: var(--text);
   outline: none;
+}
+
+.site-nav a.is-active {
+  color: var(--text);
+  background: var(--poda-sage);
 }
 
 .site-header__utility {
@@ -255,6 +267,7 @@ input {
 .site-header__menu:hover, .site-header__menu:focus-visible { border-color: var(--accent); color: var(--accent-2); outline: none; }
 
 @media (max-width: 767px) {
+  :root { --header-h: 52px; }
   .site-nav { display: none; }
   .site-header__utility a { display: none; }
   .site-header__menu { display: inline-block; }
@@ -462,7 +475,7 @@ input {
 
 .inbox-row:hover,
 .inbox-row:focus-visible {
-  background: var(--bg-box);
+  background: var(--poda-sage);
   outline: none;
 }
 
@@ -487,6 +500,15 @@ input {
   width: 100%;
   height: 100%;
   background: var(--bg-box);
+}
+
+/* No cover image: hide the thumbnail box entirely and reflow the row to
+   two columns instead of leaving an empty placeholder. */
+.inbox-row:has(.inbox-thumb__placeholder) {
+  grid-template-columns: 1fr auto;
+}
+.inbox-row:has(.inbox-thumb__placeholder) .inbox-thumb {
+  display: none;
 }
 
 /* Body: from + title + preview stacked */
@@ -829,10 +851,6 @@ input {
   flex: 0 0 auto;
 }
 
-.catalog-card__status--closet  { color: var(--text-faint); }
-.catalog-card__status--listed  { color: var(--text); }
-.catalog-card__status--sold    { color: var(--text-faint); }
-
 .catalog-card__name {
   margin: 0;
   font-family: var(--font-serif);
@@ -928,13 +946,6 @@ input {
   text-transform: uppercase;
 }
 
-/* Mobile: single column on very small screens */
-@media (max-width: 400px) {
-  .items-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* —— Archive listings (legacy styles, still used by item.html) —— */
 .item-card {
   position: relative;
@@ -1012,8 +1023,8 @@ input {
   place-items: center;
   width: 100%;
   min-height: 220px;
-  background-color: #d9d9d9;
-  color: #4d4d4d;
+  background-color: var(--poda-surface);
+  color: var(--poda-muted);
   font-size: 48px;
   font-weight: 700;
 }
@@ -1178,7 +1189,7 @@ button.card-link {
 }
 
 .note-article {
-  max-width: 42rem;
+  max-width: 46rem; /* ~736px — within the 680-760px comfortable reading width target */
 }
 
 .note-article__cover {
@@ -1577,10 +1588,18 @@ button.card-link {
   .metrics-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+}
 
-  /* Catalog: 3 columns on wide screens */
+/* Canonical grid breakpoints (products + lookbook): 2 cols mobile,
+   3 cols tablet/small-laptop, 4 cols wide desktop. */
+@media (min-width: 768px) {
   .items-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1280px) {
+  .items-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -1670,12 +1689,11 @@ button.card-link {
   max-width: 100%;
 }
 
+/* Sizing/grid for .product-layout/.product-media is defined once, in the
+   "OVERHAUL — Product detail" block below (this used to be a second,
+   conflicting definition that created a single-column regression between
+   768-859px — consolidated rather than layered a third override). */
 .product-layout {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  border: 1px solid var(--border);
-  background: var(--bg-box);
   min-width: 0;
 }
 
@@ -1685,8 +1703,6 @@ button.card-link {
 
 .product-media {
   min-width: 0;
-  aspect-ratio: 4 / 3;
-  border-bottom: 1px solid var(--border);
 }
 
 .product-info {
@@ -1747,8 +1763,8 @@ button.card-link {
 
 .product-buy:hover,
 .product-buy:focus-visible {
-  background: #333333;
-  color: #ffffff;
+  background: var(--poda-ink);
+  color: var(--poda-white);
   box-shadow: 0 8px 22px var(--purple-glow);
   outline: none;
 }
@@ -1874,18 +1890,11 @@ button.card-link {
 }
 
 @media (min-width: 768px) {
-  .product-layout {
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-    gap: 0;
-  }
-
-  .product-media {
-    border-bottom: none;
-    border-right: 1px solid var(--border);
-    aspect-ratio: auto;
-    min-height: 320px;
-    max-height: 520px;
-  }
+  /* .product-layout/.product-media grid+sizing is set once, unconditionally
+     at the 768px breakpoint, in the "OVERHAUL — Product detail" block below
+     — this used to redeclare a different 2-column ratio at this same
+     breakpoint (and the OVERHAUL block only kicked in at 860px), creating a
+     single-column regression between 768-859px. */
 
   .product-media img,
   .product-placeholder,
@@ -1900,272 +1909,12 @@ button.card-link {
   }
 }
 
-/* —— Site footer —— */
-.site-footer {
-  border-top: 1px dotted var(--border);
-  margin-top: 48px;
-  padding: 18px 0 max(clamp(24px, 6vw, 40px), env(safe-area-inset-bottom));
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-dim);
-  max-width: 100%;
-}
-
-.footer-left {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 16px;
-  min-width: 0;
-}
-
-.footer-brand {
-  flex: 0 0 auto;
-  color: var(--text-faint);
-  font-weight: 700;
-  letter-spacing: 0.16em;
-}
-
-.footer-admin {
-  flex: 0 0 auto;
-  color: var(--text-faint);
-  text-decoration: none;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  opacity: 0.7;
-  transition: color 0.12s ease, opacity 0.12s ease;
-}
-
-.footer-admin:hover,
-.footer-admin:focus-visible {
-  color: var(--text);
-  opacity: 1;
-  outline: none;
-}
-
-.footer-links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-
-.footer-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  color: var(--text-dim);
-  text-decoration: none;
-  transition: color 0.15s ease;
-}
-
-.footer-icon:hover,
-.footer-icon:focus-visible {
-  color: var(--text);
-  outline: none;
-}
-
-.footer-icon svg {
-  width: 18px;
-  height: 18px;
-  display: block;
-}
-
+/* Footer content structure lives in the "OVERHAUL — shared chrome" block
+   below (layout.js only ever renders .footer-top/.footer-brand-block/etc —
+   this used to be a second, dead definition left over from a static
+   per-page fallback footer that JS always overwrites). */
 .pdp-body .site-footer {
   margin-top: 32px;
-}
-
-@media (max-width: 560px) {
-  .site-footer {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .footer-links {
-    justify-content: flex-start;
-  }
-}
-
-/* ============================================================
-   Home / index page — medium grey + muted green, typewriter font
-   ============================================================ */
-
-/* Colour tokens for the home page */
-:root {
-  --home-bg:        #0b0b0c;              /* near-black              */
-  --home-green:     #eceae4;              /* bone nav text          */
-  --home-green-dim: rgba(236, 234, 228, 0.4); /* muted eyebrow     */
-  --home-font:      "Space Mono", "Courier New", Courier, monospace;
-}
-
-.home-body {
-  background: var(--home-bg);
-  /* smooth momentum scrolling on iOS */
-  -webkit-overflow-scrolling: touch;
-  /* crisp text rendering on retina */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-.home {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  /* center vertically so content sits mid-screen when it fits */
-  align-items: center;
-  justify-content: center;
-  /* respect notch / dynamic island / home bar */
-  padding-top: max(clamp(40px, 10vw, 72px), env(safe-area-inset-top));
-  padding-bottom: max(clamp(40px, 10vw, 72px), env(safe-area-inset-bottom));
-  padding-left: max(clamp(20px, 6vw, 48px), env(safe-area-inset-left));
-  padding-right: max(clamp(20px, 6vw, 48px), env(safe-area-inset-right));
-}
-
-.home-inner {
-  width: 100%;
-  max-width: 600px;
-  display: flex;
-  flex-direction: column;
-  /* mobile: centre everything */
-  align-items: center;
-}
-
-.home-eyebrow {
-  margin: 0 0 clamp(16px, 4vw, 32px);
-  font-family: var(--home-font);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--home-green-dim);
-  /* mobile: centred */
-  text-align: center;
-}
-
-/* Nav list */
-.home-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  /* mobile: centred */
-  align-items: center;
-  width: 100%;
-}
-
-/* Desktop: flip everything to left-aligned */
-@media (min-width: 600px) {
-  .home {
-    justify-content: flex-start;
-  }
-
-  .home-inner {
-    align-items: flex-start;
-  }
-
-  .home-eyebrow {
-    text-align: left;
-  }
-
-  .home-nav {
-    align-items: flex-start;
-  }
-}
-
-.home-nav__item {
-  display: inline-flex;
-  align-items: center;
-  gap: clamp(8px, 2vw, 16px);
-  padding: 2px 16px 2px 12px;
-  border-radius: 100px;
-  font-family: var(--home-font);
-  color: var(--home-green);
-  text-decoration: none;
-  transition: background 0.14s ease, color 0.14s ease;
-  width: fit-content;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.home-nav__item:hover,
-.home-nav__item:focus-visible {
-  background: var(--home-green);
-  color: var(--home-bg);
-  outline: none;
-}
-
-.home-nav__item:active {
-  background: var(--home-green);
-  color: var(--home-bg);
-  opacity: 0.85;
-}
-
-.home-nav__item--active {
-  background: var(--home-green);
-  color: var(--home-bg);
-}
-
-/* Icon — scales with the text but stays proportionally small */
-.home-nav__icon {
-  width:  clamp(16px, 4vw, 36px);
-  height: clamp(16px, 4vw, 36px);
-  flex: 0 0 auto;
-  opacity: 0.8;
-  transition: opacity 0.14s ease;
-}
-
-.home-nav__item:hover .home-nav__icon,
-.home-nav__item--active .home-nav__icon {
-  opacity: 1;
-}
-
-/* Label: big word + tiny descriptor stacked */
-.home-nav__label {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.home-nav__word {
-  /* Slightly smaller + single-line so longer labels (e.g. "Sell to Poda")
-     read all the way across instead of wrapping to two lines. */
-  font-size: clamp(1.5rem, 8vw, 3.9rem);
-  font-weight: 700;
-  line-height: 1.18;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-
-.home-nav__sub {
-  font-size: clamp(0.55rem, 1.5vw, 0.7rem);
-  font-weight: 400;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  opacity: 0.5;
-  line-height: 1;
-  padding-bottom: 4px;
-}
-
-/* Keep sub visible but slightly more opaque on active/hover */
-.home-nav__item:hover .home-nav__sub,
-.home-nav__item--active .home-nav__sub {
-  opacity: 0.65;
-}
-
-/* Legacy — no longer used but kept for safety */
-.home-nav__lock {
-  width: clamp(16px, 2.6vw, 24px);
-  height: clamp(16px, 2.6vw, 24px);
-  flex: 0 0 auto;
-  opacity: 0.75;
 }
 
 /* ============================================================
@@ -2729,14 +2478,14 @@ button.card-link {
 .site-footer {
   display: block;
   border-top: 1px solid var(--border);
-  margin-top: 48px;
-  padding-top: 28px;
-  padding-bottom: 40px;
+  margin-top: 32px;
+  padding-top: 22px;
+  padding-bottom: 28px;
 }
 .footer-top {
   display: flex;
   flex-wrap: wrap;
-  gap: 32px 48px;
+  gap: 24px 40px;
   align-items: flex-start;
   justify-content: space-between;
 }
@@ -2829,15 +2578,17 @@ button.card-link {
   white-space: nowrap;
 }
 
-/* Status becomes a small label overlaid on the image */
+/* Status: a small bordered label overlaid on the image — light surface +
+   dark ink (never a dark scrim + light text, which the redesign's palette
+   flip would make illegible). */
 .catalog-card__image > .catalog-card__status {
   position: absolute;
   top: 10px;
   left: 10px;
   padding: 4px 8px;
-  background: rgba(11, 11, 12, 0.72);
+  background: var(--poda-white);
   backdrop-filter: blur(4px);
-  border: 1px solid var(--border);
+  border: 1px solid var(--poda-border);
   color: var(--text);
   font-size: 8px;
   letter-spacing: 0.16em;
@@ -2848,7 +2599,7 @@ button.card-link {
 .catalog-card__status--sourcing  { color: var(--text-dim); }
 .catalog-card__status--sold {
   color: var(--text-dim);
-  background: rgba(11, 11, 12, 0.85);
+  background: var(--poda-surface);
 }
 
 /* Drop hero thesis line */
@@ -2870,7 +2621,7 @@ button.card-link {
   background: transparent;
   gap: clamp(20px, 4vw, 40px);
 }
-@media (min-width: 860px) {
+@media (min-width: 768px) {
   .product-layout {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     align-items: start;
@@ -3071,7 +2822,7 @@ button.card-link {
   border: 1px solid var(--border);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 16px; /* prevents iOS Safari zoom-on-focus */
 }
 .subscribe-form__name:focus,
 .subscribe-form__email:focus {
@@ -3108,147 +2859,120 @@ button.card-link {
 }
 
 /* ============================================================
-   Homepage hero — split-screen composition.
+   Thesis ticker — compact single-line signal directly under the
+   header, replacing the old hero + contextual strip + padded
+   thesis band. Deliberately static (no marquee): the spec marks
+   scrolling motion as optional, and a static, ellipsis-truncating
+   line is simpler and fully accessible without any
+   prefers-reduced-motion handling to get right.
    ============================================================ */
-.hero { width: 100%; background: var(--bg); }
-.hero__inner {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  align-items: stretch;
-  min-height: clamp(360px, 56vw, 560px);
+.ticker {
+  width: 100%;
+  background: var(--poda-sage);
+  border-bottom: 1px solid var(--border);
+}
+.ticker__track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   max-width: 1180px;
   margin: 0 auto;
-}
-.hero__text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 18px;
-  padding: clamp(40px, 6vw, 72px) clamp(20px, 5vw, 48px);
-}
-.hero__eyebrow {
-  font-family: var(--font);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--accent-2);
-}
-.hero__status {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-size: clamp(1.8rem, 4.5vw, 3.2rem);
-  font-weight: 400;
-  line-height: 0.92;
-  letter-spacing: -0.01em;
+  padding: 9px clamp(20px, 5vw, 28px);
   color: var(--text);
-  max-width: 14ch;
-}
-.hero__cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
-.hero__visual {
-  position: relative;
-  background: var(--accent);
-  background-image:
-    linear-gradient(rgba(239,237,231,0.14) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(239,237,231,0.14) 1px, transparent 1px);
-  background-size: 48px 48px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  overflow: hidden;
-}
-.hero__visual-number {
-  font-family: var(--font-serif);
-  font-size: clamp(6rem, 16vw, 13rem);
-  font-weight: 600;
-  line-height: 0.8;
-  letter-spacing: -0.03em;
-  color: rgba(255,255,255,0.9);
-  padding: 0 clamp(12px, 2vw, 24px) clamp(4px, 1vw, 12px) 0;
-}
-
-@media (max-width: 899px) {
-  .hero__inner { grid-template-columns: 1fr; min-height: 0; }
-  .hero__visual { min-height: 220px; order: -1; }
-}
-
-/* —— Contextual strip beneath the hero —— */
-.context-strip {
-  width: 100%;
-  background: var(--bg-box);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  padding: 10px clamp(20px, 5vw, 48px);
+  text-decoration: none;
   font-family: var(--font);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
 }
+.ticker__track:hover,
+.ticker__track:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+.ticker__label { flex: 0 0 auto; }
+.ticker__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.8;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+.ticker__cta { flex: 0 0 auto; }
 
 /* Home sections */
 .home2 { max-width: 1180px; margin: 0 auto; padding: 0 clamp(20px, 5vw, 48px); }
-.home2 > section { padding: clamp(48px, 8vw, 96px) 0; border-bottom: 1px solid var(--border); }
+.home2 > section { padding: clamp(28px, 5vw, 48px) 0; border-bottom: 1px solid var(--border); }
 /* A section that IS a purple band shouldn't double up padding/border. */
 .home2 > section.purple-band { padding: 0; border-bottom: none; }
 
-/* A. Premise */
-.premise__meta {
-  display: flex;
-  gap: 20px;
-  font-family: var(--font);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  margin-bottom: 28px;
-}
-.premise__statement {
-  margin: 0;
-  font-size: clamp(2.2rem, 8vw, 5rem);
-  font-weight: 700;
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  max-width: 16ch;
-}
-.premise__support {
-  margin: 28px 0 0;
-  max-width: 54ch;
-  font-size: clamp(1rem, 2.2vw, 1.2rem);
-  line-height: 1.5;
-  color: var(--text-dim);
-}
-.premise__cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
-
-/* B. Thesis */
-.thesis__statement {
-  margin: 0;
-  font-size: clamp(1.5rem, 4.5vw, 2.6rem);
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-  max-width: 22ch;
-}
-.thesis__body { margin: 20px 0 0; max-width: 60ch; color: var(--text-dim); font-size: 1rem; line-height: 1.6; }
-.thesis__keywords {
+/* Compact "THE EDIT / VIEW ALL" style section header row, reused for
+   Source/Sell operational rows too. */
+.ops-row { display: flex; flex-direction: column; }
+.ops-row__item {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 10px;
-  list-style: none;
-  margin: 28px 0 0;
-  padding: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
 }
-.thesis__keywords li {
+.ops-row__item:last-child { border-bottom: none; }
+.ops-row__label {
   font-family: var(--font);
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text);
-  border: 1px solid var(--border);
-  padding: 7px 12px;
 }
+.ops-row__sub {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+  max-width: 60ch;
+}
+.ops-row__cta {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--purple);
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.ops-row__cta:hover, .ops-row__cta:focus-visible { text-decoration-color: var(--text); outline: none; }
+
+/* Compact homepage signup row (once here, once in the footer — no
+   large "Get the Market Note by email" band). */
+.home-signup-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.home-signup-bar__label {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+.home-signup-bar .subscribe-form { max-width: 420px; flex: 1 1 320px; margin: 0; }
 
 /* C. Featured note */
 .feature-note__inner { display: grid; grid-template-columns: 1fr; gap: 24px; }
@@ -3259,6 +2983,26 @@ button.card-link {
 .feature-note__title a { color: var(--text); text-decoration: none; }
 .feature-note__title a:hover { color: var(--text-dim); }
 .feature-note__abstract { margin: 0 0 16px; max-width: 56ch; color: var(--text-dim); line-height: 1.6; }
+
+/* Loading skeleton — shown until the Supabase notes fetch resolves, so the
+   module doesn't pop in from nothing or jump the layout underneath it. */
+.feature-note__skeleton {
+  aspect-ratio: 4 / 3;
+  background: var(--poda-surface);
+  animation: feature-note-pulse 1.4s ease-in-out infinite;
+}
+.feature-note__skeleton--text {
+  aspect-ratio: auto;
+  height: 1.4rem;
+  max-width: 40ch;
+}
+@keyframes feature-note-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feature-note__skeleton { animation: none; }
+}
 
 /* D. Featured study */
 .feature-study__inner { display: grid; grid-template-columns: 1fr; gap: 24px; }
@@ -3275,11 +3019,6 @@ button.card-link {
 .home-edit__all { font-family: var(--font); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); text-decoration: none; }
 .home-edit__all:hover { color: var(--text); }
 
-/* F/G. Bands */
-.home-band__title { margin: 0 0 16px; font-family: var(--font-serif); font-size: clamp(1.8rem, 4.5vw, 2.8rem); font-weight: 600; line-height: 0.95; letter-spacing: -0.02em; max-width: 24ch; }
-.home-band__body { margin: 0 0 24px; max-width: 58ch; color: var(--text-dim); line-height: 1.6; }
-.home-band__form-wrap { margin-top: 32px; }
-
 /* Footer inside home max-width */
 .site-body .site-footer { max-width: 1180px; margin: 0 auto; padding-left: clamp(20px, 5vw, 48px); padding-right: clamp(20px, 5vw, 48px); }
 
@@ -3293,14 +3032,19 @@ button.card-link {
    OVERHAUL — Lookbook + Visual Study + forms (Phase 3)
    ============================================================ */
 
-/* Lookbook grid */
+/* Lookbook grid — same canonical 2/3/4 breakpoints as .items-grid. */
 .study-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(24px, 5vw, 44px);
+  gap: clamp(16px, 4vw, 32px);
   margin-top: 28px;
 }
-@media (max-width: 560px) { .study-grid { grid-template-columns: 1fr; } }
+@media (min-width: 768px) {
+  .study-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .study-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 
 .study-card { display: block; text-decoration: none; color: inherit; }
 .study-card__image {
@@ -3413,7 +3157,7 @@ button.card-link {
   height: 20px;
   display: grid;
   place-items: center;
-  background: rgba(11, 11, 12, 0.8);
+  background: var(--poda-white);
   border: 1px solid var(--border);
   color: var(--text);
   font-size: 14px;
@@ -3421,4 +3165,65 @@ button.card-link {
   cursor: pointer;
 }
 .upload-thumb button:hover { background: var(--bg); color: var(--signal); }
+
+/* Source/Sell form fields (submit.js) — .field-grid/.field/.req had no
+   dedicated CSS at all before this pass (browser defaults only); .btn/
+   .btn--primary are also used here even though those class names are
+   otherwise only defined in admin.css, which these public pages don't
+   load — defined here too so the Send button isn't left unstyled. */
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field--full { grid-column: 1 / -1; }
+.field label {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.field .req { color: var(--danger); }
+.field input,
+.field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-box);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 16px; /* prevents iOS Safari zoom-on-focus */
+}
+.field textarea { font-family: var(--font-sans); }
+.field input:focus,
+.field textarea:focus { outline: none; border-color: var(--text); }
+.field input::placeholder,
+.field textarea::placeholder { color: var(--text-faint); }
+
+@media (max-width: 560px) {
+  .field-grid { grid-template-columns: 1fr; }
+}
+
+.btn {
+  appearance: none;
+  min-height: 44px;
+  padding: 0 22px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.btn:hover, .btn:focus-visible { border-color: var(--text); outline: none; }
+.btn--primary { background: var(--text); border-color: var(--text); color: var(--bg); }
+.btn--primary:hover, .btn--primary:focus-visible { background: transparent; color: var(--text); }
+.btn:disabled { opacity: 0.6; cursor: default; }
 

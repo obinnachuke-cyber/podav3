@@ -125,7 +125,7 @@
 
       if (window.PodaSubscribe) {
         const signupEl = page.querySelector("[data-poda-subscribe]");
-        if (signupEl) window.PodaSubscribe.mount(signupEl, { source: "note-detail" });
+        if (signupEl) window.PodaSubscribe.mount(signupEl, { source: "note-detail", compact: true });
       }
     })();
   </script>

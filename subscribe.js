@@ -12,13 +12,16 @@
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   }
 
-  function formHTML() {
+  function formHTML(compact) {
+    const nameField = compact
+      ? ""
+      : `<input type="text" class="subscribe-form__name" placeholder="First name (optional)" autocomplete="given-name" />`;
     return `
-      <form class="subscribe-form" novalidate>
+      <form class="subscribe-form${compact ? " subscribe-form--compact" : ""}" novalidate>
         <div class="subscribe-form__row">
-          <input type="text" class="subscribe-form__name" placeholder="First name (optional)" autocomplete="given-name" />
+          ${nameField}
           <input type="email" class="subscribe-form__email" placeholder="Email address" autocomplete="email" required />
-          <button type="submit" class="btn-solid subscribe-form__submit">Join the list</button>
+          <button type="submit" class="btn-solid subscribe-form__submit">Join →</button>
         </div>
         <label class="subscribe-form__consent">
           <input type="checkbox" required />
@@ -30,7 +33,7 @@
 
   function render(container, opts) {
     const source = (opts && opts.source) || container.dataset.podaSubscribe || "unknown";
-    container.innerHTML = formHTML();
+    container.innerHTML = formHTML(!!(opts && opts.compact));
 
     const form = container.querySelector(".subscribe-form");
     const nameInput = form.querySelector(".subscribe-form__name");
@@ -69,7 +72,7 @@
       try {
         const result = await window.PodaDB.subscribe({
           email,
-          firstName: nameInput.value.trim(),
+          firstName: nameInput ? nameInput.value.trim() : "",
           source
         });
         if (result && result.duplicate) {
@@ -95,7 +98,7 @@
 
   function autoMount() {
     document.querySelectorAll("[data-poda-subscribe]").forEach(function (el) {
-      mount(el, { source: el.dataset.podaSubscribe });
+      mount(el, { source: el.dataset.podaSubscribe, compact: el.dataset.compact !== "false" });
     });
   }
 

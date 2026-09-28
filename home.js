@@ -50,16 +50,38 @@
     if (typeof bindImageErrorHandlers === "function") bindImageErrorHandlers(grid);
   }
 
-  // —— C: featured Market Note ——
-  async function renderFeaturedNote() {
+  // —— B/C: thesis ticker + lead editorial module, driven by the newest
+  // published Market Note. When none is published yet, the lead module
+  // falls back to the current drop's thesis/question instead of staying
+  // empty, and the ticker keeps its static default "Read the Inbox" link. ——
+  async function renderFeaturedNote(currentDropRec) {
     const section = document.getElementById("featuredNote");
     const inner = document.getElementById("featuredNoteInner");
-    if (!section || !inner) return;
+    const tickerLink = document.getElementById("thesisTickerLink");
+    const tickerCta = document.getElementById("thesisTickerCta");
 
     let notes = [];
-    try { notes = await window.PodaDB.getNotes(); } catch (e) { return; }
+    try { notes = await window.PodaDB.getNotes(); } catch (e) { notes = []; }
     const published = notes.filter(n => n.status === "published");
-    if (!published.length) return;
+
+    if (!published.length) {
+      if (section && inner) {
+        if (currentDropRec && (currentDropRec.thesis || currentDropRec.question)) {
+          inner.innerHTML = `
+            <div class="feature-note__text">
+              <p class="feature-note__meta"><span>Current thesis</span></p>
+              <h3 class="feature-note__title">${escapeHTML(currentDropRec.question || "The current thesis")}</h3>
+              ${currentDropRec.thesis ? `<p class="feature-note__abstract">${escapeHTML(currentDropRec.thesis)}</p>` : ""}
+              <a class="product-link" href="market-notes.html">Read the Inbox →</a>
+            </div>`;
+          section.hidden = false;
+        } else {
+          // Nothing to show at all — hide rather than leave the skeleton up.
+          section.hidden = true;
+        }
+      }
+      return;
+    }
 
     // Prefer an explicitly featured note; else the newest.
     const note = published.find(n => n.featured) || published[0];
@@ -71,34 +93,22 @@
       ? `<a class="feature-note__media" href="note.html?id=${encodeURIComponent(note.id)}"><img src="${escapeHTML(note.coverImage)}" alt="" loading="lazy" /></a>`
       : "";
 
-    inner.innerHTML = `
-      ${cover}
-      <div class="feature-note__text">
-        <p class="feature-note__meta"><span>${issue}</span>${note.category ? `<span>${escapeHTML(String(note.category).toUpperCase())}</span>` : ""}${date ? `<span>${escapeHTML(date)}</span>` : ""}</p>
-        <h3 class="feature-note__title"><a href="note.html?id=${encodeURIComponent(note.id)}">${escapeHTML(note.title || "Untitled")}</a></h3>
-        ${note.subtitle ? `<p class="feature-note__abstract">${escapeHTML(note.subtitle)}</p>` : ""}
-        <a class="product-link" href="note.html?id=${encodeURIComponent(note.id)}">Read the note →</a>
-      </div>`;
-    section.hidden = false;
-  }
+    if (section && inner) {
+      inner.innerHTML = `
+        ${cover}
+        <div class="feature-note__text">
+          <p class="feature-note__meta"><span>${issue}</span>${note.category ? `<span>${escapeHTML(String(note.category).toUpperCase())}</span>` : ""}${date ? `<span>${escapeHTML(date)}</span>` : ""}</p>
+          <h3 class="feature-note__title"><a href="note.html?id=${encodeURIComponent(note.id)}">${escapeHTML(note.title || "Untitled")}</a></h3>
+          ${note.subtitle ? `<p class="feature-note__abstract">${escapeHTML(note.subtitle)}</p>` : ""}
+          <a class="product-link" href="note.html?id=${encodeURIComponent(note.id)}">Read the note →</a>
+        </div>`;
+      section.hidden = false;
+    }
 
-  // —— B: thesis body = first 75 words of the current note ——
-  async function renderThesisFromNote() {
-    const el = document.getElementById("thesisBody");
-    if (!el) return;
-
-    let notes = [];
-    try { notes = await window.PodaDB.getNotes(); } catch (e) { return; }
-    const published = notes.filter(n => n.status === "published");
-    if (!published.length) return;
-
-    const note = published.find(n => n.featured) || published[0];
-    const body = String(note.body || "").trim();
-    if (!body) return;
-
-    const words = body.split(/\s+/);
-    const excerpt = words.slice(0, 75).join(" ") + (words.length > 75 ? "…" : "");
-    el.textContent = excerpt;
+    if (tickerLink && tickerCta) {
+      tickerLink.href = `note.html?id=${encodeURIComponent(note.id)}`;
+      tickerCta.textContent = note.issueNumber ? `Read Note ${escapeHTML(String(note.issueNumber))} →` : "Read the note →";
+    }
   }
 
   // —— D: featured Visual Study ——
@@ -131,10 +141,11 @@
   // Exposed for script.js to call once inventory is loaded.
   window.renderHome = function (items, drops) {
     const live = (items || []).filter(i => i.status === "Live");
+    const current = typeof latestDrop === "function" ? latestDrop(live) : "";
+    const currentDropRec = (drops || []).find(d => String(d.number || "").trim() === String(current).trim());
     renderPremise(live, drops || []);
     renderFeaturedProducts(live);
-    renderThesisFromNote();
-    renderFeaturedNote();
+    renderFeaturedNote(currentDropRec);
     renderFeaturedStudy();
   };
 })();
