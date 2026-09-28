@@ -19,8 +19,6 @@
 "use strict";
 
 /* —— Constants —— */
-const STORAGE_KEY = "poda_inventory";
-
 const CATEGORIES = ["Shirt", "Jacket", "Pants", "Denim", "Knit", "Shoe", "Bag", "Accessory", "Other"];
 const CONDITIONS = ["New", "Excellent", "Very Good", "Good", "Fair"];
 const STATUSES = ["Closet", "Available", "Selected", "Live", "Sold"];
@@ -37,12 +35,6 @@ const TRANSACTION_LABELS = {
   assisted:  "Request to purchase",
   partner:   "View at partner",
   sourcing:  "Source something similar"
-};
-
-// Category → item-ID code (brief §8): PODA-[drop]-[code]-[seq].
-const CATEGORY_CODES = {
-  Shoe: "FW", Jacket: "OT", Shirt: "TP", Knit: "TP",
-  Pants: "BT", Denim: "BT", Bag: "AC", Accessory: "AC", Other: "OB"
 };
 
 // Default Poda commission (30–35% range in the brief). Per-item overridable.
@@ -130,7 +122,6 @@ function blankItem() {
     itemCode: "",            // PODA-[drop]-[cat]-[seq], e.g. PODA-001-FW-001
     itemName: "",
     category: "",
-    categoryCode: "",        // FW | OT | TP | BT | AC | OB
     size: "",
     measurements: "",        // free text, e.g. "Chest 21in, Length 28in"
     material: "",
@@ -1438,7 +1429,6 @@ function bindAuthEvents() {
     window.location.reload();
   });
 
-  document.getElementById("importBtn").addEventListener("click", importFromBrowser);
   document.getElementById("exportExcelBtn").addEventListener("click", exportToExcel);
   document.getElementById("backupBtn").addEventListener("click", downloadBackup);
   document.getElementById("restoreBtn").addEventListener("click",
@@ -1537,51 +1527,6 @@ async function restoreFromFile(event) {
   state.items = await loadItems();
   renderCurrentView();
   alert(`Restored ${restored} item(s).${failed ? ` ${failed} failed — see console.` : ""}`);
-}
-
-/* ============================================================
-   One-time migration: pull items saved in THIS browser's old
-   localStorage into the database (uploading any base64 photos).
-   ============================================================ */
-async function importFromBrowser() {
-  let raw = null;
-  try { raw = localStorage.getItem(STORAGE_KEY); } catch (error) { raw = null; }
-
-  let legacyItems = [];
-  try { legacyItems = raw ? JSON.parse(raw) : []; } catch (error) { legacyItems = []; }
-
-  if (!Array.isArray(legacyItems) || !legacyItems.length) {
-    alert("No saved items were found in this browser to import.");
-    return;
-  }
-
-  if (!confirm(`Import ${legacyItems.length} item(s) from this browser into the database?`)) return;
-
-  let imported = 0, failed = 0;
-  for (const item of legacyItems) {
-    try {
-      const map = new Map();
-      const uploaded = [];
-      for (const img of Array.isArray(item.images) ? item.images : []) {
-        if (typeof img !== "string" || !img) continue;
-        const url = img.startsWith("data:") ? await window.PodaDB.uploadImage(img) : img;
-        map.set(img, url);
-        uploaded.push(url);
-      }
-      item.images = uploaded;
-      if (item.primaryImage) item.primaryImage = map.get(item.primaryImage) || uploaded[0] || "";
-
-      await window.PodaDB.upsertItem(item);
-      imported++;
-    } catch (error) {
-      console.error("Import failed for an item:", error);
-      failed++;
-    }
-  }
-
-  state.items = await loadItems();
-  renderCurrentView();
-  alert(`Imported ${imported} item(s).${failed ? ` ${failed} failed — see console.` : ""}`);
 }
 
 /* ============================================================
