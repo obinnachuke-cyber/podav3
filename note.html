@@ -109,12 +109,8 @@
               <a href="market-notes.html">← Inbox</a>
               <span>${note.issueNumber ? "No. " + escHTML(String(note.issueNumber)) + " · " : ""}${note.category ? escHTML(String(note.category).toUpperCase()) + " · " : ""}${dateStr ? escHTML(dateStr) : ""}</span>
             </p>
-            <div class="purple-band">
-              <div class="purple-band__inner">
-                <h1 class="note-article__title">${escHTML(note.title)}</h1>
-                ${note.subtitle ? `<p class="note-article__subtitle">${escHTML(note.subtitle)}</p>` : ""}
-              </div>
-            </div>
+            <h1 class="note-article__title">${escHTML(note.title)}</h1>
+            ${note.subtitle ? `<p class="note-article__subtitle">${escHTML(note.subtitle)}</p>` : ""}
           </header>
           <div class="note-article__body">${bodyHTML}</div>
           ${note.substackUrl

@@ -11,6 +11,7 @@ const TEXT = "font-family:Georgia,'Times New Roman',serif;color:#090909;";
 const MUTED = "color:#666;";
 const SERIF = "font-family:Georgia,'Times New Roman',serif;";
 const LABEL = "font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#999790;";
+const CAPTION = "font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:#666;";
 
 function esc(value) {
   return String(value ?? "")
@@ -88,7 +89,7 @@ function renderImage(attrs) {
   const { src, alt, caption } = attrs || {};
   if (!src) return "";
   const captionRow = caption
-    ? `<tr><td style="padding:8px 0 0;${LABEL}">${esc(caption)}</td></tr>`
+    ? `<tr><td style="padding:8px 0 0;${CAPTION}">${esc(caption)}</td></tr>`
     : "";
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">

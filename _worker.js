@@ -111,7 +111,7 @@ function noteSubject(note) {
 function buildEmail(note, siteUrl, unsubscribeUrl) {
   const noteUrl = `${siteUrl}/note.html?id=${encodeURIComponent(note.id)}`;
   const subject = (note.emailSubject && note.emailSubject.trim()) || noteSubject(note);
-  const issueLabel = note.issueNumber ? `No. ${escapeHTML(String(note.issueNumber))}` : "poda inbox";
+  const issueLabel = note.issueNumber ? `No. ${escapeHTML(String(note.issueNumber))}` : "Market Note";
 
   const imageBlock = note.coverImage
     ? `<tr><td style="padding:0 28px 20px;"><img src="${escapeHTML(note.coverImage)}" alt="${escapeHTML(note.coverImageAlt || "")}" width="100%" style="display:block;max-width:100%;border:1px solid #26262a;" /></td></tr>`
@@ -141,10 +141,7 @@ function buildEmail(note, siteUrl, unsubscribeUrl) {
         <td align="center">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #26262a;">
             <tr>
-              <td style="padding:24px 28px 0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#555555;">poda</td>
-            </tr>
-            <tr>
-              <td style="padding:6px 28px 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#999790;">${issueLabel}</td>
+              <td style="padding:24px 28px 20px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#555555;">poda &middot; ${issueLabel}</td>
             </tr>
             ${imageBlock}
             <tr>

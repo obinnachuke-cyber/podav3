@@ -2084,10 +2084,8 @@ function buildWebsitePreviewDoc(note) {
 ${note.coverImage ? `<div class="note-article__cover"><img src="${escapeHTML(note.coverImage)}" alt="${escapeHTML(note.coverImageAlt || "")}" /></div>` : ""}
 <header class="note-article__header">
   <p class="note-article__eyebrow"><span>${note.category ? escapeHTML(String(note.category).toUpperCase()) + " · " : ""}${escapeHTML(dateStr)}</span></p>
-  <div class="purple-band"><div class="purple-band__inner">
-    <h1 class="note-article__title">${escapeHTML(note.title || "Untitled")}</h1>
-    ${note.subtitle ? `<p class="note-article__subtitle">${escapeHTML(note.subtitle)}</p>` : ""}
-  </div></div>
+  <h1 class="note-article__title">${escapeHTML(note.title || "Untitled")}</h1>
+  ${note.subtitle ? `<p class="note-article__subtitle">${escapeHTML(note.subtitle)}</p>` : ""}
 </header>
 <div class="note-article__body">${note.websiteHtml || "<p>Nothing to preview yet — write some content first.</p>"}</div>
 </article></div></main></body></html>`;
@@ -2101,13 +2099,13 @@ function buildEmailPreviewDoc(note) {
   const siteUrl = window.location.origin;
   const bodyHtml = (note.emailHtml || "<p>Nothing to preview yet — write some content first.</p>")
     .split("%%SITE_URL%%").join(siteUrl);
+  const issueLabel = note.issueNumber ? `No. ${escapeHTML(String(note.issueNumber))}` : "Market Note";
   return `<!doctype html>
 <html><body style="margin:0;padding:0;background:#f5f5f3;font-family:Georgia,'Times New Roman',serif;color:#090909;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f3;padding:32px 0;">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #26262a;">
-<tr><td style="padding:24px 28px 0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#555555;">poda</td></tr>
-<tr><td style="padding:6px 28px 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#999790;">poda inbox</td></tr>
+<tr><td style="padding:24px 28px 20px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#555555;">poda &middot; ${issueLabel}</td></tr>
 ${note.coverImage ? `<tr><td style="padding:0 28px 20px;"><img src="${escapeHTML(note.coverImage)}" alt="${escapeHTML(note.coverImageAlt || "")}" width="100%" style="display:block;max-width:100%;border:1px solid #26262a;" /></td></tr>` : ""}
 <tr><td style="padding:0 28px 8px;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.1;font-weight:600;color:#090909;">${escapeHTML(note.title || "poda")}</td></tr>
 ${note.emailPreviewText ? `<tr><td style="padding:0 28px 20px;font-family:Helvetica,Arial,sans-serif;font-size:13px;color:#666666;">${escapeHTML(note.emailPreviewText)}</td></tr>` : ""}

@@ -1225,6 +1225,7 @@ button.card-link {
   font-weight: 600;
   line-height: 0.9;
   letter-spacing: -0.02em;
+  color: var(--text);
 }
 
 .note-article__subtitle {
@@ -1272,9 +1273,9 @@ button.card-link {
 .note-article__caption {
   margin: 8px 0 0;
   font-family: var(--font);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
 }
 .note-article__figure--wide {
   width: min(1100px, 92vw);
