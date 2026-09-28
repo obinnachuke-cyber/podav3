@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { validateImageFile } from "../validate-upload.js";
 import { updateNodeAttrs, buildControlRow, stopEvent, el } from "./utils.js";
+import { openCropModal } from "../crop-modal.js";
 
 // Image + Text Section — laptop shows an image column beside a text column
 // (side + width configurable); style.css stacks it vertically below a
@@ -134,6 +135,13 @@ export const PodaImageText = Node.create({
           return;
         }
         errorEl.hidden = true;
+
+        openCropModal(file).then(result => {
+          if (result) uploadFile(result, errorEl, col);
+        });
+      }
+
+      function uploadFile(file, errorEl, col) {
         const progressWrap = el("div", "pe-image__progress");
         const bar = el("div", "pe-image__progress-bar");
         progressWrap.appendChild(bar);

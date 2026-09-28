@@ -1,5 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { updateNodeAttrs, buildControlRow, stopEvent, el } from "./utils.js";
+import { updateNodeAttrs, buildControlRow, stopEvent, focusAfterNode, el } from "./utils.js";
 
 export const PodaPullQuote = Node.create({
   name: "podaPullQuote",
@@ -51,6 +51,10 @@ export const PodaPullQuote = Node.create({
         updateNodeAttrs(editor, getPos, node, { attribution: attribution.value });
       });
       dom.appendChild(attribution);
+
+      const continueBtn = el("button", "btn btn--small", { type: "button", text: "Continue Writing ↓" });
+      continueBtn.addEventListener("click", () => focusAfterNode(editor, getPos));
+      dom.appendChild(continueBtn);
 
       return {
         dom,

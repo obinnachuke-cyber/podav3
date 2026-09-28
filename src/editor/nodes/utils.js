@@ -65,6 +65,26 @@ export function stopEvent(dom, contentDOM) {
   return event => dom.contains(event.target) && !(contentDOM && contentDOM.contains(event.target));
 }
 
+// Atom node views (image, pull quote, product card) have no ProseMirror-
+// managed content, so there's no way to arrow/tab out of them into the rest
+// of the document once you're done filling in the block's own fields. This
+// moves the cursor into the paragraph right after the block — creating one
+// if none exists yet — and hands focus back to the main editable area.
+export function focusAfterNode(editor, getPos) {
+  if (typeof getPos !== "function") return;
+  const pos = getPos();
+  if (pos == null) return;
+  const node = editor.state.doc.nodeAt(pos);
+  if (!node) return;
+  const afterPos = pos + node.nodeSize;
+  const nextNode = editor.state.doc.nodeAt(afterPos);
+  if (nextNode && nextNode.isTextblock) {
+    editor.chain().focus().setTextSelection(afterPos + 1).run();
+  } else {
+    editor.chain().focus().insertContentAt(afterPos, { type: "paragraph" }).run();
+  }
+}
+
 export function el(tag, className, attrs) {
   const node = document.createElement(tag);
   if (className) node.className = className;

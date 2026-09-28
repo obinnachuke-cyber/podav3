@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { validateImageFile } from "../validate-upload.js";
-import { updateNodeAttrs, buildControlRow, stopEvent, el } from "./utils.js";
+import { updateNodeAttrs, buildControlRow, stopEvent, focusAfterNode, el } from "./utils.js";
+import { openCropModal } from "../crop-modal.js";
 
 // Editorial Image — Poda's dedicated image block. Atomic (no ProseMirror
 // text content): all editing happens through the node view's own controls
@@ -114,6 +115,12 @@ export const PodaImage = Node.create({
         }
         errorEl.hidden = true;
 
+        openCropModal(file).then(result => {
+          if (result) uploadFile(result, errorEl);
+        });
+      }
+
+      function uploadFile(file, errorEl) {
         const progressWrap = el("div", "pe-image__progress");
         const bar = el("div", "pe-image__progress-bar");
         progressWrap.appendChild(bar);
@@ -164,9 +171,15 @@ export const PodaImage = Node.create({
         });
         fields.appendChild(alignRow);
 
+        const actionsRow = el("div", "pe-image__option-row");
         const replace = el("button", "btn btn--small btn--ghost", { type: "button", text: "Replace Image" });
         replace.addEventListener("click", () => updateNodeAttrs(editor, getPos, node, { src: "" }));
-        fields.appendChild(replace);
+        actionsRow.appendChild(replace);
+
+        const continueBtn = el("button", "btn btn--small", { type: "button", text: "Continue Writing ↓" });
+        continueBtn.addEventListener("click", () => focusAfterNode(editor, getPos));
+        actionsRow.appendChild(continueBtn);
+        fields.appendChild(actionsRow);
 
         wrap.appendChild(fields);
         return wrap;

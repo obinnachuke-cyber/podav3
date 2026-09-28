@@ -1,7 +1,8 @@
 import { Node, mergeAttributes } from "@tiptap/core";
 import { validateImageFile } from "../validate-upload.js";
 import { isSafeUrl } from "../safe-url.js";
-import { updateNodeAttrs, buildControlRow, stopEvent, el } from "./utils.js";
+import { updateNodeAttrs, buildControlRow, stopEvent, focusAfterNode, el } from "./utils.js";
+import { openCropModal } from "../crop-modal.js";
 
 // Product Card — either linked to an existing Poda item (The Edit) or an
 // external URL. `getProducts` is supplied by the host app (already-loaded
@@ -104,6 +105,10 @@ export const PodaProductCard = Node.create({
         textarea.addEventListener("input", () => updateNodeAttrs(editor, getPos, node, { commentary: textarea.value }));
         commentaryField.appendChild(textarea);
         dom.appendChild(commentaryField);
+
+        const continueBtn = el("button", "btn btn--small", { type: "button", text: "Continue Writing ↓" });
+        continueBtn.addEventListener("click", () => focusAfterNode(editor, getPos));
+        dom.appendChild(continueBtn);
       }
 
       function labeledInput(labelText, value, onChange) {
@@ -189,11 +194,14 @@ export const PodaProductCard = Node.create({
               return;
             }
             error.hidden = true;
-            options.uploadImage(file, {}).then(url => {
-              updateNodeAttrs(editor, getPos, node, { image: url });
-            }).catch(err => {
-              error.textContent = (err && err.message) || "Upload failed.";
-              error.hidden = false;
+            openCropModal(file).then(result => {
+              if (!result) return;
+              options.uploadImage(result, {}).then(url => {
+                updateNodeAttrs(editor, getPos, node, { image: url });
+              }).catch(err => {
+                error.textContent = (err && err.message) || "Upload failed.";
+                error.hidden = false;
+              });
             });
             input.value = "";
           });
