@@ -7,41 +7,43 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* —— Dark corporate editorial palette —— */
-  --bg: #090909;                /* primary black             */
-  --bg-box: #171717;            /* charcoal — card/panel surfaces */
-  --bg-box-hover: #1f1f1f;      /* hover surface              */
-  --text: #EFEDE7;              /* warm off-white             */
-  --text-dim: #C9C7C1;          /* dimmer warm off-white      */
-  --text-faint: #999790;        /* muted text                 */
-  --border: rgba(239, 237, 231, 0.18);   /* fine dark-mode border   */
-  --border-light: rgba(239, 237, 231, 0.32);
-  --image-bg: #171717;          /* image slot backdrop        */
+  /* —— Light editorial palette: warm paper white + forest green —— */
+  --bg: #FAF9F4;                /* warm paper white          */
+  --bg-box: #F1EEE5;            /* warm surface — card/panel surfaces */
+  --bg-box-hover: #E7E2D5;      /* hover surface              */
+  --text: #1B211C;              /* near-black, warm dark green-charcoal */
+  --text-dim: #4B5850;          /* muted dark green-gray      */
+  --text-faint: #7C8880;        /* faint muted green-gray     */
+  --border: rgba(27, 33, 28, 0.14);   /* fine light-mode border   */
+  --border-light: rgba(27, 33, 28, 0.24);
+  --image-bg: #F1EEE5;          /* image slot backdrop        */
 
-  /* Warm light-grey — for the deliberate light sections used
-     sparingly against the black base. */
-  --warm-grey: #EFEDE7;
-  --grey-2: #D9D5CC;
-  --border-on-light: rgba(9, 9, 9, 0.17); /* fine light-mode border */
+  /* Kept for compatibility with rules still referencing these names —
+     both now resolve to the same dark ink used against the paper base. */
+  --warm-grey: #1B211C;
+  --grey-2: #333B34;
+  --border-on-light: rgba(27, 33, 28, 0.17);
 
   /* Editorial highlight band — used sparingly, not for ordinary UI. */
   --band-purple: var(--accent);
   --band-purple-text: #FFFFFF;
 
-  /* Cobalt — the single primary accent, used selectively. */
-  --accent: #244CFF;
-  --accent-2: #6D84FF;
+  /* Forest green — the single primary accent, used selectively. */
+  --accent: #1B4332;
+  --accent-2: #4C7A5E;
   --danger: #A84B3F;            /* muted red — rare status use only */
 
-  /* Accent: bone is the "active/link" colour; --signal is the single
-     restrained functional accent (statuses only, used sparingly). */
-  --purple: #1b1b1e;           /* legacy name: accent surface  */
-  --purple-2: #eceae4;         /* legacy name: accent / links  */
-  --purple-deep: #202024;      /* legacy name: deep accent     */
-  --purple-glow: rgba(255, 255, 255, 0.05);
-  --signal: #c8a86b;           /* muted brass — status only    */
+  /* Legacy names, still forest-green-family so badges/chips read as one
+     accent instead of two: --purple-2 is the light "text on solid chip"
+     colour, --signal is the single restrained functional accent
+     (statuses only, used sparingly). */
+  --purple: #1B4332;           /* legacy name: accent surface  */
+  --purple-2: #FFFFFF;         /* legacy name: accent / links  */
+  --purple-deep: #14342A;      /* legacy name: deep accent     */
+  --purple-glow: rgba(27, 67, 50, 0.10);
+  --signal: #96723A;           /* muted brass — status only    */
 
   --header-h: 56px;
   --pad: clamp(20px, 5vw, 28px);

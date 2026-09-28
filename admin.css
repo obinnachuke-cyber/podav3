@@ -3,6 +3,36 @@
    Extends style.css. New selectors only — no resets/overrides.
    ============================================================ */
 
+/* The public site (style.css) moved to a light paper-white + forest-green
+   palette, but the Studio/admin editing surface stays on the original dark
+   palette for editor comfort — this pins the old values here. Loaded after
+   style.css (see admin.html), so this :root wins for admin.html only. */
+:root {
+  color-scheme: dark;
+  --bg: #090909;
+  --bg-box: #171717;
+  --bg-box-hover: #1f1f1f;
+  --text: #EFEDE7;
+  --text-dim: #C9C7C1;
+  --text-faint: #999790;
+  --border: rgba(239, 237, 231, 0.18);
+  --border-light: rgba(239, 237, 231, 0.32);
+  --image-bg: #171717;
+  --warm-grey: #EFEDE7;
+  --grey-2: #D9D5CC;
+  --border-on-light: rgba(9, 9, 9, 0.17);
+  --band-purple: var(--accent);
+  --band-purple-text: #FFFFFF;
+  --accent: #244CFF;
+  --accent-2: #6D84FF;
+  --danger: #A84B3F;
+  --purple: #1b1b1e;
+  --purple-2: #eceae4;
+  --purple-deep: #202024;
+  --purple-glow: rgba(255, 255, 255, 0.05);
+  --signal: #c8a86b;
+}
+
 /* —— Header additions (admin) —— */
 .admin-newitem,
 .admin-public-link {
