@@ -7,53 +7,39 @@
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* —— poda editorial terminal palette —— */
-  --poda-paper: #f1f2ef;         /* main page background — light grey, not bright white */
-  --poda-surface: #e7ebe5;
-  --poda-sage: #c5d8c8;          /* tickers, active states, thesis blocks, labels, selected nav */
-  --poda-sage-strong: #aec7b4;   /* small primary buttons / hover only — used sparingly */
-  --poda-ink: #121713;           /* dark text — always on light backgrounds, never white-on-sage */
-  --poda-muted: #667068;
-  --poda-border: rgba(18, 23, 19, 0.22);
-  --poda-white: #fafbf8;
+  /* —— Dark corporate editorial palette (restored) —— */
+  --bg: #090909;                /* primary black             */
+  --bg-box: #171717;            /* charcoal — card/panel surfaces */
+  --bg-box-hover: #1f1f1f;      /* hover surface              */
+  --text: #EFEDE7;              /* warm off-white             */
+  --text-dim: #C9C7C1;          /* dimmer warm off-white      */
+  --text-faint: #999790;        /* muted text                 */
+  --border: rgba(239, 237, 231, 0.18);   /* fine dark-mode border   */
+  --border-light: rgba(239, 237, 231, 0.32);
+  --image-bg: #171717;          /* image slot backdrop        */
 
-  /* —— Legacy variable names, aliased to the tokens above ——
-     Hundreds of rules across this file still reference --bg/--text/
-     --accent/--purple* by name; aliasing (rather than renaming every
-     consuming rule) re-themes the whole site from this one block. */
-  --bg: var(--poda-paper);
-  --bg-box: var(--poda-surface);
-  --bg-box-hover: color-mix(in srgb, var(--poda-surface), black 4%);
-  --text: var(--poda-ink);
-  --text-dim: var(--poda-muted);
-  --text-faint: color-mix(in srgb, var(--poda-muted), var(--poda-paper) 35%);
-  --border: var(--poda-border);
-  --border-light: var(--poda-border);
-  --image-bg: var(--poda-surface);
+  /* Warm light-grey — for the deliberate light sections used
+     sparingly against the black base. */
+  --warm-grey: #EFEDE7;
+  --grey-2: #D9D5CC;
+  --border-on-light: rgba(9, 9, 9, 0.17); /* fine light-mode border */
 
-  --warm-grey: var(--poda-ink);
-  --grey-2: var(--poda-muted);
-  --border-on-light: var(--poda-border);
+  /* Editorial highlight band — used sparingly, not for ordinary UI. */
+  --band-purple: var(--accent);
+  --band-purple-text: #FFFFFF;
 
-  /* Editorial highlight band (.purple-band) — light sage + dark ink,
-     never white-on-pale-green. Used sparingly: thesis callouts, active
-     nav/labels — not ordinary UI. */
-  --band-purple: var(--poda-sage);
-  --band-purple-text: var(--poda-ink);
-
-  /* Dark green is reserved for hover states / small primary buttons only
-     (--accent), not large surfaces. */
-  --accent: var(--poda-sage-strong);
-  --accent-2: var(--poda-ink);
+  /* Cobalt — the single primary accent, used selectively. */
+  --accent: #244CFF;
+  --accent-2: #6D84FF;
   --danger: #A84B3F;            /* muted red — rare status use only */
 
-  --purple: var(--poda-sage-strong);   /* legacy name: accent surface  */
-  --purple-2: var(--poda-ink);         /* legacy name: text on solid chip */
-  --purple-deep: var(--poda-sage-strong);  /* legacy name: deep accent */
-  --purple-glow: rgba(18, 23, 19, 0.10);   /* legacy name: subtle ink glow for box-shadows */
-  --signal: #96723A;           /* muted brass — status only    */
+  --purple: #1b1b1e;           /* legacy name: accent surface  */
+  --purple-2: #eceae4;         /* legacy name: accent / links  */
+  --purple-deep: #202024;      /* legacy name: deep accent     */
+  --purple-glow: rgba(255, 255, 255, 0.05);
+  --signal: #c8a86b;           /* muted brass — status only    */
 
   --header-h: 56px;
   --pad: clamp(20px, 5vw, 28px);
@@ -226,7 +212,7 @@ input {
 
 .site-nav a.is-active {
   color: var(--text);
-  background: var(--poda-sage);
+  background: var(--purple-deep);
 }
 
 .site-header__utility {
@@ -475,7 +461,7 @@ input {
 
 .inbox-row:hover,
 .inbox-row:focus-visible {
-  background: var(--poda-sage);
+  background: var(--bg-box);
   outline: none;
 }
 
@@ -1023,8 +1009,8 @@ input {
   place-items: center;
   width: 100%;
   min-height: 220px;
-  background-color: var(--poda-surface);
-  color: var(--poda-muted);
+  background-color: #d9d9d9;
+  color: #4d4d4d;
   font-size: 48px;
   font-weight: 700;
 }
@@ -1763,8 +1749,8 @@ button.card-link {
 
 .product-buy:hover,
 .product-buy:focus-visible {
-  background: var(--poda-ink);
-  color: var(--poda-white);
+  background: #333333;
+  color: #ffffff;
   box-shadow: 0 8px 22px var(--purple-glow);
   outline: none;
 }
@@ -2578,17 +2564,15 @@ button.card-link {
   white-space: nowrap;
 }
 
-/* Status: a small bordered label overlaid on the image — light surface +
-   dark ink (never a dark scrim + light text, which the redesign's palette
-   flip would make illegible). */
+/* Status: a small label overlaid on the image — dark scrim + light text. */
 .catalog-card__image > .catalog-card__status {
   position: absolute;
   top: 10px;
   left: 10px;
   padding: 4px 8px;
-  background: var(--poda-white);
+  background: rgba(11, 11, 12, 0.72);
   backdrop-filter: blur(4px);
-  border: 1px solid var(--poda-border);
+  border: 1px solid var(--border);
   color: var(--text);
   font-size: 8px;
   letter-spacing: 0.16em;
@@ -2599,7 +2583,7 @@ button.card-link {
 .catalog-card__status--sourcing  { color: var(--text-dim); }
 .catalog-card__status--sold {
   color: var(--text-dim);
-  background: var(--poda-surface);
+  background: rgba(11, 11, 12, 0.85);
 }
 
 /* Drop hero thesis line */
@@ -2868,7 +2852,7 @@ button.card-link {
    ============================================================ */
 .ticker {
   width: 100%;
-  background: var(--poda-sage);
+  background: var(--band-purple);
   border-bottom: 1px solid var(--border);
 }
 .ticker__track {
@@ -2988,7 +2972,7 @@ button.card-link {
    module doesn't pop in from nothing or jump the layout underneath it. */
 .feature-note__skeleton {
   aspect-ratio: 4 / 3;
-  background: var(--poda-surface);
+  background: var(--bg-box);
   animation: feature-note-pulse 1.4s ease-in-out infinite;
 }
 .feature-note__skeleton--text {
@@ -3157,7 +3141,7 @@ button.card-link {
   height: 20px;
   display: grid;
   place-items: center;
-  background: var(--poda-white);
+  background: rgba(11, 11, 12, 0.8);
   border: 1px solid var(--border);
   color: var(--text);
   font-size: 14px;
