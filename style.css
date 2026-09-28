@@ -3023,6 +3023,18 @@ button.card-link {
   max-width: 1180px;
   padding: 0 clamp(20px, 5vw, 48px);
 }
+/* .note-article lives inside .portal-shell, which sets overflow-x: clip to
+   guard against unrelated horizontal overflow. That clips the band's
+   100vw/negative-margin bleed at the shell's edges instead of the viewport's,
+   while .purple-band__inner still centers itself assuming the full (unclipped)
+   width — the mismatch cuts text off the left edge. Note pages read at a
+   fixed column width anyway, so just fill the shell instead of trying to
+   bleed past it. */
+.note-article .purple-band {
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
 .purple-band h1,
 .purple-band h2,
 .purple-band h3,
