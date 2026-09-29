@@ -2521,28 +2521,34 @@ button.card-link {
   gap: 8px;
   max-width: 420px;
 }
+/* Bottom status band — same blue as the thesis ticker, bookending the
+   page. Contained within the footer's own padding (not full-bleed like
+   the ticker), since the footer sits inside .portal-shell on inner pages,
+   which clips 100vw bleeds (see the note-article__header comment above). */
 .footer-bottom {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 20px;
   justify-content: space-between;
   margin-top: 20px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  padding: 10px clamp(16px, 4vw, 24px);
+  background: var(--band-purple);
   font-family: var(--font);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--band-purple-text);
 }
-.footer-build { color: var(--signal); }
+.footer-build { color: var(--band-purple-text); }
 .footer-status {
-  margin-top: 6px;
+  margin-top: 0;
+  padding: 0 clamp(16px, 4vw, 24px) 10px;
+  background: var(--band-purple);
   font-family: var(--font);
   font-size: 9px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--band-purple-text);
 }
 
 /* ============================================================
