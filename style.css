@@ -2473,16 +2473,17 @@ button.card-link {
   padding-top: 22px;
   padding-bottom: 28px;
 }
+/* One tight, clustered block — brand line, then nav + social as compact
+   wrapped rows close underneath it, rather than spread across separate
+   wide columns. */
 .footer-top {
   display: flex;
-  flex-wrap: wrap;
-  gap: 24px 40px;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 10px;
 }
-.footer-brand-block { display: flex; flex-direction: column; gap: 4px; }
+.footer-brand-block { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
 .footer-brand {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -2497,14 +2498,16 @@ button.card-link {
 .footer-nav,
 .footer-links {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 14px;
 }
 .footer-nav a,
 .footer-links a {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-dim);
   text-decoration: none;
+  white-space: nowrap;
   transition: color 0.15s ease;
 }
 .footer-nav a:hover,
@@ -2512,19 +2515,19 @@ button.card-link {
 .footer-nav a:focus-visible,
 .footer-links a:focus-visible { color: var(--text); }
 .footer-signup {
-  margin-top: 24px;
+  margin-top: 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   max-width: 420px;
 }
 .footer-bottom {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 24px;
+  gap: 8px 20px;
   justify-content: space-between;
-  margin-top: 32px;
-  padding-top: 16px;
+  margin-top: 20px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
   font-family: var(--font);
   font-size: 10px;
@@ -2534,16 +2537,12 @@ button.card-link {
 }
 .footer-build { color: var(--signal); }
 .footer-status {
-  margin-top: 8px;
+  margin-top: 6px;
   font-family: var(--font);
   font-size: 9px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-faint);
-}
-
-@media (max-width: 640px) {
-  .footer-top { gap: 24px; }
 }
 
 /* ============================================================
@@ -2805,9 +2804,9 @@ button.card-link {
 }
 .subscribe-form__name,
 .subscribe-form__email {
-  flex: 1 1 180px;
+  flex: 1 1 140px;
   min-width: 0;
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: var(--bg-box);
   border: 1px solid var(--border);
   color: var(--text);
@@ -2846,6 +2845,16 @@ button.card-link {
 @media (max-width: 480px) {
   .subscribe-form__row { flex-direction: column; }
   .subscribe-form__submit { width: 100%; justify-content: center; }
+
+  /* Compact mode is just email + button — keep them on one row even on
+     narrow phones instead of stacking two full-width blocks, which read
+     as oversized. */
+  .subscribe-form--compact .subscribe-form__row {
+    flex-direction: row;
+  }
+  .subscribe-form--compact .subscribe-form__submit {
+    width: auto;
+  }
 }
 
 /* ============================================================
