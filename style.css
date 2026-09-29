@@ -787,6 +787,9 @@ input {
   gap: clamp(32px, 6vw, 56px) clamp(16px, 4vw, 32px);
   align-items: start;  /* each card sits at its own top, not stretched */
 }
+/* A status message sitting alongside placeholder tiles (empty-drop state)
+   should span the row, not be squeezed into one card's column width. */
+.items-grid .status-message { grid-column: 1 / -1; }
 
 /* The card itself: no box, no background — just a vertical stack */
 .catalog-card {
@@ -927,9 +930,10 @@ input {
   display: grid;
   place-items: center;
   color: var(--text-faint);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-family: var(--font-serif);
+  font-size: clamp(1.1rem, 4vw, 1.6rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 /* —— Archive listings (legacy styles, still used by item.html) —— */
@@ -1024,9 +1028,10 @@ input {
   min-height: 220px;
   height: 100%;
   color: var(--text-faint);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  font-family: var(--font-serif);
+  font-size: clamp(1.2rem, 5vw, 2rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
   border: 1px dotted var(--border);
   background: var(--image-bg);
 }
@@ -2636,9 +2641,10 @@ button.card-link {
   place-items: center;
   height: 100%;
   color: var(--text-faint);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-family: var(--font-serif);
+  font-size: clamp(1.4rem, 5vw, 2.2rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .product-info { padding: 0; }

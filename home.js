@@ -37,7 +37,8 @@
     if (!grid) return;
 
     if (!live.length) {
-      grid.innerHTML = `<p class="status-message">The next drop is in assembly. <a class="product-link" href="source.html">Open a sourcing request →</a></p>`;
+      const tiles = typeof placeholderTiles === "function" ? placeholderTiles(4) : "";
+      grid.innerHTML = `<p class="status-message">The next drop is in assembly. <a class="product-link" href="source.html">Open a sourcing request →</a></p>${tiles}`;
       return;
     }
     const current = typeof latestDrop === "function" ? latestDrop(live) : "";

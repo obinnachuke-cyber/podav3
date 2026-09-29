@@ -20,7 +20,7 @@
     const url = s.coverImage || (Array.isArray(s.images) && s.images[0]) || "";
     return url
       ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" />`
-      : `<div class="image-placeholder">No image</div>`;
+      : `<div class="image-placeholder">poda</div>`;
   }
 
   function studyCard(s) {

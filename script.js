@@ -187,7 +187,7 @@ function cardImage(item) {
   const url = getImageUrl(item);
   return url
     ? `<img src="${escapeHTML(url)}" alt="${escapeHTML(itemImageAlt(item))}" loading="lazy" decoding="async" />`
-    : `<div class="image-placeholder">No image</div>`;
+    : `<div class="image-placeholder">poda</div>`;
 }
 
 function pieceCard(item) {
@@ -227,6 +227,15 @@ function pieceCard(item) {
       </div>
     </article>
   `;
+}
+
+// Fills the grid with grey "poda" placeholder tiles when there's no live
+// inventory yet — reuses the real card's image treatment (aspect ratio,
+// border, background) with no name/price, so it previews the grid layout
+// without implying real products exist.
+function placeholderTiles(count) {
+  const tile = `<article class="catalog-card catalog-card--placeholder"><div class="catalog-card__image catalog-card__image--empty">poda</div></article>`;
+  return new Array(count).fill(tile).join("");
 }
 
 /* ============================================================
@@ -296,7 +305,10 @@ function renderEdit() {
       <p class="drop-hero__sub">The next drop is being selected. Check back soon, or open a sourcing request.</p>`;
     if (empty) empty.innerHTML = `<a class="product-link" href="source.html">Open a sourcing request →</a>`;
     if (controls) controls.innerHTML = "";
-    grid.innerHTML = "";
+    // No live items yet — preview the grid with placeholder tiles (same
+    // image treatment real cards use) instead of leaving it blank, so the
+    // layout/density is visible before real inventory is in.
+    grid.innerHTML = placeholderTiles(8);
     return;
   }
 
@@ -422,7 +434,7 @@ function renderProductPage(items) {
     ? images.map((u, idx) =>
         `<div class="product-media${idx === 0 ? " product-media--primary" : ""}"><img src="${escapeHTML(u)}" alt="${escapeHTML(itemImageAlt(item))}" decoding="async" loading="${idx === 0 ? "eager" : "lazy"}" /></div>`
       ).join("")
-    : `<div class="product-media product-media--empty"><div class="product-placeholder">No image</div></div>`;
+    : `<div class="product-media product-media--empty"><div class="product-placeholder">poda</div></div>`;
 
   productPage.innerHTML = `
     <article class="product-layout${isSold ? " product-layout--sold" : ""}">
