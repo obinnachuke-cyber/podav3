@@ -2465,13 +2465,18 @@ button.card-link {
 }
 .app-sidebar__meta span { color: var(--border-light); }
 
-/* Footer — rebuilt structure (footer-top / footer-bottom) */
+/* Footer — the whole thing is the same blue as the thesis ticker, from
+   the divider below the last homepage row down to the bottom of the
+   page (contained within the footer's own padding, not full-bleed like
+   the ticker, since the footer sits inside .portal-shell on inner pages,
+   which clips 100vw bleeds — see the note-article__header comment above). */
 .site-footer {
   display: block;
-  border-top: 1px solid var(--border);
   margin-top: 32px;
   padding-top: 22px;
-  padding-bottom: 28px;
+  padding-bottom: 22px;
+  background: var(--band-purple);
+  color: var(--band-purple-text);
 }
 /* One tight, clustered block — brand line, then nav + social as compact
    wrapped rows close underneath it, rather than spread across separate
@@ -2486,14 +2491,15 @@ button.card-link {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: var(--text);
+  color: var(--band-purple-text);
 }
 .footer-tag {
   font-family: var(--font);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--band-purple-text);
+  opacity: 0.75;
 }
 .footer-nav,
 .footer-links {
@@ -2505,15 +2511,16 @@ button.card-link {
 .footer-nav a,
 .footer-links a {
   font-size: 11px;
-  color: var(--text-dim);
+  color: var(--band-purple-text);
+  opacity: 0.8;
   text-decoration: none;
   white-space: nowrap;
-  transition: color 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 .footer-nav a:hover,
 .footer-links a:hover,
 .footer-nav a:focus-visible,
-.footer-links a:focus-visible { color: var(--text); }
+.footer-links a:focus-visible { opacity: 1; }
 .footer-signup {
   margin-top: 14px;
   display: flex;
@@ -2521,34 +2528,30 @@ button.card-link {
   gap: 8px;
   max-width: 420px;
 }
-/* Bottom status band — same blue as the thesis ticker, bookending the
-   page. Contained within the footer's own padding (not full-bleed like
-   the ticker), since the footer sits inside .portal-shell on inner pages,
-   which clips 100vw bleeds (see the note-article__header comment above). */
+.footer-signup .subscribe-form__consent { color: var(--band-purple-text); opacity: 0.75; }
 .footer-bottom {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 20px;
   justify-content: space-between;
   margin-top: 20px;
-  padding: 10px clamp(16px, 4vw, 24px);
-  background: var(--band-purple);
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
   font-family: var(--font);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--band-purple-text);
 }
-.footer-build { color: var(--band-purple-text); }
+.footer-build { color: var(--band-purple-text); opacity: 0.85; }
 .footer-status {
-  margin-top: 0;
-  padding: 0 clamp(16px, 4vw, 24px) 10px;
-  background: var(--band-purple);
+  margin-top: 6px;
   font-family: var(--font);
   font-size: 9px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--band-purple-text);
+  opacity: 0.75;
 }
 
 /* ============================================================
