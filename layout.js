@@ -103,7 +103,7 @@
         <div class="footer-brand-block">
           <span class="footer-brand">poda</span>
           <span class="footer-tag">Selective retail / market intelligence</span>
-          <span class="footer-tag">New York + Washington, DC</span>
+          <span class="footer-tag">New York + Washington, DC + Los Angeles</span>
         </div>
         <nav class="footer-nav" aria-label="Footer">
           ${PRIMARY.concat(SECONDARY).map(i => `<a href="${i.href}">${i.label}</a>`).join("")}
