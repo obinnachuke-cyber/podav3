@@ -59,6 +59,9 @@ const INCLUDE = [
   "supabase-config.js",
   "supabase.min.js",
 
+  "logo-white.png",
+  "favicon.png",
+
   // Market Note Publishing Studio (Module 3) — vendored/committed, same
   // pattern as supabase.min.js above. poda-editor.bundle.js is built from
   // src/editor/** via `npm run build:editor`; see README.md.

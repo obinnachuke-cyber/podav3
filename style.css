@@ -164,6 +164,11 @@ input {
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
+.site-logo img {
+  height: 14px;
+  width: auto;
+  display: block;
+}
 
 .site-nav {
   flex: 1 1 auto;
@@ -2490,10 +2495,10 @@ button.card-link {
 }
 .footer-brand-block { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
 .footer-brand {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--band-purple-text);
+  height: 16px;
+  width: auto;
+  display: block;
+  align-self: flex-start;
 }
 .footer-tag {
   font-family: var(--font);

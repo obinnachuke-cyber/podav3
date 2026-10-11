@@ -51,7 +51,7 @@
     const inner = header && header.querySelector(".site-header__inner");
     if (!header || !inner) return;
     inner.innerHTML = `
-      <a class="site-logo" href="index.html">poda</a>
+      <a class="site-logo" href="index.html"><img src="logo-white.png" alt="poda" /></a>
       <nav class="site-nav" aria-label="Primary">
         ${PRIMARY.map(i => linkHTML(i, active)).join("")}
       </nav>
@@ -101,7 +101,7 @@
     footer.innerHTML = `
       <div class="footer-top">
         <div class="footer-brand-block">
-          <span class="footer-brand">poda</span>
+          <img class="footer-brand" src="logo-white.png" alt="poda" />
           <span class="footer-tag">Selective retail / market intelligence</span>
           <span class="footer-tag">New York + Washington, DC + Los Angeles</span>
         </div>
