@@ -1243,9 +1243,10 @@ button.card-link {
 
 .note-article__body p {
   margin: 0 0 1.25em;
-  font-size: clamp(0.9rem, 2.6vw, 1rem);
-  line-height: 1.72;
+  font-size: clamp(1.17rem, 3.38vw, 1.3rem); /* 1.3x the original 0.9-1rem */
+  line-height: 1.65;
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .note-article__body p:last-child { margin-bottom: 0; }
@@ -1377,8 +1378,9 @@ button.card-link {
 }
 .note-article__two-col-text p {
   margin: 0 0 1em;
-  font-size: clamp(0.9rem, 2.6vw, 1rem);
-  line-height: 1.72;
+  font-size: clamp(1.17rem, 3.38vw, 1.3rem); /* matches .note-article__body p */
+  line-height: 1.65;
+  overflow-wrap: anywhere;
 }
 .note-article__two-col-text p:last-child { margin-bottom: 0; }
 @media (max-width: 700px) {
