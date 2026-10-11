@@ -165,7 +165,7 @@ input {
   text-transform: uppercase;
 }
 .site-logo img {
-  height: 14px;
+  height: 31px;
   width: auto;
   display: block;
 }
@@ -2495,7 +2495,7 @@ button.card-link {
 }
 .footer-brand-block { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
 .footer-brand {
-  height: 16px;
+  height: 35px;
   width: auto;
   display: block;
   align-self: flex-start;
