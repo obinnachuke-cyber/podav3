@@ -60,6 +60,17 @@
         ? new Date(note.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
         : "";
 
+      // Eyebrow metadata: issue number, category badge (buy/sell/watch —
+      // same vocabulary as the Inbox list rows), and date.
+      const eyebrowParts = [];
+      if (note.issueNumber) eyebrowParts.push(`No. ${escHTML(String(note.issueNumber))}`);
+      if (note.category) {
+        const cat = String(note.category).toLowerCase();
+        eyebrowParts.push(`<span class="note-article__eyebrow-tag note-article__eyebrow-tag--${escHTML(cat)}">${escHTML(cat.toUpperCase())}</span>`);
+      }
+      if (dateStr) eyebrowParts.push(escHTML(dateStr));
+      const eyebrowMeta = eyebrowParts.join(" · ");
+
       function escHTML(s) {
         return String(s || "")
           .replace(/&/g,"&amp;").replace(/</g,"&lt;")
@@ -108,9 +119,9 @@
           <header class="note-article__header">
             <p class="note-article__eyebrow">
               <a href="market-notes.html">← Inbox</a>
-              <span>${note.issueNumber ? "No. " + escHTML(String(note.issueNumber)) + " · " : ""}${note.category ? escHTML(String(note.category).toUpperCase()) + " · " : ""}${dateStr ? escHTML(dateStr) : ""}</span>
+              <span>${eyebrowMeta}</span>
             </p>
-            <h1 class="note-article__title">${escHTML(note.title)}</h1>
+            <h1 class="note-article__title"><span class="note-article__title-mark">${escHTML(note.title)}</span></h1>
             ${note.subtitle ? `<p class="note-article__subtitle">${escHTML(note.subtitle)}</p>` : ""}
           </header>
           <div class="note-article__body">${bodyHTML}</div>
