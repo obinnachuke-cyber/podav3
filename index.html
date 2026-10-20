@@ -27,6 +27,34 @@
 
   <main class="home2">
 
+    <!-- Home "desktop": folder tiles standing in for the primary sections.
+         Placeholder gray icons for now — swap folder-tile__icon's
+         background for real folder art once it's ready. -->
+    <section class="home-folders" aria-label="Browse poda">
+      <div class="home-folders__grid">
+        <a class="folder-tile" href="drop.html">
+          <span class="folder-tile__icon" aria-hidden="true"></span>
+          <span class="folder-tile__label">The Edit</span>
+        </a>
+        <a class="folder-tile" href="market-notes.html">
+          <span class="folder-tile__icon" aria-hidden="true"></span>
+          <span class="folder-tile__label">Inbox</span>
+        </a>
+        <a class="folder-tile" href="lookbook.html">
+          <span class="folder-tile__icon" aria-hidden="true"></span>
+          <span class="folder-tile__label">Lookbook</span>
+        </a>
+        <a class="folder-tile" href="source.html">
+          <span class="folder-tile__icon" aria-hidden="true"></span>
+          <span class="folder-tile__label">Source</span>
+        </a>
+        <a class="folder-tile" href="sell.html">
+          <span class="folder-tile__icon" aria-hidden="true"></span>
+          <span class="folder-tile__label">Sell with poda</span>
+        </a>
+      </div>
+    </section>
+
     <!-- Lead editorial module: the newest published Market Note (falls
          back to the current thesis if none is published yet). Starts with
          a skeleton rather than "hidden", so async data loading doesn't

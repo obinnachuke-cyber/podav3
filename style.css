@@ -2926,6 +2926,58 @@ button.card-link {
 /* A section that IS a purple band shouldn't double up padding/border. */
 .home2 > section.purple-band { padding: 0; border-bottom: none; }
 
+/* Home "desktop" — folder tiles standing in for the primary nav sections.
+   Placeholder icons (plain boxes) until real folder art is dropped in;
+   grid is the real deliverable here, sized to reflow 2 → 3 → 5 across
+   rather than the loosely-scattered desktop-icon look, which doesn't
+   survive narrow viewports. */
+.home-folders__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px 12px;
+}
+@media (min-width: 560px) {
+  .home-folders__grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 860px) {
+  .home-folders__grid { grid-template-columns: repeat(5, 1fr); gap: 24px; }
+}
+.folder-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 6px;
+  text-decoration: none;
+  color: var(--text);
+  border-radius: 2px;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+.folder-tile:hover,
+.folder-tile:focus-visible {
+  background: var(--bg-box-hover);
+  outline: none;
+}
+.folder-tile:active {
+  transform: scale(0.96);
+}
+.folder-tile__icon {
+  width: 100%;
+  max-width: 96px;
+  aspect-ratio: 1 / 1;
+  background: var(--bg-box);
+  border: 1px dashed var(--border);
+}
+.folder-tile__label {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.3;
+}
+
 /* Compact "THE EDIT / VIEW ALL" style section header row, reused for
    Source/Sell operational rows too. */
 .ops-row { display: flex; flex-direction: column; }
