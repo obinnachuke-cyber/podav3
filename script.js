@@ -190,8 +190,9 @@ function cardImage(item) {
     : `<div class="image-placeholder">poda</div>`;
 }
 
-function pieceCard(item) {
+function pieceCard(item, index) {
   const isSold = item.status === "Sold";
+  const indexLabel = typeof index === "number" ? String(index + 1).padStart(2, "0") : "";
   const detailHref = itemDetailHref(item);
   const price = isSold ? itemSoldPrice(item) : itemListPrice(item);
   const status = displayStatus(item);
@@ -219,7 +220,7 @@ function pieceCard(item) {
       ${imageBlock}
       <div class="catalog-card__meta">
         <div class="catalog-card__meta-row">
-          <span class="catalog-card__brand">${escapeHTML(item.brand || sourceLabel(item))}</span>
+          <span class="catalog-card__brand">${indexLabel ? `<span class="catalog-card__index">${indexLabel}</span>` : ""}${escapeHTML(item.brand || sourceLabel(item))}</span>
           ${itemCode(item) ? `<span class="catalog-card__id">${escapeHTML(itemCode(item))}</span>` : ""}
         </div>
         <h2 class="catalog-card__name">${titleInner}</h2>

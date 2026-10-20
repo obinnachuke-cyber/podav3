@@ -317,6 +317,41 @@ input {
   border-bottom: 1px dotted var(--border);
 }
 
+/* Faint print-grain backdrop — Source/Sell, continuity with the
+   catalog/lookbook halftone without competing with form content. */
+.page-section.grain-bg { position: relative; }
+.page-section.grain-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(239, 237, 231, 0.5) 0.5px, transparent 0.6px);
+  background-size: 4px 4px;
+  opacity: 0.035;
+}
+
+/* Liner-notes voice — About page body copy runs in the mono/typewriter
+   register instead of the default sans, dense and credits-block-like. */
+.about__text--mono {
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+  color: var(--text-dim);
+}
+
+/* Manifesto-voice intro line — bold declarative statement, Source/Sell. */
+.manifesto-line {
+  margin: 0 0 6px;
+  max-width: 56ch;
+  font-family: var(--font-serif);
+  font-size: clamp(1.1rem, 3vw, 1.4rem);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+}
+
 .page-section:last-child {
   border-bottom: none;
   padding-bottom: clamp(32px, 8vw, 56px);
@@ -424,6 +459,17 @@ input {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text);
+}
+
+/* Loud ink-blot accent — Lookbook-only, sparing use of the status/brass
+   token so this cluster reads distinctly from the Inbox's editorial blue. */
+.section-bar__blot {
+  width: 34px;
+  height: 22px;
+  margin-left: auto;
+  background: var(--signal);
+  opacity: 0.55;
+  border-radius: 42% 58% 65% 35% / 45% 40% 60% 55%;
 }
 
 /* —— Inbox (market-notes page) —— */
@@ -2499,6 +2545,7 @@ button.card-link {
 .sell-form { margin-top: 18px; }
 .sell-form textarea { min-height: 96px; resize: vertical; }
 .about__lede {
+  margin-top: 18px;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--text);
@@ -2623,6 +2670,16 @@ button.card-link {
   margin-bottom: 3px;
 }
 
+/* Item index — the catalog-spread numbering convention (Nike Japan
+   catalog reference: dense numbered product grid), reusing the same
+   mono/faint voice as the item ID on the other side of the row. */
+.catalog-card__index {
+  font-family: var(--font);
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  margin-right: 6px;
+}
+
 /* Item ID — the technical/mono voice, right-aligned in the meta row */
 .catalog-card__id {
   font-family: var(--font);
@@ -2631,6 +2688,22 @@ button.card-link {
   color: var(--text-faint);
   flex: 0 0 auto;
   white-space: nowrap;
+}
+
+/* Halftone-dot overlay — the Nike-catalog print texture, reusable across
+   real photography and empty placeholder tiles alike since it's pure CSS.
+   Shared with .study-card__image (Lookbook) for one consistent texture. */
+.catalog-card__image::before,
+.study-card__image::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.9) 0.5px, transparent 0.6px);
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+  opacity: 0.6;
 }
 
 /* Status: a small label overlaid on the image — dark scrim + light text. */
@@ -3163,6 +3236,7 @@ button.card-link {
 
 .study-card { display: block; text-decoration: none; color: inherit; }
 .study-card__image {
+  position: relative;
   aspect-ratio: 4 / 5;
   border: 1px solid var(--border);
   background: var(--image-bg);

@@ -63,7 +63,7 @@
         <header class="study-article__header">
           <p class="study-article__eyebrow">
             <a href="lookbook.html">← Lookbook</a>
-            <span>${study.studyNumber ? `Study ${esc(String(study.studyNumber))}` : "Visual Study"}${date ? ` · ${esc(date)}` : ""}</span>
+            <span>${study.studyNumber ? `Vol. ${esc(String(study.studyNumber).padStart(2, "0"))}` : "Visual Study"}${date ? ` · ${esc(date)}` : ""}</span>
           </p>
           <h1 class="study-article__title">${esc(study.title || "Untitled study")}</h1>
           ${study.framing ? `<p class="study-article__framing">${esc(study.framing)}</p>` : ""}
