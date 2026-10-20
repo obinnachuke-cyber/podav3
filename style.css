@@ -2964,9 +2964,8 @@ button.card-link {
 .folder-tile__icon {
   width: 100%;
   max-width: 96px;
-  aspect-ratio: 1 / 1;
-  background: var(--bg-box);
-  border: 1px dashed var(--border);
+  height: auto;
+  display: block;
 }
 .folder-tile__label {
   font-family: var(--font);

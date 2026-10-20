@@ -61,6 +61,7 @@ const INCLUDE = [
 
   "logo-white.png",
   "favicon.png",
+  "folder-icon.png",
 
   // Market Note Publishing Studio (Module 3) — vendored/committed, same
   // pattern as supabase.min.js above. poda-editor.bundle.js is built from
