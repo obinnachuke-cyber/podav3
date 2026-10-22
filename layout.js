@@ -56,14 +56,14 @@
     // of the primary nav.
     if (header.dataset.variant === "minimal") {
       inner.innerHTML = `
-        <a class="site-logo" href="index.html"><img src="logo-white.png" alt="poda" /></a>
+        <a class="site-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
         <a class="site-header__home-link" href="home.html">Home</a>
       `;
       return;
     }
 
     inner.innerHTML = `
-      <a class="site-logo" href="index.html"><img src="logo-white.png" alt="poda" /></a>
+      <a class="site-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
       <nav class="site-nav" aria-label="Primary">
         ${PRIMARY.map(i => linkHTML(i, active)).join("")}
       </nav>

@@ -61,6 +61,7 @@ const INCLUDE = [
   "supabase.min.js",
 
   "logo-white.png",
+  "logo-blue.png",
   "favicon.png",
   "folder-icon.png",
   "apple-touch-icon.png",

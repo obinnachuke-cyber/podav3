@@ -7,24 +7,23 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* —— Dark corporate editorial palette (restored) —— */
-  --bg: #090909;                /* primary black             */
-  --bg-box: #171717;            /* charcoal — card/panel surfaces */
-  --bg-box-hover: #1f1f1f;      /* hover surface              */
-  --text: #EFEDE7;              /* warm off-white             */
-  --text-dim: #C9C7C1;          /* dimmer warm off-white      */
-  --text-faint: #999790;        /* muted text                 */
-  --border: rgba(239, 237, 231, 0.18);   /* fine dark-mode border   */
-  --border-light: rgba(239, 237, 231, 0.32);
-  --image-bg: #171717;          /* image slot backdrop        */
+  /* —— White + blue editorial palette —— */
+  --bg: #FFFFFF;                 /* primary white              */
+  --bg-box: #F2F1ED;             /* light panel — card/panel surfaces */
+  --bg-box-hover: #E8E6E0;       /* hover surface               */
+  --text: #15151A;               /* near-black ink              */
+  --text-dim: #4A4A47;           /* dimmer ink                  */
+  --text-faint: #8A8882;         /* muted text                  */
+  --border: rgba(21, 21, 26, 0.14);   /* fine light-mode border */
+  --border-light: rgba(21, 21, 26, 0.26);
+  --image-bg: #EFEDE9;           /* image slot backdrop         */
 
-  /* Warm light-grey — for the deliberate light sections used
-     sparingly against the black base. */
-  --warm-grey: #EFEDE7;
-  --grey-2: #D9D5CC;
-  --border-on-light: rgba(9, 9, 9, 0.17); /* fine light-mode border */
+  /* Warm light-grey — kept for any deliberate light-panel accents. */
+  --warm-grey: #F2F1ED;
+  --grey-2: #E8E6E0;
+  --border-on-light: rgba(21, 21, 26, 0.17); /* fine light-mode border */
 
   /* Editorial highlight band — used sparingly, not for ordinary UI. */
   --band-purple: var(--accent);
@@ -35,11 +34,11 @@
   --accent-2: #6D84FF;
   --danger: #A84B3F;            /* muted red — rare status use only */
 
-  --purple: #1b1b1e;           /* legacy name: accent surface  */
-  --purple-2: #eceae4;         /* legacy name: accent / links  */
-  --purple-deep: #202024;      /* legacy name: deep accent     */
-  --purple-glow: rgba(255, 255, 255, 0.05);
-  --signal: #c8a86b;           /* muted brass — status only    */
+  --purple: #B9C3EA;            /* legacy name: soft blue-grey accent */
+  --purple-2: var(--accent);    /* legacy name: accent / links  */
+  --purple-deep: #EAEEFC;       /* legacy name: pale blue panel tint */
+  --purple-glow: rgba(21, 21, 26, 0.08);
+  --signal: #92701E;            /* muted brass — status only, darkened for white bg */
 
   --header-h: 56px;
   --pad: clamp(20px, 5vw, 28px);
@@ -341,9 +340,9 @@ input {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(239, 237, 231, 0.5) 0.5px, transparent 0.6px);
+  background-image: radial-gradient(rgba(21, 21, 26, 0.6) 0.5px, transparent 0.6px);
   background-size: 4px 4px;
-  opacity: 0.035;
+  opacity: 0.045;
 }
 
 /* Liner-notes voice — About page body copy runs in the mono/typewriter
@@ -2720,13 +2719,14 @@ button.card-link {
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.9) 0.5px, transparent 0.6px);
+  background-image: radial-gradient(rgba(21, 21, 26, 0.75) 0.5px, transparent 0.6px);
   background-size: 3px 3px;
-  mix-blend-mode: overlay;
-  opacity: 0.6;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
 }
 
-/* Status: a small label overlaid on the image — dark scrim + light text. */
+/* Status: a small label overlaid on the image — dark scrim + light text,
+   regardless of page theme, since this sits on a photo, not the page bg. */
 .catalog-card__image > .catalog-card__status {
   position: absolute;
   top: 10px;
@@ -2734,17 +2734,17 @@ button.card-link {
   padding: 4px 8px;
   background: rgba(11, 11, 12, 0.72);
   backdrop-filter: blur(4px);
-  border: 1px solid var(--border);
-  color: var(--text);
+  border: 1px solid rgba(239, 237, 231, 0.3);
+  color: #fff;
   font-size: 8px;
   letter-spacing: 0.16em;
   z-index: 2;
 }
-.catalog-card__status--available { color: var(--text); }
-.catalog-card__status--external  { color: var(--signal); }
-.catalog-card__status--sourcing  { color: var(--text-dim); }
+.catalog-card__status--available { color: #fff; }
+.catalog-card__status--external  { color: #e6c988; }
+.catalog-card__status--sourcing  { color: rgba(255, 255, 255, 0.72); }
 .catalog-card__status--sold {
-  color: var(--text-dim);
+  color: rgba(255, 255, 255, 0.72);
   background: rgba(11, 11, 12, 0.85);
 }
 
@@ -3085,11 +3085,12 @@ button.card-link {
    survive narrow viewports. */
 .home-folders__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px 12px;
+  grid-template-columns: repeat(1, 1fr);
+  justify-items: center;
+  gap: 32px;
 }
 @media (min-width: 560px) {
-  .home-folders__grid { grid-template-columns: repeat(3, 1fr); }
+  .home-folders__grid { grid-template-columns: repeat(3, 1fr); justify-items: stretch; gap: 24px 12px; }
 }
 @media (min-width: 860px) {
   .home-folders__grid { grid-template-columns: repeat(5, 1fr); gap: 24px; }
@@ -3377,13 +3378,13 @@ button.card-link {
   display: grid;
   place-items: center;
   background: rgba(11, 11, 12, 0.8);
-  border: 1px solid var(--border);
-  color: var(--text);
+  border: 1px solid rgba(239, 237, 231, 0.3);
+  color: #fff;
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
 }
-.upload-thumb button:hover { background: var(--bg); color: var(--signal); }
+.upload-thumb button:hover { background: rgba(11, 11, 12, 0.95); color: var(--signal); }
 
 /* Source/Sell form fields (submit.js) — .field-grid/.field/.req had no
    dedicated CSS at all before this pass (browser defaults only); .btn/
