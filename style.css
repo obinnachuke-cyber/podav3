@@ -240,6 +240,21 @@ input {
 .site-header__utility a:hover,
 .site-header__utility a:focus-visible { color: var(--accent-2); outline: none; }
 
+/* Minimal header variant (folder-desktop homepage) — logo + a single
+   link into the full one-scroll site, instead of the primary nav. */
+.site-header__home-link {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: color 0.15s ease;
+}
+.site-header__home-link:hover,
+.site-header__home-link:focus-visible { color: var(--accent-2); outline: none; }
+
 /* —— Mobile menu toggle + full-screen overlay —— */
 .site-header__menu {
   display: none;
@@ -2611,6 +2626,11 @@ button.card-link {
   flex-wrap: wrap;
   gap: 4px 14px;
 }
+/* Minimal footer variant (folder-desktop homepage) — just the social
+   links, centered since they're the footer's only content. */
+.footer-links--standalone {
+  justify-content: center;
+}
 .footer-nav a,
 .footer-links a {
   font-size: 11px;
@@ -3047,6 +3067,16 @@ button.card-link {
 .home2 > section { padding: clamp(28px, 5vw, 48px) 0; border-bottom: 1px solid var(--border); }
 /* A section that IS a purple band shouldn't double up padding/border. */
 .home2 > section.purple-band { padding: 0; border-bottom: none; }
+
+/* Folder-desktop homepage shell — centers the folder grid in the
+   remaining viewport height below the header, like a real desktop. */
+.home-desktop {
+  min-height: calc(100vh - var(--header-h));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px clamp(20px, 5vw, 48px);
+}
 
 /* Home "desktop" — folder tiles standing in for the primary nav sections.
    Placeholder icons (plain boxes) until real folder art is dropped in;

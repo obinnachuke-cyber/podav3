@@ -30,6 +30,7 @@ const INCLUDE = [
   ".assetsignore",
 
   "index.html",
+  "home.html",
   "about.html",
   "admin.html",
   "drop.html",

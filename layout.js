@@ -50,6 +50,18 @@
     const header = document.querySelector(".site-header");
     const inner = header && header.querySelector(".site-header__inner");
     if (!header || !inner) return;
+
+    // The folder-desktop homepage (index.html) gets a stripped header —
+    // just the logo and a link into the full one-scroll site — instead
+    // of the primary nav.
+    if (header.dataset.variant === "minimal") {
+      inner.innerHTML = `
+        <a class="site-logo" href="index.html"><img src="logo-white.png" alt="poda" /></a>
+        <a class="site-header__home-link" href="home.html">Home</a>
+      `;
+      return;
+    }
+
     inner.innerHTML = `
       <a class="site-logo" href="index.html"><img src="logo-white.png" alt="poda" /></a>
       <nav class="site-nav" aria-label="Primary">
@@ -98,6 +110,17 @@
   function renderFooter() {
     const footer = document.querySelector(".site-footer");
     if (!footer) return;
+
+    // Folder-desktop homepage: just the social links, nothing else.
+    if (footer.dataset.variant === "minimal") {
+      footer.innerHTML = `
+        <nav class="footer-links footer-links--standalone" aria-label="Social">
+          ${SOCIAL.map(s => `<a href="${s.href}" target="_blank" rel="noopener">${s.label} ↗</a>`).join("")}
+        </nav>
+      `;
+      return;
+    }
+
     footer.innerHTML = `
       <div class="footer-top">
         <div class="footer-brand-block">
