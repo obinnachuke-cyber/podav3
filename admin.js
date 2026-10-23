@@ -375,7 +375,8 @@ function renderCurrentView() {
     subscribers: renderSubscribers,
     suppliers: renderSuppliers,
     review: renderReviewQueue,
-    marketplaceInventory: renderMarketplaceInventory
+    marketplaceInventory: renderMarketplaceInventory,
+    edits: renderEdits
   };
   (renderers[state.view] || renderDashboard)();
 }
@@ -401,6 +402,58 @@ function metricCard(label, value, note) {
       ${note ? `<small>${escapeHTML(note)}</small>` : ""}
     </article>
   `;
+}
+
+// Prepended above the legacy metrics below — additive, per the "replace
+// only once proven" rule. Fire-and-forget, same as the other marketplace
+// views; renderDashboard() itself stays synchronous for the legacy half.
+async function renderMarketplaceSummary() {
+  const box = document.getElementById("marketplaceSummary");
+  if (!box || !window.PodaMarketplace) return;
+
+  let queue = [], allProducts = [], suppliers = [];
+  try {
+    [queue, allProducts, suppliers] = await Promise.all([
+      window.PodaMarketplace.getReviewQueue(),
+      window.PodaMarketplace.getAllProducts(),
+      window.PodaMarketplace.getSuppliers()
+    ]);
+  } catch (e) { return; }
+
+  const holds = allProducts.filter(p => p.state === "accepted" && !p.is_available);
+  const pendingPrices = allProducts.filter(p => p.proposed_price_cents !== null && p.proposed_price_cents !== undefined);
+  const notOnboarded = suppliers.filter(s => s.status === "invited");
+
+  const needsYou = [
+    ...queue.map(p => ({ label: `${(p.suppliers || {}).name || "—"} — ${p.title || "Untitled"}`, note: "submitted", view: "review" })),
+    ...holds.map(p => ({ label: `${(p.suppliers || {}).name || "—"} — ${p.title || "Untitled"}`, note: "⚠ changed since live", view: "marketplaceInventory" })),
+    ...pendingPrices.map(p => ({ label: `${(p.suppliers || {}).name || "—"} — ${p.title || "Untitled"}`, note: "price change pending", view: "marketplaceInventory" }))
+  ];
+
+  box.innerHTML = `
+    <section class="metrics-grid metrics-grid--admin" aria-label="Marketplace summary" style="margin-bottom:16px;">
+      ${metricCard("Awaiting Review", queue.length)}
+      ${metricCard("Changed Since Live", holds.length)}
+      ${metricCard("Price Changes Pending", pendingPrices.length)}
+      ${metricCard("Suppliers Not Onboarded", notOnboarded.length)}
+    </section>
+    ${needsYou.length ? `
+      <div class="section-bar"><span class="section-bar__title">Needs You</span></div>
+      <div class="table-wrap"><table class="admin-table"><tbody>
+        ${needsYou.map(n => `
+          <tr data-go-view="${n.view}">
+            <td class="cell-strong">${escapeHTML(n.label)}</td>
+            <td>${escapeHTML(n.note)}</td>
+          </tr>
+        `).join("")}
+      </tbody></table></div>
+    ` : ""}
+  `;
+
+  box.querySelectorAll("[data-go-view]").forEach(row => {
+    row.style.cursor = "pointer";
+    row.addEventListener("click", () => setView(row.dataset.goView));
+  });
 }
 
 function renderDashboard() {
@@ -450,10 +503,13 @@ function renderDashboard() {
 
   adminMain.innerHTML = `
     ${sectionBar("Admin", "Dashboard")}
+    <div id="marketplaceSummary"></div>
+    <div class="section-bar"><span class="section-bar__title">Legacy Inventory (Closets pipeline)</span></div>
     <section class="metrics-grid metrics-grid--admin" aria-label="Dashboard metrics">${metrics}</section>
     <div class="section-bar"><span class="section-bar__title">Recently Updated</span></div>
     ${recentTable}
   `;
+  renderMarketplaceSummary();
 }
 
 /* ============================================================
@@ -1270,6 +1326,9 @@ function bindMainEvents() {
     if (event.target.closest("[data-new-drop]")) { openDropModal(null); return; }
     if (event.target.closest("[data-new-study]")) { openStudyModal(null); return; }
     if (event.target.closest("[data-new-supplier]")) { openSupplierModal(null); return; }
+    if (event.target.closest("[data-new-edit]")) { createNewEdit(); return; }
+    if (event.target.closest("[data-back-to-edits]")) { renderEdits(); return; }
+    if (event.target.closest("[data-new-folder-update]")) { addFolderUpdate(); return; }
     if (event.target.closest("[data-export-subscribers]")) { exportSubscribersCSV(); return; }
     if (event.target.closest("[data-no-edit]")) return;
 
@@ -1306,12 +1365,47 @@ function bindMainEvents() {
     const approvePriceBtn = event.target.closest("[data-approve-price]");
     if (approvePriceBtn) { approvePrice(approvePriceBtn.dataset.approvePrice); return; }
 
+    const editOpenBtn = event.target.closest("[data-edit-open]");
+    if (editOpenBtn) { renderEditBuilder(editOpenBtn.dataset.editOpen); return; }
+
+    const addPlacementBtn = event.target.closest("[data-add-placement]");
+    if (addPlacementBtn) { addPlacementToCurrentEdit(addPlacementBtn.dataset.addPlacement); return; }
+
+    const removePlacementBtn = event.target.closest("[data-remove-placement]");
+    if (removePlacementBtn) { removePlacementFromCurrentEdit(removePlacementBtn.dataset.removePlacement); return; }
+
+    const toggleUpdateBtn = event.target.closest("[data-toggle-update-published]");
+    if (toggleUpdateBtn) { toggleFolderUpdate(toggleUpdateBtn.dataset.toggleUpdatePublished); return; }
+
+    const removeUpdateBtn = event.target.closest("[data-remove-update]");
+    if (removeUpdateBtn) { removeFolderUpdate(removeUpdateBtn.dataset.removeUpdate); return; }
+
+    const attachNoteBtn = event.target.closest("[data-attach-note]");
+    if (attachNoteBtn) { attachNoteToCurrentEdit(attachNoteBtn.dataset.attachNote); return; }
+
+    const detachNoteBtn = event.target.closest("[data-detach-note]");
+    if (detachNoteBtn) { detachNoteFromEdit(detachNoteBtn.dataset.detachNote); return; }
+
+    const attachStudyBtn = event.target.closest("[data-attach-study]");
+    if (attachStudyBtn) { attachStudyToCurrentEdit(attachStudyBtn.dataset.attachStudy); return; }
+
+    const detachStudyBtn = event.target.closest("[data-detach-study]");
+    if (detachStudyBtn) { detachStudyFromEdit(detachStudyBtn.dataset.detachStudy); return; }
+
     const row = event.target.closest("[data-edit-id]");
     if (row) openModal(row.dataset.editId);
   });
 
   // Inline status change — drives the whole lifecycle.
   adminMain.addEventListener("change", async event => {
+    const editStatusEl = event.target.closest("[data-edit-status-for]");
+    if (editStatusEl) {
+      try { await window.PodaMarketplace.updateEdit(editStatusEl.dataset.editStatusFor, { status: editStatusEl.value }); }
+      catch (e) { alert(e.message || "Could not change status."); }
+      renderEditBuilder(editStatusEl.dataset.editStatusFor);
+      return;
+    }
+
     const subStatusEl = event.target.closest("[data-subscriber-status-for]");
     if (subStatusEl) {
       const id = subStatusEl.dataset.subscriberStatusFor;
@@ -2986,6 +3080,241 @@ async function clearHold(id) {
 async function approvePrice(id) {
   try { await window.PodaMarketplace.approveProposedPrice(id); } catch (e) { alert(e.message || "Could not approve."); return; }
   renderMarketplaceInventory();
+}
+
+/* ============================================================
+   View: Edits (release-folder builder)
+   Four independent states live here, deliberately not collapsed into
+   one: the folder's own status (draft/scheduled/live/archived), each
+   placement's product (approval lives on the product, availability
+   too), and each piece of attached content's own publish flag
+   (folder_updates.published; notes/studies keep their own status).
+   ============================================================ */
+let currentEditId = null;
+const EDIT_STATUSES = ["draft", "scheduled", "live", "archived"];
+
+async function renderEdits() {
+  adminMain.innerHTML = `<p class="admin-empty">Loading…</p>`;
+  let edits = [];
+  try { edits = await window.PodaMarketplace.getEdits(); } catch (e) { edits = []; }
+
+  const rows = edits.map(e => `
+    <tr>
+      <td class="cell-mono">${escapeHTML(e.number ?? "—")}</td>
+      <td class="cell-strong">${escapeHTML(e.title)}</td>
+      <td><span class="badge">${escapeHTML(e.status)}</span></td>
+      <td>${escapeHTML(e.publish_at || "—")}</td>
+      <td><button type="button" class="btn" data-edit-open="${escapeHTML(e.id)}">Open</button></td>
+    </tr>
+  `).join("");
+
+  adminMain.innerHTML = `
+    <div class="section-bar section-bar--admin">
+      <span class="section-bar__label">Publish</span>
+      <span class="section-bar__title">Edits</span>
+      <button type="button" class="admin-newitem section-bar__action" data-new-edit>+ New Edit</button>
+    </div>
+    ${edits.length === 0
+      ? `<p class="admin-empty">No release folders yet.</p>`
+      : `<div class="table-wrap"><table class="admin-table">
+          <thead><tr><th>No.</th><th>Title</th><th>Status</th><th>Publish date</th><th></th></tr></thead>
+          <tbody>${rows}</tbody></table></div>`}
+  `;
+}
+
+async function createNewEdit() {
+  const title = prompt("Title for this release folder:");
+  if (!title || !title.trim()) return;
+  try {
+    const created = await window.PodaMarketplace.createEdit({ title: title.trim() });
+    await renderEditBuilder(created.id);
+  } catch (e) { alert(e.message || "Could not create the folder."); }
+}
+
+async function renderEditBuilder(editId) {
+  currentEditId = editId;
+  adminMain.innerHTML = `<p class="admin-empty">Loading…</p>`;
+
+  const [edit, placements, accepted, updates] = await Promise.all([
+    window.PodaMarketplace.getEdit(editId),
+    window.PodaMarketplace.getPlacements(editId),
+    window.PodaMarketplace.getAcceptedProducts(),
+    window.PodaMarketplace.getFolderUpdates(editId)
+  ]);
+
+  const placedIds = new Set(placements.map(p => p.product_id));
+  const eligible = accepted.filter(p => !placedIds.has(p.id));
+
+  const eligibleHTML = eligible.map(p => `
+    <div class="upload-thumb" style="width:100%;aspect-ratio:auto;padding:8px;display:block;">
+      <p style="margin:0 0 2px;" class="cell-strong">${escapeHTML(p.title || "Untitled")}</p>
+      <p style="margin:0 0 6px;font-size:11px;color:var(--text-dim);">${escapeHTML((p.suppliers || {}).name || "—")}</p>
+      <button type="button" class="btn" data-add-placement="${escapeHTML(p.id)}">+ Add to folder →</button>
+    </div>
+  `).join("") || `<p class="admin-empty">Nothing accepted and unplaced right now.</p>`;
+
+  const placedHTML = placements.map(p => {
+    const prod = p.products || {};
+    return `
+      <div class="form-card" style="margin-bottom:10px;">
+        <p style="margin:0 0 4px;" class="cell-strong">${p.position + 1}. ${escapeHTML(p.editorial_title || prod.title || "Untitled")}</p>
+        <p style="margin:0 0 6px;font-size:11px;color:var(--text-dim);">
+          ${escapeHTML((prod.suppliers || {}).name || "—")} · supplier wrote: "${escapeHTML(prod.title || "")}"
+        </p>
+        <button type="button" class="btn" data-remove-placement="${escapeHTML(p.id)}">Remove from folder</button>
+      </div>
+    `;
+  }).join("") || `<p class="admin-empty">Nothing placed yet — add from the eligible list.</p>`;
+
+  const updatesHTML = updates.map(u => `
+    <div class="form-card" style="margin-bottom:10px;">
+      <p style="margin:0 0 8px;">${escapeHTML(u.body)}</p>
+      <button type="button" class="btn" data-toggle-update-published="${escapeHTML(u.id)}">
+        ${u.published ? "Unpublish" : "Publish"}
+      </button>
+      <button type="button" class="btn btn--danger" data-remove-update="${escapeHTML(u.id)}">Delete</button>
+    </div>
+  `).join("") || `<p class="admin-empty">No updates posted yet.</p>`;
+
+  const publishedNotes = noteState.notes.filter(n => n.status === "published");
+  const notesHTML = publishedNotes.map(n => {
+    const attached = n.folderId === editId;
+    return `
+      <div class="form-card" style="margin-bottom:8px;">
+        <p style="margin:0 0 6px;" class="cell-strong">${escapeHTML(n.title || "Untitled")}</p>
+        ${attached
+          ? `<button type="button" class="btn" data-detach-note="${escapeHTML(n.id)}">Detach</button>`
+          : `<button type="button" class="btn" data-attach-note="${escapeHTML(n.id)}">Attach to this folder</button>`}
+      </div>
+    `;
+  }).join("") || `<p class="admin-empty">No published notes yet.</p>`;
+
+  const studiesHTML = studyState.studies.map(s => {
+    const attached = s.relatedDropId === editId;
+    return `
+      <div class="form-card" style="margin-bottom:8px;">
+        <p style="margin:0 0 6px;" class="cell-strong">${escapeHTML(s.title || "Untitled")}</p>
+        ${attached
+          ? `<button type="button" class="btn" data-detach-study="${escapeHTML(s.id)}">Detach</button>`
+          : `<button type="button" class="btn" data-attach-study="${escapeHTML(s.id)}">Attach to this folder</button>`}
+      </div>
+    `;
+  }).join("") || `<p class="admin-empty">No visual studies yet.</p>`;
+
+  adminMain.innerHTML = `
+    <div class="section-bar section-bar--admin">
+      <button type="button" class="btn" data-back-to-edits>← Edits</button>
+      <span class="section-bar__title">${escapeHTML(edit.title)}</span>
+      <select data-edit-status-for="${escapeHTML(edit.id)}" style="margin-left:auto;">
+        ${EDIT_STATUSES.map(s => `<option value="${s}"${s === edit.status ? " selected" : ""}>${s}</option>`).join("")}
+      </select>
+    </div>
+    <p style="font-size:12px;color:var(--text-dim);margin:0 0 20px;">
+      'scheduled' previews this folder (and anything published inside it) publicly before the drop opens.
+      'live' reveals the actual product grid.
+    </p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <section>
+        <div class="section-bar"><span class="section-bar__title">Eligible (accepted, unplaced)</span></div>
+        ${eligibleHTML}
+      </section>
+      <section>
+        <div class="section-bar"><span class="section-bar__title">In this folder</span></div>
+        ${placedHTML}
+      </section>
+    </div>
+
+    <section style="margin-top:28px;">
+      <div class="section-bar section-bar--admin">
+        <span class="section-bar__title">Updates</span>
+        <button type="button" class="admin-newitem section-bar__action" data-new-folder-update>+ New update</button>
+      </div>
+      ${updatesHTML}
+    </section>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:28px;">
+      <section>
+        <div class="section-bar"><span class="section-bar__title">Market Notes</span></div>
+        ${notesHTML}
+      </section>
+      <section>
+        <div class="section-bar"><span class="section-bar__title">Visual Studies</span></div>
+        ${studiesHTML}
+      </section>
+    </div>
+  `;
+}
+
+async function addPlacementToCurrentEdit(productId) {
+  try { await window.PodaMarketplace.addPlacement(currentEditId, productId); }
+  catch (e) { alert(e.message || "Could not add that piece."); }
+  renderEditBuilder(currentEditId);
+}
+
+async function removePlacementFromCurrentEdit(placementId) {
+  try { await window.PodaMarketplace.removePlacement(placementId); }
+  catch (e) { alert(e.message || "Could not remove that piece."); }
+  renderEditBuilder(currentEditId);
+}
+
+async function addFolderUpdate() {
+  const body = prompt("Update text:");
+  if (!body || !body.trim()) return;
+  try { await window.PodaMarketplace.createFolderUpdate(currentEditId, body.trim()); }
+  catch (e) { alert(e.message || "Could not post that update."); }
+  renderEditBuilder(currentEditId);
+}
+
+async function toggleFolderUpdate(id) {
+  try {
+    const updates = await window.PodaMarketplace.getFolderUpdates(currentEditId);
+    const u = updates.find(x => x.id === id);
+    await window.PodaMarketplace.updateFolderUpdate(id, { published: !(u && u.published) });
+  } catch (e) { alert(e.message || "Could not change that."); }
+  renderEditBuilder(currentEditId);
+}
+
+async function removeFolderUpdate(id) {
+  if (!confirm("Delete this update?")) return;
+  try { await window.PodaMarketplace.deleteFolderUpdate(id); }
+  catch (e) { alert(e.message || "Could not delete that."); }
+  renderEditBuilder(currentEditId);
+}
+
+// Notes/studies attach via a plain jsonb key on their existing row (see
+// MARKETPLACE_SETUP.md Step 9) — written through the same upsertNote()/
+// upsertStudy() the regular editors already use, no new table.
+async function attachNoteToCurrentEdit(noteId) {
+  const note = noteState.notes.find(n => n.id === noteId);
+  if (!note) return;
+  note.folderId = currentEditId;
+  try { await window.PodaDB.upsertNote(note); } catch (e) { alert("Could not attach that note."); }
+  renderEditBuilder(currentEditId);
+}
+
+async function detachNoteFromEdit(noteId) {
+  const note = noteState.notes.find(n => n.id === noteId);
+  if (!note) return;
+  note.folderId = "";
+  try { await window.PodaDB.upsertNote(note); } catch (e) { alert("Could not detach that note."); }
+  renderEditBuilder(currentEditId);
+}
+
+async function attachStudyToCurrentEdit(studyId) {
+  const study = studyState.studies.find(s => s.id === studyId);
+  if (!study) return;
+  study.relatedDropId = currentEditId;
+  try { await window.PodaDB.upsertStudy(study); } catch (e) { alert("Could not attach that study."); }
+  renderEditBuilder(currentEditId);
+}
+
+async function detachStudyFromEdit(studyId) {
+  const study = studyState.studies.find(s => s.id === studyId);
+  if (!study) return;
+  study.relatedDropId = "";
+  try { await window.PodaDB.upsertStudy(study); } catch (e) { alert("Could not detach that study."); }
+  renderEditBuilder(currentEditId);
 }
 
 /* ============================================================

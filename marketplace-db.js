@@ -350,6 +350,120 @@
     return data || [];
   }
 
+  /* —— Edits (release folders) —— */
+  async function getEdits() {
+    const { data, error } = await client()
+      .from("edits").select("*").order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function createEdit({ number, title, standfirst }) {
+    const { data, error } = await client()
+      .from("edits").insert({ number: number || null, title, standfirst: standfirst || null })
+      .select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function updateEdit(id, patch) {
+    const row = { updated_at: new Date().toISOString() };
+    ["number", "title", "standfirst", "status", "publish_at"].forEach(k => {
+      if (patch[k] !== undefined) row[k] = patch[k] || null;
+    });
+    if (patch.status === "live" && !patch.published_at) row.published_at = new Date().toISOString();
+    const { data, error } = await client().from("edits").update(row).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function getEdit(id) {
+    const { data, error } = await client().from("edits").select("*").eq("id", id).single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function getPlacements(editId) {
+    const { data, error } = await client()
+      .from("edit_placements")
+      .select("*, products(title, brand, price_cents, state, supplier_id, suppliers(name))")
+      .eq("edit_id", editId)
+      .order("position", { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function getAcceptedProducts() {
+    const { data, error } = await client()
+      .from("products")
+      .select("*, suppliers(name)")
+      .eq("state", "accepted")
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function addPlacement(editId, productId) {
+    const { data: existing } = await client()
+      .from("edit_placements").select("position").eq("edit_id", editId)
+      .order("position", { ascending: false }).limit(1);
+    const nextPosition = existing && existing[0] ? existing[0].position + 1 : 0;
+    const { data, error } = await client()
+      .from("edit_placements")
+      .insert({ edit_id: editId, product_id: productId, position: nextPosition })
+      .select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function updatePlacement(id, patch) {
+    const row = {};
+    ["position", "editorial_title", "editorial_copy"].forEach(k => {
+      if (patch[k] !== undefined) row[k] = patch[k] === "" ? null : patch[k];
+    });
+    const { data, error } = await client().from("edit_placements").update(row).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function removePlacement(id) {
+    const { error } = await client().from("edit_placements").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  /* —— Folder updates (short correspondence inside a release folder) —— */
+  async function getFolderUpdates(editId) {
+    const { data, error } = await client()
+      .from("folder_updates").select("*").eq("edit_id", editId).order("position", { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function createFolderUpdate(editId, body) {
+    const { data: existing } = await client()
+      .from("folder_updates").select("position").eq("edit_id", editId)
+      .order("position", { ascending: false }).limit(1);
+    const nextPosition = existing && existing[0] ? existing[0].position + 1 : 0;
+    const { data, error } = await client()
+      .from("folder_updates").insert({ edit_id: editId, body, position: nextPosition })
+      .select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function updateFolderUpdate(id, patch) {
+    const row = { updated_at: new Date().toISOString() };
+    ["body", "published", "position"].forEach(k => { if (patch[k] !== undefined) row[k] = patch[k]; });
+    const { data, error } = await client().from("folder_updates").update(row).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteFolderUpdate(id) {
+    const { error } = await client().from("folder_updates").delete().eq("id", id);
+    if (error) throw error;
+  }
+
   window.PodaMarketplace = {
     getSuppliers,
     createSupplier,
@@ -379,6 +493,19 @@
     declineProduct,
     requestChanges,
     clearAvailabilityHold,
-    approveProposedPrice
+    approveProposedPrice,
+    getEdits,
+    createEdit,
+    updateEdit,
+    getEdit,
+    getPlacements,
+    getAcceptedProducts,
+    addPlacement,
+    updatePlacement,
+    removePlacement,
+    getFolderUpdates,
+    createFolderUpdate,
+    updateFolderUpdate,
+    deleteFolderUpdate
   };
 })();
