@@ -47,6 +47,8 @@
       <aside class="admin-sidebar">
         <nav class="admin-nav" aria-label="Admin views">
           <button type="button" class="admin-nav__link active" data-view="dashboard">Dashboard</button>
+          <button type="button" class="admin-nav__link" data-view="suppliers">Suppliers</button>
+          <hr style="border:none;border-top:1px solid var(--border);margin:8px 0;" />
           <button type="button" class="admin-nav__link" data-view="closets">Closets</button>
           <button type="button" class="admin-nav__link" data-view="available">Available</button>
           <button type="button" class="admin-nav__link" data-view="selected">Selected</button>
@@ -81,6 +83,7 @@
   <script src="supabase.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="db.js"></script>
+  <script src="marketplace-db.js"></script>
   <!-- ExcelJS: builds the downloadable inventory workbook in the browser. -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="excel-export.js"></script>

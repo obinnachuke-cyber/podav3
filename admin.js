@@ -372,7 +372,8 @@ function renderCurrentView() {
     notes:     renderNotes,
     drops:     renderDrops,
     studies:   renderStudies,
-    subscribers: renderSubscribers
+    subscribers: renderSubscribers,
+    suppliers: renderSuppliers
   };
   (renderers[state.view] || renderDashboard)();
 }
@@ -1266,6 +1267,7 @@ function bindMainEvents() {
     if (event.target.closest("[data-new-note]")) { openNoteModal(null); return; }
     if (event.target.closest("[data-new-drop]")) { openDropModal(null); return; }
     if (event.target.closest("[data-new-study]")) { openStudyModal(null); return; }
+    if (event.target.closest("[data-new-supplier]")) { openSupplierModal(null); return; }
     if (event.target.closest("[data-export-subscribers]")) { exportSubscribersCSV(); return; }
     if (event.target.closest("[data-no-edit]")) return;
 
@@ -1280,6 +1282,12 @@ function bindMainEvents() {
 
     const studyRow = event.target.closest("[data-study-edit]");
     if (studyRow) { openStudyModal(studyRow.dataset.studyEdit); return; }
+
+    const supplierRow = event.target.closest("[data-supplier-edit]");
+    if (supplierRow) { openSupplierModal(supplierRow.dataset.supplierEdit); return; }
+
+    const inviteBtn = event.target.closest("[data-supplier-invite]");
+    if (inviteBtn) { createInvite(inviteBtn.dataset.supplierInvite); return; }
 
     const row = event.target.closest("[data-edit-id]");
     if (row) openModal(row.dataset.editId);
@@ -1389,12 +1397,13 @@ async function startApp() {
   appStarted = true;
   loginGate.hidden = true;
   adminApp.hidden = false;
-  [state.items, noteState.notes, dropState.drops, studyState.studies, subscriberState.subscribers] = await Promise.all([
+  [state.items, noteState.notes, dropState.drops, studyState.studies, subscriberState.subscribers, supplierState.suppliers] = await Promise.all([
     loadItems(),
     window.PodaDB.getNotes().catch(() => []),
     window.PodaDB.getDrops ? window.PodaDB.getDrops().catch(() => []) : Promise.resolve([]),
     window.PodaDB.getStudies ? window.PodaDB.getStudies().catch(() => []) : Promise.resolve([]),
-    window.PodaDB.getSubscribers ? window.PodaDB.getSubscribers().catch(() => []) : Promise.resolve([])
+    window.PodaDB.getSubscribers ? window.PodaDB.getSubscribers().catch(() => []) : Promise.resolve([]),
+    window.PodaMarketplace ? window.PodaMarketplace.getSuppliers().catch(() => []) : Promise.resolve([])
   ]);
   setView("dashboard");
 }
@@ -2425,6 +2434,10 @@ async function saveStudioNote(opts) {
 const DROP_STATUSES = ["In Assembly", "Live", "Archived"];
 const dropState = { drops: [] };
 const studyState = { studies: [] };
+const supplierState = { suppliers: [] };
+const SUPPLIER_TYPES = ["consignor", "brand", "boutique", "poda"];
+const SUPPLIER_DEFAULT_BPS = { consignor: 2500, brand: 1500, boutique: 1500, poda: 0 };
+const SUPPLIER_STATUSES = ["invited", "active", "paused", "closed"];
 
 function blankDrop() {
   return {
@@ -2654,6 +2667,159 @@ async function saveStudy(existingId) {
   const idx = studyState.studies.findIndex(x => x.id === s.id);
   if (idx >= 0) studyState.studies[idx] = s; else studyState.studies.unshift(s);
   closeModal(); renderStudies();
+}
+
+/* ============================================================
+   View: Suppliers
+   Real relational rows (see marketplace-db.js / MARKETPLACE_SETUP.md),
+   not the { id, data } jsonb pattern the rest of this file uses — RLS on
+   the suppliers table itself blocks a supplier from ever writing their
+   own commission rate or status, regardless of what this UI sends.
+   ============================================================ */
+function formatBps(bps) {
+  return `${(Number(bps || 0) / 100).toFixed(bps % 100 ? 1 : 0)}%`;
+}
+
+function renderSuppliers() {
+  if (!window.PodaMarketplace) {
+    adminMain.innerHTML = `<p class="admin-empty">marketplace-db.js isn't loaded.</p>`;
+    return;
+  }
+
+  const rows = supplierState.suppliers.map(s => `
+    <tr data-supplier-edit="${escapeHTML(s.id)}">
+      <td class="cell-strong">${escapeHTML(s.name)}</td>
+      <td><span class="badge">${escapeHTML(s.type)}</span></td>
+      <td class="cell-mono">${formatBps(s.commission_bps)}</td>
+      <td><span class="badge">${escapeHTML(s.status)}</span></td>
+      <td>${escapeHTML(s.contact_email || "—")}</td>
+      <td>
+        <button type="button" class="btn" data-no-edit data-supplier-invite="${escapeHTML(s.id)}">
+          + Invite
+        </button>
+      </td>
+    </tr>
+  `).join("");
+
+  adminMain.innerHTML = `
+    <div class="section-bar section-bar--admin">
+      <span class="section-bar__label">Supply</span>
+      <span class="section-bar__title">Suppliers</span>
+      <button type="button" class="admin-newitem section-bar__action" data-new-supplier>+ New Supplier</button>
+    </div>
+    ${supplierState.suppliers.length === 0
+      ? `<p class="admin-empty">No suppliers yet. Your own inventory should be the first one — a "poda" supplier at 0%.</p>`
+      : `<div class="table-wrap"><table class="admin-table">
+          <thead><tr><th>Name</th><th>Type</th><th>Rate</th><th>Status</th><th>Contact</th><th></th></tr></thead>
+          <tbody>${rows}</tbody></table></div>`}
+    <p class="admin-empty" id="inviteLinkBox" style="margin-top:14px;"></p>
+  `;
+}
+
+function blankSupplier() {
+  return { name: "", type: "consignor", commission_bps: SUPPLIER_DEFAULT_BPS.consignor, contact_email: "", notes: "" };
+}
+
+function buildSupplierForm(s, isNew) {
+  return `
+    <form id="supplierForm" novalidate>
+      <p class="field-error" id="supplierFormError" hidden></p>
+      <section class="form-card">
+        <div class="section-bar"><span class="section-bar__title">Supplier</span></div>
+        <div class="field-grid">
+          ${textField("Name", "name", s.name, { full: true, placeholder: "e.g. Maya R." })}
+          ${selectField("Type", "type", s.type, SUPPLIER_TYPES)}
+          ${numberField("Commission to poda (bps)", "commission_bps", s.commission_bps, { placeholder: "2500 = 25%" })}
+          ${isNew ? "" : selectField("Status", "status", s.status, SUPPLIER_STATUSES)}
+          ${textField("Contact email", "contact_email", s.contact_email, { placeholder: "optional" })}
+          ${textareaField("Notes", "notes", s.notes)}
+        </div>
+      </section>
+    </form>
+  `;
+}
+
+function openSupplierModal(supplierId) {
+  const editing = supplierId ? supplierState.suppliers.find(x => x.id === supplierId) : null;
+  const s = editing ? structuredClone(editing) : blankSupplier();
+
+  modalContent.innerHTML = `
+    <div class="modal-head">
+      <h2 class="modal-title">${editing ? "Edit Supplier" : "New Supplier"}</h2>
+      <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">${buildSupplierForm(s, !editing)}</div>
+    <div class="modal-foot">
+      <button type="button" class="btn" id="cancelSupplierBtn">Cancel</button>
+      <button type="button" class="btn btn--primary" id="saveSupplierBtn">Save Supplier</button>
+    </div>
+  `;
+  modalOverlay.hidden = false;
+  document.body.style.overflow = "hidden";
+
+  document.getElementById("modalClose").addEventListener("click", closeModal);
+  document.getElementById("cancelSupplierBtn").addEventListener("click", closeModal);
+  document.getElementById("saveSupplierBtn").addEventListener("click", () => saveSupplier(supplierId));
+
+  // Picking a type fills in the default rate, but only for a brand-new
+  // supplier — an existing one's rate was deliberately agreed/overridden.
+  if (!editing) {
+    document.querySelector('#supplierForm [name="type"]').addEventListener("change", event => {
+      document.querySelector('#supplierForm [name="commission_bps"]').value =
+        SUPPLIER_DEFAULT_BPS[event.target.value] ?? 0;
+    });
+  }
+}
+
+async function saveSupplier(existingId) {
+  const form = document.getElementById("supplierForm");
+  const errorBox = document.getElementById("supplierFormError");
+  const name = form.querySelector('[name="name"]').value.trim();
+  const type = form.querySelector('[name="type"]').value;
+  const bps = Number(form.querySelector('[name="commission_bps"]').value);
+  const contactEmail = form.querySelector('[name="contact_email"]').value.trim();
+  const notes = form.querySelector('[name="notes"]').value.trim();
+  const statusField = form.querySelector('[name="status"]');
+
+  if (!name) { errorBox.textContent = "Name is required."; errorBox.hidden = false; return; }
+  if (!Number.isFinite(bps) || bps < 0 || bps > 10000) {
+    errorBox.textContent = "Commission must be a number between 0 and 10000 (basis points)."; errorBox.hidden = false; return;
+  }
+
+  try {
+    if (existingId) {
+      const patch = { name, type, commissionBps: bps, contactEmail, notes };
+      if (statusField) patch.status = statusField.value;
+      const updated = await window.PodaMarketplace.updateSupplier(existingId, patch);
+      const idx = supplierState.suppliers.findIndex(x => x.id === existingId);
+      if (idx >= 0) supplierState.suppliers[idx] = updated;
+    } else {
+      const created = await window.PodaMarketplace.createSupplier({ name, type, commissionBps: bps, contactEmail, notes });
+      supplierState.suppliers.push(created);
+    }
+  } catch (e) {
+    errorBox.textContent = e && e.message ? e.message : "Could not save the supplier.";
+    errorBox.hidden = false;
+    return;
+  }
+
+  closeModal(); renderSuppliers();
+}
+
+async function createInvite(supplierId) {
+  const email = prompt("Email address to invite:");
+  if (!email) return;
+  const box = document.getElementById("inviteLinkBox");
+  try {
+    const invite = await window.PodaMarketplace.createSupplierInvite(supplierId, email.trim());
+    const link = `${window.location.origin}/seller.html?invite=${invite.token}`;
+    if (box) {
+      box.textContent = `Invite link for ${email} — copy and send it: ${link}`;
+    }
+    try { await navigator.clipboard.writeText(link); } catch (e) { /* clipboard may be unavailable; link is shown either way */ }
+  } catch (e) {
+    alert(e && e.message ? e.message : "Could not create the invite.");
+  }
 }
 
 /* ============================================================

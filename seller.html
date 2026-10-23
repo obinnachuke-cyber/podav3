@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#244CFF" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Seller portal — poda</title>
+  <meta name="description" content="Manage your inventory with poda — submit pieces, track review status, and see what's live." />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body class="admin-body">
+  <!-- Shown while we figure out: invite token? signed in already? neither? -->
+  <div class="login-gate" id="sellerLoading">
+    <div class="login-card"><p class="login-sub">Loading…</p></div>
+  </div>
+
+  <!-- Invite redemption: only shown when the URL has ?invite=TOKEN and the
+       token is valid. Prefilled/locked to the invited email on purpose —
+       redeem_supplier_invite() rejects a mismatched email anyway, but
+       locking the field avoids a confusing round-trip to that error. -->
+  <div class="login-gate" id="inviteGate" hidden>
+    <form class="login-card" id="inviteForm">
+      <h1 class="login-title">poda</h1>
+      <p class="login-sub" id="inviteSupplierName">You've been invited</p>
+      <label class="field field--full">
+        <span>Email</span>
+        <input type="email" id="inviteEmail" readonly />
+      </label>
+      <label class="field field--full">
+        <span>Create a password</span>
+        <input type="password" id="invitePassword" autocomplete="new-password" required minlength="8" />
+      </label>
+      <p class="login-error" id="inviteError" hidden></p>
+      <button type="submit" class="btn btn--primary" id="inviteSubmitBtn">Create account &amp; join</button>
+    </form>
+  </div>
+
+  <!-- Ordinary returning-supplier sign-in. -->
+  <div class="login-gate" id="loginGate" hidden>
+    <form class="login-card" id="loginForm">
+      <h1 class="login-title">poda</h1>
+      <p class="login-sub">Supplier sign in</p>
+      <label class="field field--full">
+        <span>Email</span>
+        <input type="email" id="loginEmail" autocomplete="username" required />
+      </label>
+      <label class="field field--full">
+        <span>Password</span>
+        <input type="password" id="loginPassword" autocomplete="current-password" required />
+      </label>
+      <p class="login-error" id="loginError" hidden></p>
+      <button type="submit" class="btn btn--primary" id="loginBtn">Sign in</button>
+    </form>
+  </div>
+
+  <!-- The actual seller app, revealed once signed in and linked to a
+       supplier. Inventory/upload/submission-status build out here next —
+       this pass is the gate everything else depends on. -->
+  <div class="admin-app" id="sellerApp" hidden>
+    <header class="site-header site-header--admin">
+      <a class="site-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
+      <nav class="site-nav" aria-label="Seller">
+        <span class="admin-public-link" id="sellerSupplierName"></span>
+        <button type="button" class="admin-public-link" id="sellerLogoutBtn">Log out</button>
+      </nav>
+    </header>
+    <div class="admin-shell">
+      <main class="admin-main" id="sellerMain" aria-live="polite">
+        <p class="admin-empty">Your inventory goes here — next piece of this build.</p>
+      </main>
+    </div>
+  </div>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script src="marketplace-db.js"></script>
+  <script src="seller.js"></script>
+</body>
+</html>

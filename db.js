@@ -408,6 +408,16 @@
     return data.session;
   }
 
+  // Suppliers self-register (the admin account is provisioned once, by
+  // hand, in Supabase — see MARKETPLACE_SETUP.md Step 7). Ordinary public
+  // Supabase auth; no elevated key involved.
+  async function signUp(email, password) {
+    if (!client) throw new Error("Database not configured.");
+    const { data, error } = await client.auth.signUp({ email, password });
+    if (error) throw error;
+    return data.session;
+  }
+
   async function signOut() {
     if (!client) return;
     await client.auth.signOut();
@@ -441,6 +451,12 @@
 
   window.PodaDB = {
     isConfigured,
+    // Exposed so marketplace-db.js (suppliers/products/edits) can issue
+    // queries against the same client/session instead of creating a
+    // second one — two independent clients against the same project
+    // share localStorage auth state but can drift out of sync with each
+    // other's in-memory session during a single page load.
+    getClient: () => client,
     getItems,
     upsertItem,
     deleteItem,
@@ -467,6 +483,7 @@
     deleteNoteMedia,
     getSession,
     signIn,
+    signUp,
     signOut,
     onAuthChange,
     sendNoteEmail

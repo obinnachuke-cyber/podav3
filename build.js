@@ -33,6 +33,7 @@ const INCLUDE = [
   "home.html",
   "about.html",
   "admin.html",
+  "seller.html",
   "drop.html",
   "item.html",
   "lookbook.html",
@@ -55,8 +56,10 @@ const INCLUDE = [
   "submit.js",
   "subscribe.js",
   "admin.js",
+  "seller.js",
   "excel-export.js",
   "db.js",
+  "marketplace-db.js",
   "supabase-config.js",
   "supabase.min.js",
 
