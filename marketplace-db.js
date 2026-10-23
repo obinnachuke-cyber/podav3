@@ -269,6 +269,76 @@
     if (error) throw error;
   }
 
+  /* —— Admin: cross-supplier product views —— */
+  async function getAllProducts() {
+    const { data, error } = await client()
+      .from("products")
+      .select("*, suppliers(name, type), product_images(*), product_variants(*)")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function getReviewQueue() {
+    const { data, error } = await client()
+      .from("products")
+      .select("*, suppliers(name, type, commission_bps), product_images(*)")
+      .eq("state", "submitted")
+      .order("submitted_at", { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Admin-only writes — RLS lets the admin set any state; these are the
+  // three outcomes a review actually has.
+  async function acceptProduct(id) {
+    const { data, error } = await client()
+      .from("products").update({ state: "accepted", review_note: null }).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function declineProduct(id, note) {
+    const { data, error } = await client()
+      .from("products").update({ state: "declined", review_note: note || null }).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function requestChanges(id, note) {
+    // Back to the supplier's drafts, with your note attached — not a
+    // decline, so it can be edited and resubmitted.
+    const { data, error } = await client()
+      .from("products").update({ state: "draft", review_note: note || null }).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Clearing a false-category pull (see MARKETPLACE_SETUP.md Step 3) —
+  // the new field values are already live on the row; this just flips
+  // availability back on once you've re-reviewed them.
+  async function clearAvailabilityHold(id) {
+    const { data, error } = await client()
+      .from("products").update({ is_available: true }).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Approving a staged price change — commits proposed_price_cents to
+  // the live price.
+  async function approveProposedPrice(id) {
+    const current = await getProduct(id);
+    if (current.proposed_price_cents === null || current.proposed_price_cents === undefined) {
+      throw new Error("No proposed price on this product.");
+    }
+    const { data, error } = await client()
+      .from("products")
+      .update({ price_cents: current.proposed_price_cents, proposed_price_cents: null })
+      .eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
   /* —— Activity trail (a supplier's own products only — see RLS) —— */
   async function getProductEvents(productId) {
     const { data, error } = await client()
@@ -302,6 +372,13 @@
     uploadProductImage,
     productImageUrl,
     deleteProductImage,
-    getProductEvents
+    getProductEvents,
+    getAllProducts,
+    getReviewQueue,
+    acceptProduct,
+    declineProduct,
+    requestChanges,
+    clearAvailabilityHold,
+    approveProposedPrice
   };
 })();

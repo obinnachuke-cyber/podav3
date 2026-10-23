@@ -373,7 +373,9 @@ function renderCurrentView() {
     drops:     renderDrops,
     studies:   renderStudies,
     subscribers: renderSubscribers,
-    suppliers: renderSuppliers
+    suppliers: renderSuppliers,
+    review: renderReviewQueue,
+    marketplaceInventory: renderMarketplaceInventory
   };
   (renderers[state.view] || renderDashboard)();
 }
@@ -1288,6 +1290,21 @@ function bindMainEvents() {
 
     const inviteBtn = event.target.closest("[data-supplier-invite]");
     if (inviteBtn) { createInvite(inviteBtn.dataset.supplierInvite); return; }
+
+    const acceptBtn = event.target.closest("[data-accept-product]");
+    if (acceptBtn) { reviewAccept(acceptBtn.dataset.acceptProduct); return; }
+
+    const declineBtn = event.target.closest("[data-decline-product]");
+    if (declineBtn) { reviewDecline(declineBtn.dataset.declineProduct); return; }
+
+    const changesBtn = event.target.closest("[data-request-changes]");
+    if (changesBtn) { reviewRequestChanges(changesBtn.dataset.requestChanges); return; }
+
+    const clearHoldBtn = event.target.closest("[data-clear-hold]");
+    if (clearHoldBtn) { clearHold(clearHoldBtn.dataset.clearHold); return; }
+
+    const approvePriceBtn = event.target.closest("[data-approve-price]");
+    if (approvePriceBtn) { approvePrice(approvePriceBtn.dataset.approvePrice); return; }
 
     const row = event.target.closest("[data-edit-id]");
     if (row) openModal(row.dataset.editId);
@@ -2820,6 +2837,155 @@ async function createInvite(supplierId) {
   } catch (e) {
     alert(e && e.message ? e.message : "Could not create the invite.");
   }
+}
+
+/* ============================================================
+   View: Review Queue
+   One decision at a time: Accept (-> live-eligible), Request changes
+   (-> back to the supplier's drafts with a note), Decline (terminal
+   unless they edit and resubmit — products_guard allows that).
+   ============================================================ */
+function dollarsAdmin(cents) {
+  return cents === null || cents === undefined ? "—" : "$" + (cents / 100).toFixed(2);
+}
+
+function splitLine(priceCents, bps) {
+  if (priceCents === null || priceCents === undefined) return "";
+  const podaCut = Math.round(priceCents * bps / 10000);
+  const supplierCut = priceCents - podaCut;
+  return `poda keeps ${dollarsAdmin(podaCut)} · supplier keeps ${dollarsAdmin(supplierCut)}`;
+}
+
+let reviewQueueCache = [];
+
+async function renderReviewQueue() {
+  adminMain.innerHTML = `<p class="admin-empty">Loading…</p>`;
+  try { reviewQueueCache = await window.PodaMarketplace.getReviewQueue(); }
+  catch (e) { reviewQueueCache = []; }
+
+  if (reviewQueueCache.length === 0) {
+    adminMain.innerHTML = `
+      <div class="section-bar section-bar--admin">
+        <span class="section-bar__label">Supply</span>
+        <span class="section-bar__title">Review Queue</span>
+      </div>
+      <p class="admin-empty">Nothing waiting on you right now.</p>
+    `;
+    return;
+  }
+
+  const cards = reviewQueueCache.map(p => {
+    const supplier = p.suppliers || {};
+    const bps = p.commission_bps_override ?? supplier.commission_bps ?? 0;
+    const thumb = p.product_images && p.product_images[0]
+      ? `<img src="${escapeHTML(window.PodaMarketplace.productImageUrl(p.product_images[0].path))}" alt="" style="width:100%;aspect-ratio:3/4;object-fit:cover;" />`
+      : `<div class="image-placeholder" style="aspect-ratio:3/4;">poda</div>`;
+
+    return `
+      <article class="form-card" style="display:grid;grid-template-columns:160px 1fr;gap:16px;margin-bottom:16px;">
+        <div>${thumb}</div>
+        <div>
+          <p style="margin:0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-dim);">
+            ${escapeHTML(supplier.name || "—")} · ${escapeHTML(supplier.type || "—")}
+          </p>
+          <h3 style="margin:4px 0;">${escapeHTML(p.title || "Untitled")}</h3>
+          <p style="margin:0 0 4px;">${escapeHTML(p.brand || "")} ${p.condition ? "· " + escapeHTML(p.condition) : ""}</p>
+          <p class="cell-mono" style="margin:0 0 8px;">${dollarsAdmin(p.price_cents)}
+            ${p.proposed_price_cents !== null && p.proposed_price_cents !== undefined ? ` → proposed ${dollarsAdmin(p.proposed_price_cents)}` : ""}
+          </p>
+          <p style="margin:0 0 12px;font-size:12px;color:var(--text-dim);">${splitLine(p.price_cents, bps)}</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn--primary" data-accept-product="${escapeHTML(p.id)}">Accept</button>
+            <button type="button" class="btn" data-request-changes="${escapeHTML(p.id)}">Request changes</button>
+            <button type="button" class="btn btn--danger" data-decline-product="${escapeHTML(p.id)}">Decline</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  adminMain.innerHTML = `
+    <div class="section-bar section-bar--admin">
+      <span class="section-bar__label">Supply</span>
+      <span class="section-bar__title">Review Queue</span>
+      <span class="badge">${reviewQueueCache.length} waiting</span>
+    </div>
+    ${cards}
+  `;
+}
+
+async function reviewAccept(id) {
+  try { await window.PodaMarketplace.acceptProduct(id); } catch (e) { alert(e.message || "Could not accept."); return; }
+  renderReviewQueue();
+}
+
+async function reviewDecline(id) {
+  const note = prompt("Reason for declining (shown to the supplier):") || "";
+  try { await window.PodaMarketplace.declineProduct(id, note); } catch (e) { alert(e.message || "Could not decline."); return; }
+  renderReviewQueue();
+}
+
+async function reviewRequestChanges(id) {
+  const note = prompt("What needs to change? (sent back to the supplier)") || "";
+  if (!note.trim()) return;
+  try { await window.PodaMarketplace.requestChanges(id, note); } catch (e) { alert(e.message || "Could not send that back."); return; }
+  renderReviewQueue();
+}
+
+/* ============================================================
+   View: Marketplace Inventory
+   Every product, every supplier — the relational-schema counterpart
+   to the old Closet/Available/Selected/Live/Sold tabs. Filtering
+   replaces navigating; this is one table, not five.
+   ============================================================ */
+let marketplaceInventoryCache = [];
+
+async function renderMarketplaceInventory() {
+  adminMain.innerHTML = `<p class="admin-empty">Loading…</p>`;
+  try { marketplaceInventoryCache = await window.PodaMarketplace.getAllProducts(); }
+  catch (e) { marketplaceInventoryCache = []; }
+
+  const rows = marketplaceInventoryCache.map(p => {
+    const supplier = p.suppliers || {};
+    const availability = p.state === "accepted"
+      ? (p.is_available ? "Available" : "Unavailable (re-review)")
+      : "—";
+    return `
+      <tr>
+        <td class="cell-strong">${escapeHTML(p.title || "Untitled")}</td>
+        <td>${escapeHTML(supplier.name || "—")}</td>
+        <td><span class="badge">${escapeHTML(p.state)}</span></td>
+        <td>${escapeHTML(availability)}</td>
+        <td class="cell-mono">${dollarsAdmin(p.price_cents)}</td>
+        <td>
+          ${p.state === "accepted" && !p.is_available ? `<button type="button" class="btn" data-clear-hold="${escapeHTML(p.id)}">Clear hold</button>` : ""}
+          ${p.proposed_price_cents !== null && p.proposed_price_cents !== undefined ? `<button type="button" class="btn" data-approve-price="${escapeHTML(p.id)}">Approve $${(p.proposed_price_cents / 100).toFixed(2)}</button>` : ""}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  adminMain.innerHTML = `
+    <div class="section-bar section-bar--admin">
+      <span class="section-bar__label">Supply</span>
+      <span class="section-bar__title">Marketplace Inventory</span>
+    </div>
+    ${marketplaceInventoryCache.length === 0
+      ? `<p class="admin-empty">No products yet.</p>`
+      : `<div class="table-wrap"><table class="admin-table">
+          <thead><tr><th>Title</th><th>Supplier</th><th>State</th><th>Availability</th><th>Price</th><th></th></tr></thead>
+          <tbody>${rows}</tbody></table></div>`}
+  `;
+}
+
+async function clearHold(id) {
+  try { await window.PodaMarketplace.clearAvailabilityHold(id); } catch (e) { alert(e.message || "Could not clear."); return; }
+  renderMarketplaceInventory();
+}
+
+async function approvePrice(id) {
+  try { await window.PodaMarketplace.approveProposedPrice(id); } catch (e) { alert(e.message || "Could not approve."); return; }
+  renderMarketplaceInventory();
 }
 
 /* ============================================================
