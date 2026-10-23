@@ -134,6 +134,152 @@
     return data ? data.suppliers : null;
   }
 
+  /* —— Products (a supplier's own, or admin's view of all) —— */
+  async function getMyProducts(supplierId) {
+    const { data, error } = await client()
+      .from("products")
+      .select("*, product_images(*), product_variants(*)")
+      .eq("supplier_id", supplierId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function getProduct(id) {
+    const { data, error } = await client()
+      .from("products")
+      .select("*, product_images(*), product_variants(*)")
+      .eq("id", id)
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  function productRow(fields) {
+    const row = {};
+    const copy = [
+      "title", "brand", "category", "color", "material", "condition",
+      "condition_notes", "description", "measurements", "currency",
+      "is_unique", "quantity"
+    ];
+    copy.forEach(k => { if (fields[k] !== undefined) row[k] = fields[k]; });
+    if (fields.priceDollars !== undefined) {
+      row.price_cents = Math.round(Number(fields.priceDollars) * 100);
+    }
+    return row;
+  }
+
+  async function createProduct(supplierId, fields) {
+    const { data, error } = await client()
+      .from("products")
+      .insert({ supplier_id: supplierId, state: "draft", ...productRow(fields) })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function updateProduct(id, fields) {
+    const row = productRow(fields);
+    row.updated_at = new Date().toISOString();
+    const { data, error } = await client()
+      .from("products")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Separate from updateProduct on purpose: this is the one state change a
+  // supplier is actually allowed (products_guard() blocks every other
+  // value) — draft -> submitted, or -> withdrawn from anywhere.
+  async function setProductState(id, newState) {
+    const { data, error } = await client()
+      .from("products")
+      .update({ state: newState })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteProductDraft(id) {
+    // RLS only lets the admin delete (see MARKETPLACE_SETUP.md) — a
+    // supplier removing a draft they never submitted is really a
+    // withdrawal of something that was never live, same button either way.
+    return setProductState(id, "withdrawn");
+  }
+
+  /* —— Variants (brand/boutique sizes+stock; unique pieces skip this) —— */
+  async function upsertVariant(productId, variant) {
+    const row = { product_id: productId, size: variant.size, sku: variant.sku || null, quantity: variant.quantity };
+    if (variant.id) {
+      const { data, error } = await client().from("product_variants").update(row).eq("id", variant.id).select().single();
+      if (error) throw error;
+      return data;
+    }
+    const { data, error } = await client().from("product_variants").insert(row).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async function deleteVariant(id) {
+    const { error } = await client().from("product_variants").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  /* —— Images: supplier-media/<supplier_id>/<product_id>/<file>, per the
+     storage policy in MARKETPLACE_SETUP.md Step 6. —— */
+  async function uploadProductImage(supplierId, productId, file) {
+    const ext = (file.name && file.name.split(".").pop()) || "jpg";
+    const path = `${supplierId}/${productId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error: upErr } = await client().storage
+      .from("supplier-media")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (upErr) throw upErr;
+
+    const { data: existing } = await client()
+      .from("product_images").select("position").eq("product_id", productId)
+      .order("position", { ascending: false }).limit(1);
+    const nextPosition = existing && existing[0] ? existing[0].position + 1 : 0;
+
+    const { data, error } = await client()
+      .from("product_images")
+      .insert({ product_id: productId, path, position: nextPosition })
+      .select()
+      .single();
+    if (error) throw error;
+
+    const { data: pub } = client().storage.from("supplier-media").getPublicUrl(path);
+    return { ...data, url: pub.publicUrl };
+  }
+
+  function productImageUrl(path) {
+    const { data } = client().storage.from("supplier-media").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function deleteProductImage(id, path) {
+    await client().storage.from("supplier-media").remove([path]);
+    const { error } = await client().from("product_images").delete().eq("id", id);
+    if (error) throw error;
+  }
+
+  /* —— Activity trail (a supplier's own products only — see RLS) —— */
+  async function getProductEvents(productId) {
+    const { data, error } = await client()
+      .from("product_events")
+      .select("*")
+      .eq("product_id", productId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
   window.PodaMarketplace = {
     getSuppliers,
     createSupplier,
@@ -144,6 +290,18 @@
     getInviteByToken,
     redeemSupplierInvite,
     myProfile,
-    mySupplier
+    mySupplier,
+    getMyProducts,
+    getProduct,
+    createProduct,
+    updateProduct,
+    setProductState,
+    deleteProductDraft,
+    upsertVariant,
+    deleteVariant,
+    uploadProductImage,
+    productImageUrl,
+    deleteProductImage,
+    getProductEvents
   };
 })();
