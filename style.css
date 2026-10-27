@@ -3085,9 +3085,9 @@ button.card-link {
    survive narrow viewports. */
 .home-folders__grid {
   display: grid;
-  grid-template-columns: repeat(1, 1fr);
-  justify-items: center;
-  gap: 32px;
+  grid-template-columns: repeat(2, 1fr);
+  justify-items: stretch;
+  gap: 24px 12px;
 }
 @media (min-width: 560px) {
   .home-folders__grid { grid-template-columns: repeat(3, 1fr); justify-items: stretch; gap: 24px 12px; }
