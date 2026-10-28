@@ -12,8 +12,9 @@
 
   // Primary navigation — the one source of truth for the site's structure.
   const PRIMARY = [
-    { href: "drop.html",         label: "The Edit" },
+    { href: "shop.html",         label: "Shop" },
     { href: "market-notes.html", label: "Inbox" },
+    { href: "lookbook.html",     label: "Lookbook" },
     { href: "archive.html",      label: "Archive" },
     { href: "source.html",       label: "Source" },
     { href: "sell.html",         label: "Sell with poda" }
@@ -35,11 +36,11 @@
 
   // Map detail pages back onto their section so the nav highlights correctly.
   function activeFileFor(file) {
-    if (file === "item.html") return "drop.html";
+    if (file === "item.html") return "shop.html";
     if (file === "note.html") return "market-notes.html";
-    // Imagery now lives inside release folders, so a study and a folder
-    // page both sit under The Edit.
-    if (file === "study.html" || file === "folder.html") return "drop.html";
+    // A study opens from the Lookbook; a release page sits under Shop.
+    if (file === "study.html") return "lookbook.html";
+    if (file === "folder.html") return "shop.html";
     return file;
   }
 
@@ -54,12 +55,11 @@
     if (!header || !inner) return;
 
     // The folder-desktop homepage (index.html) gets a stripped header —
-    // just the logo and a link into the full one-scroll site — instead
-    // of the primary nav.
+    // just the logo — instead of the primary nav. It IS the homepage, so
+    // there is no separate "Home" link (the old one-scroll page is retired).
     if (header.dataset.variant === "minimal") {
       inner.innerHTML = `
         <a class="site-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
-        <a class="site-header__home-link" href="home.html">Home</a>
       `;
       return;
     }
@@ -143,7 +143,6 @@
       </div>
       <div class="footer-bottom">
         <span>© ${new Date().getFullYear()} poda</span>
-        <span class="footer-build" id="footerBuild">DROP 001 — IN ASSEMBLY</span>
       </div>
       <div class="footer-status">PODA SYSTEM ONLINE</div>
     `;
@@ -166,11 +165,10 @@
       if (!profile || profile.role !== "supplier") return;
       const link = `<a href="seller.html">My Closet</a>`;
       const utility = document.querySelector(".site-header__utility");
-      // The homepage's minimal header has no utility area; its links row
-      // carries the link instead.
-      const homeLinks = document.querySelector(".home-folders__links");
       if (utility) utility.insertAdjacentHTML("afterbegin", link);
-      if (homeLinks) homeLinks.insertAdjacentHTML("afterbegin", link);
+      // The homepage links row already has a static "Seller login"; for a
+      // signed-in supplier it becomes "My Closet".
+      document.querySelectorAll("[data-seller-link]").forEach(a => { a.textContent = "My Closet"; });
     } catch (e) { /* no closet link is better than a broken header */ }
   }
 

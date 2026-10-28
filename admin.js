@@ -361,24 +361,27 @@ function setView(view) {
 }
 
 function renderCurrentView() {
+  // Primary navigation: release (current release workspace), releases,
+  // supply, subscribers, settings. Each is implemented in release.js, which
+  // also drives the local tabs under Supply and Subscribers. The older
+  // per-stage item views (Closets/Available/Selected/Live/Sold), Drops and
+  // Edits are no longer reachable from the navigation; their records are
+  // untouched, and the legacy items list lives under Settings.
   const renderers = {
-    dashboard: renderDashboard,
-    closets:   renderClosets,
-    available: renderAvailable,
-    selected:  renderSelected,
-    live:      renderLive,
-    sold:      renderSold,
-    all:       renderAllItems,
-    notes:     renderNotes,
-    drops:     renderDrops,
-    studies:   renderStudies,
-    subscribers: renderSubscribers,
+    release:   () => window.PodaRelease.renderCurrent(),
+    releases:  () => window.PodaRelease.renderAll(),
+    supply:    () => window.PodaRelease.renderSupply(),
+    subscribers: () => window.PodaRelease.renderSubscribersArea(),
+    settings:  () => window.PodaRelease.renderSettings(),
+    // Targets for the local tabs / Settings (not top-level nav entries)
+    legacyItems: renderAllItems,
+    notesLibrary: renderNotes,
+    subscribersList: renderSubscribers,
     suppliers: renderSuppliers,
     review: renderReviewQueue,
-    marketplaceInventory: renderMarketplaceInventory,
-    edits: renderEdits
+    marketplaceInventory: renderMarketplaceInventory
   };
-  (renderers[state.view] || renderDashboard)();
+  (renderers[state.view] || renderers.release)();
 }
 
 function sectionBar(label, title, withAction = true) {
@@ -1517,7 +1520,8 @@ async function startApp() {
     window.PodaDB.getSubscribers ? window.PodaDB.getSubscribers().catch(() => []) : Promise.resolve([]),
     window.PodaMarketplace ? window.PodaMarketplace.getSuppliers().catch(() => []) : Promise.resolve([])
   ]);
-  setView("dashboard");
+  // Straight into the release being prepared.
+  setView("release");
 }
 
 function bindAuthEvents() {
@@ -2218,11 +2222,17 @@ function renderStudioActions() {
   const note = studio.note;
   const canSend = note.status === "published" && !!note.id;
   const actions = document.getElementById("studioActions");
+  // A note that is already live keeps editing in a private working revision:
+  // "Save" stores it without touching the live page; "Publish changes" goes live.
+  const live = isLivePublished(note);
   actions.innerHTML = `
-    <button type="button" class="btn" id="studioSaveBtn" ${studio.saving ? "disabled" : ""}>Save Draft</button>
-    ${note.status === "published"
-      ? `<button type="button" class="btn" id="studioUnpublishBtn" ${studio.saving ? "disabled" : ""}>Unpublish</button>`
-      : `<button type="button" class="btn btn--primary" id="studioPublishBtn" ${studio.saving ? "disabled" : ""}>Publish</button>`}
+    <button type="button" class="btn" id="studioSaveBtn" ${studio.saving ? "disabled" : ""}>${live ? "Save changes (not live)" : "Save Draft"}</button>
+    ${live
+      ? `<button type="button" class="btn btn--primary" id="studioPublishBtn" ${studio.saving ? "disabled" : ""}>Publish changes</button>
+         <button type="button" class="btn" id="studioUnpublishBtn" ${studio.saving ? "disabled" : ""}>Unpublish</button>`
+      : (note.status === "published"
+          ? `<button type="button" class="btn" id="studioUnpublishBtn" ${studio.saving ? "disabled" : ""}>Unpublish</button>`
+          : `<button type="button" class="btn btn--primary" id="studioPublishBtn" ${studio.saving ? "disabled" : ""}>Publish</button>`)}
     <button type="button" class="btn" id="studioSendBtn" ${canSend ? "" : "disabled"} title="${canSend ? "" : "Publish the note first"}">Send Test / Broadcast…</button>
     ${note.id ? `<a class="btn" href="note.html?id=${encodeURIComponent(note.id)}" target="_blank" rel="noopener">View ↗</a>` : ""}
     ${studio.saveError ? `<p class="field-error">${escapeHTML(studio.saveError)}</p>` : ""}
@@ -2445,9 +2455,28 @@ function renderStudioShell() {
   });
 }
 
-function openNoteModal(noteId = null) {
+// A note is "live published" when the version the public can read is
+// published. Edits to such a note are kept as a private working revision
+// (note_revisions) until "Publish changes", so a half-typed edit or an
+// autosave can never reach the live page.
+function isLivePublished(note) {
+  const live = note && note.id ? noteState.notes.find(n => n.id === note.id) : null;
+  return !!live && live.status === "published";
+}
+
+// `preset` seeds a NEW note (e.g. { folderId } when created inside a release).
+async function openNoteModal(noteId = null, preset = null) {
   const editing = noteId ? noteState.notes.find(n => n.id === noteId) : null;
-  const note = editing ? structuredClone(editing) : blankNote();
+  let note = editing ? structuredClone(editing) : { ...blankNote(), ...(preset || {}) };
+  let hasRevision = false;
+  if (editing && editing.status === "published" && window.PodaDB.getNoteRevision) {
+    const revision = await window.PodaDB.getNoteRevision(noteId);
+    if (revision) {
+      delete revision._revisionAt;
+      note = revision;
+      hasRevision = true;
+    }
+  }
   if (!note.contentJson) note.contentJson = legacyBodyToContentJSON(note.body);
 
   studio = {
@@ -2461,6 +2490,7 @@ function openNoteModal(noteId = null) {
   };
 
   renderStudioShell();
+  if (hasRevision) setStudioStatus("", "Unpublished changes loaded — the live note is unchanged");
   noteStudioOverlay.hidden = false;
   document.body.style.overflow = "hidden";
   window.addEventListener("beforeunload", studioBeforeUnload);
@@ -2479,7 +2509,11 @@ function closeNoteStudio() {
   noteStudioOverlay.hidden = true;
   noteStudioOverlay.innerHTML = "";
   document.body.style.overflow = "";
-  renderNotes();
+  // Return to wherever the studio was opened from (a release workspace sets
+  // this); otherwise fall back to the notes library.
+  const back = window.studioReturnTo;
+  window.studioReturnTo = null;
+  if (typeof back === "function") back(); else renderNotes();
 }
 
 async function saveStudioNote(opts) {
@@ -2509,16 +2543,26 @@ async function saveStudioNote(opts) {
   computeDerivedFields(note);
 
   if (!note.id) note.id = generateNoteId();
+
+  // Editing a note that is live and not publishing/unpublishing it: write a
+  // private working revision and leave the live note exactly as it is.
+  const toRevision = isLivePublished(note) && !opts.publish && !opts.unpublish;
+
   if (opts.publish) {
     note.status = "published";
     if (!note.publishedAt) note.publishedAt = new Date().toISOString().slice(0, 10);
+    // Which release a note belongs to is decided in the release workspace and
+    // saved straight to the live record; a working revision must not undo it.
+    const liveNow = noteState.notes.find(n => n.id === note.id);
+    if (liveNow) note.folderId = liveNow.folderId || "";
   } else if (opts.unpublish) {
     note.status = "draft";
   }
   note.updatedAt = new Date().toISOString();
 
   try {
-    await window.PodaDB.upsertNote(note);
+    if (toRevision) await window.PodaDB.saveNoteRevision(note.id, note);
+    else await window.PodaDB.upsertNote(note);
   } catch (e) {
     studio.saving = false;
     studio.saveError = "Save failed — check your connection and try again.";
@@ -2530,10 +2574,18 @@ async function saveStudioNote(opts) {
   studio.saving = false;
   studio.dirty = false;
 
-  const idx = noteState.notes.findIndex(n => n.id === note.id);
-  if (idx >= 0) noteState.notes[idx] = structuredClone(note);
-  else noteState.notes.unshift(structuredClone(note));
+  if (!toRevision) {
+    // The live record changed (draft saved, published or unpublished), so any
+    // older working revision is now superseded.
+    await window.PodaDB.deleteNoteRevision(note.id);
+    const idx = noteState.notes.findIndex(n => n.id === note.id);
+    if (idx >= 0) noteState.notes[idx] = structuredClone(note);
+    else noteState.notes.unshift(structuredClone(note));
+  }
 
+  if (toRevision) {
+    setStudioStatus("saved", opts.silent ? "Autosaved privately — live note unchanged" : "Saved — not live until you Publish changes");
+  } else
   setStudioStatus("saved", opts.silent ? "Autosaved" : (opts.publish ? "Published" : opts.unpublish ? "Unpublished" : "Saved"));
   renderStudioActions();
   const deleteBtn = document.getElementById("studioDeleteBtn");
@@ -2694,7 +2746,7 @@ function renderStudies() {
 
   adminMain.innerHTML = `
     <div class="section-bar section-bar--admin">
-      <span class="section-bar__label">Folder imagery</span>
+      <span class="section-bar__label">Lookbook</span>
       <span class="section-bar__title">Visual Studies</span>
       <button type="button" class="admin-newitem section-bar__action" data-new-study>+ New Study</button>
     </div>

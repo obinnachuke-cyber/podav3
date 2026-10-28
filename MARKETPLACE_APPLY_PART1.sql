@@ -477,6 +477,9 @@ create policy "Public reads live placements"
   using (exists (select 1 from public.edits e
                  where e.id = edit_id and e.status = 'live'));
 
+-- Views hold no data, and CREATE OR REPLACE VIEW refuses to change an
+-- existing view's column list, so drop first to survive a re-run.
+drop view if exists public.public_products;
 create or replace view public.public_products
 with (security_invoker = true) as
 select
@@ -600,6 +603,7 @@ create policy "Public reads published folder updates"
     )
   );
 
+drop view if exists public.public_folder_notes;
 create or replace view public.public_folder_notes
 with (security_invoker = true) as
 select e.id as edit_id, n.id as note_id, n.data
@@ -611,6 +615,7 @@ where e.status in ('scheduled', 'live', 'archived')
 
 grant select on public.public_folder_notes to anon, authenticated;
 
+drop view if exists public.public_folder_studies;
 create or replace view public.public_folder_studies
 with (security_invoker = true) as
 select e.id as edit_id, s.id as study_id, s.data

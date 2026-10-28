@@ -35,10 +35,11 @@ const INCLUDE = [
   "admin.html",
   "archive.html",
   "seller.html",
-  "drop.html",
+  "drop.html", // redirect stub -> shop.html
+  "shop.html",
   "folder.html",
   "item.html",
-  "lookbook.html", // redirect stub only — the Lookbook section is retired
+  "lookbook.html",
   "market-notes.html",
   "note.html",
   "sell.html",
@@ -50,10 +51,12 @@ const INCLUDE = [
   "admin.css",
 
   "script.js",
-  "home.js",
+  "tz.js",
+  "release.js",
   "layout.js",
   "shell.js",
   "folders.js",
+  "lookbook.js",
   "study.js",
   "submit.js",
   "subscribe.js",

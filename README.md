@@ -21,29 +21,49 @@ Row Level Security policies). See `OVERHAUL_SETUP.md`, `NOTES_SETUP.md`,
 `SUBSCRIBERS_SETUP.md`, and `MARKET_NOTES_STUDIO_SETUP.md` for the SQL/RLS
 each content type needs.
 
-### Release folders
+### Releases, Shop and the timed drop
 
-Each biweekly edition is a **folder** — an `edits` row (see
-`MARKETPLACE_SETUP.md`, Step 5/9). The homepage is five folders: **The Edit**
-(`drop.html` — the current release: the live folder if there is one, otherwise
-the newest open one), **Inbox** (all notes and folder updates, each tagged with
-its folder), **Archive** (`archive.html` — `archived` folders),
-**Sell with poda** and **Source**. `folder.html?id=<edit id>` shows any one
-folder. All driven by `folders.js` and the public readers in
-`marketplace-db.js`. Signed-in sellers also get a **My Closet** link.
+Each biweekly edition is a **release** (a folder) — an `edits` row. The
+homepage is six folders: **Shop** (`shop.html`: the release currently in Shop
+plus a quiet "next drop" notice), **Inbox** (Market Notes and release updates),
+**Lookbook**, **Archive** (past releases), **Sell with poda** and **Source**.
+`folder.html?id=<id>` shows any one release. Old URLs redirect: `/drop` and
+`/item` go to `/shop`, `/home` goes to `/`.
 
-- **Admin → Edits → open a folder** sets its number, title, standfirst and drop
-  date, and attaches notes, imagery (Visual Studies), updates and products.
-- **Status drives visibility:** `draft` is private · `scheduled` is open and
-  fills up over the two weeks · `live` is the drop (the product grid appears) ·
-  `archived` stays browsable.
-- **Red dot** on a folder = new material since that visitor last opened it
-  (tracked in the visitor's own `localStorage`; nothing is stored server-side).
+**The drop is decided by the database clock, not the browser.** A release's
+products are returned by the `public_products` view only once
+`edits.publish_at <= now()` (or after a manual launch, `launched_at`). No cron
+job or secret is involved, so retries and duplicate runs cannot matter. An open
+Shop page re-asks at the drop moment using the server's time, and again when a
+background tab becomes visible. Times are stored in UTC and entered/shown in
+the release's own timezone (`tz.js`, `edits.drop_timezone`).
+
+- **Admin → Current Release** is the workspace for the release being prepared
+  (`edits.is_working`, explicit and separate from what's in Shop): Contents
+  (notes, lookbook sets, updates, products), Settings (details, visibility,
+  drop schedule, readiness), Preview (private, and "what's public now"),
+  Activity. Other admin areas: All Releases, Supply (Review Queue / Inventory /
+  Suppliers), Subscribers (plus Notes & email), Settings.
+- **Opening a release** (draft → scheduled) makes its page public so items you
+  publish can appear; it never publishes products or sends email.
+- **Shop shows** the most recent release whose drop has happened and which is
+  not archived; a newer drop replaces an older one, which moves to the Archive.
+- **Published notes keep a private working revision** (`note_revisions`);
+  nothing reaches the live note until "Publish changes".
+- **Red dot** on Shop / Inbox = new since that visitor last opened it (kept in
+  the visitor's own `localStorage`).
 - The folder art is the unmodified SVG set in `assets/folders/`.
-- Run `FOLDERS_PUBLIC_SETUP.sql` once in Supabase so signed-out visitors can
-  read the drop's product data and photos (the original `public_products`
-  view returned empty fields to them).
-- The Lookbook section is retired; `lookbook.html` only redirects.
+
+#### Database migrations
+
+Apply, in order, in the Supabase SQL editor: the base schema
+(`SUPABASE_FOUNDATION.sql`, `MARKETPLACE_APPLY_PART1.sql`,
+`MARKETPLACE_APPLY_PART2_ADMIN.sql` — only if not already applied), then
+**`migrations/20261028_release_workspace.sql` last**. It is repeatable and
+deletes nothing; it adds the release columns, the timed-drop views, private note
+revisions and the access fixes. Re-running a base script afterwards replaces
+`public_products` with the older ungated view, so re-run the migration after it.
+`FOLDERS_PUBLIC_SETUP.sql` is superseded and refuses to run.
 
 ### Market Note Publishing Studio (admin editor)
 

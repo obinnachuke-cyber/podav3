@@ -61,7 +61,10 @@
   padding-right: max(var(--pad), env(safe-area-inset-right));
   padding-block: clamp(16px, 4vw, 28px);
   display: grid;
-  grid-template-columns: 1fr;
+  /* minmax(0, …), not 1fr: a bare 1fr takes the nav's full single-row width
+     as its minimum and pushed the whole admin wider than a phone screen. The
+     nav scrolls sideways inside itself instead. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   align-items: start;
 }
@@ -121,6 +124,68 @@
 
 .admin-main {
   min-width: 0;
+}
+
+/* Local tabs under the main nav (Supply, Subscribers) */
+.admin-nav--sub {
+  margin-top: 6px;
+  border-top: none;
+}
+.admin-nav--sub[hidden] { display: none; }
+.admin-nav--sub .admin-nav__link { min-height: 38px; font-size: 11px; }
+
+/* Release workspace */
+.rel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; }
+.rel-head__title { margin: 0; font-family: var(--font-serif); font-size: 1.5rem; font-weight: 600; }
+.rel-badge {
+  display: inline-block; padding: 2px 8px; border: 1px solid var(--border);
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim);
+}
+.rel-badge--on { border-color: var(--purple); color: var(--purple-2); }
+.rel-badge--warn { border-color: #b3541e; color: #b3541e; }
+.rel-tabs { display: flex; gap: 0; margin: 0 0 18px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.rel-tab {
+  appearance: none; flex: 0 0 auto; min-height: 40px; padding: 0 16px; background: none; border: none;
+  border-bottom: 2px solid transparent; font: inherit; font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-dim); cursor: pointer;
+}
+.rel-tab.active { color: var(--purple-2); border-bottom-color: var(--purple); }
+.rel-block { margin: 0 0 28px; }
+.rel-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  padding: 12px 0; border-top: 1px solid var(--border);
+}
+.rel-row:last-child { border-bottom: 1px solid var(--border); }
+.rel-row__main { flex: 1 1 220px; min-width: 0; }
+.rel-row__title { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.rel-row__meta { margin: 2px 0 0; font-size: 11px; color: var(--text-dim); }
+.rel-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.rel-actions .btn { min-height: 36px; }
+.rel-menu { position: relative; display: inline-block; }
+.rel-menu__list {
+  position: absolute; z-index: 20; right: 0; top: 100%; min-width: 220px; margin-top: 4px;
+  background: var(--bg); border: 1px solid var(--border); box-shadow: 0 6px 24px rgba(0,0,0,.12);
+}
+.rel-menu__list[hidden] { display: none; }
+.rel-menu__item {
+  display: block; width: 100%; text-align: left; padding: 11px 14px; background: none; border: none;
+  border-bottom: 1px solid var(--border); font: inherit; cursor: pointer; color: var(--text);
+}
+.rel-menu__item:last-child { border-bottom: none; }
+.rel-menu__item:hover { background: var(--bg-box-hover); }
+.rel-check { margin: 0; padding: 0; list-style: none; }
+.rel-check li { padding: 6px 0; font-size: 13px; }
+.rel-check li::before { content: "○ "; color: var(--text-dim); }
+.rel-check li.ok::before { content: "● "; color: var(--purple-2); }
+.rel-note { margin: 8px 0 0; font-size: 12px; color: var(--text-dim); max-width: 64ch; }
+.rel-img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.rel-img { border: 1px solid var(--border); padding: 6px; background: var(--bg); }
+.rel-img img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.rel-img--cover { outline: 2px solid var(--purple); }
+.rel-preview { border: 1px solid var(--border); padding: 12px; background: var(--bg); }
+@media (max-width: 560px) {
+  .rel-menu__list { right: auto; left: 0; }
+  .rel-actions .btn { flex: 1 1 auto; }
 }
 
 /* —— Section bar action slot —— */

@@ -25,41 +25,42 @@
     <section class="home-folders" aria-label="Browse poda">
       <!-- Five folders. Static so every link works without JS; folders.js
            then fills in the live state (current release, past-folder count,
-           and the red "new material" dot on The Edit and Inbox). -->
+           and the red "new material" dot on Shop and Inbox). -->
       <div class="home-folders__grid" id="homeFolders">
-        <a class="folder-tile" href="drop.html" data-folder="edit" data-name="The Edit">
+        <a class="folder-tile" href="shop.html" data-folder="shop" data-name="Shop">
           <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__no">Current</span>
-          <span class="folder-tile__label">The Edit</span>
-          <span class="folder-tile__state">The current release</span>
+          <span class="folder-tile__label">Shop</span>
+          <span class="folder-tile__state">The current drop</span>
         </a>
         <a class="folder-tile" href="market-notes.html" data-folder="inbox" data-name="Inbox">
           <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__no">Correspondence</span>
           <span class="folder-tile__label">Inbox</span>
           <span class="folder-tile__state">Notes &amp; updates</span>
         </a>
+        <a class="folder-tile" href="lookbook.html" data-folder="lookbook" data-name="Lookbook">
+          <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
+          <span class="folder-tile__label">Lookbook</span>
+          <span class="folder-tile__state">Visual studies</span>
+        </a>
         <a class="folder-tile" href="archive.html" data-folder="archive" data-name="Archive">
           <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__no">Past</span>
           <span class="folder-tile__label">Archive</span>
           <span class="folder-tile__state">Past folders</span>
         </a>
         <a class="folder-tile" href="sell.html" data-folder="sell" data-name="Sell with poda">
           <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__no">Sellers</span>
           <span class="folder-tile__label">Sell with poda</span>
           <span class="folder-tile__state">Apply to sell</span>
         </a>
         <a class="folder-tile" href="source.html" data-folder="source" data-name="Source">
           <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__no">Requests</span>
           <span class="folder-tile__label">Source</span>
           <span class="folder-tile__state">Find a piece</span>
         </a>
       </div>
       <nav class="home-folders__links" aria-label="More from poda">
         <a href="about.html">About</a>
+        <a href="seller.html" data-seller-link>Seller login</a>
       </nav>
     </section>
   </main>

@@ -3094,9 +3094,7 @@ button.card-link {
 @media (min-width: 560px) {
   .home-folders__grid { grid-template-columns: repeat(3, minmax(0, 180px)); }
 }
-@media (min-width: 860px) {
-  .home-folders__grid { grid-template-columns: repeat(5, minmax(0, 170px)); gap: 24px; }
-}
+/* Six folders: three across on larger screens keeps it a tidy 3 × 2. */
 .home-folders__links {
   display: flex;
   flex-wrap: wrap;
@@ -3314,6 +3312,41 @@ button.card-link {
   color: var(--accent);
 }
 .folder-inquire { display: inline-block; margin-top: 8px; }
+
+/* —— Shop (shop.html) and admin-preview helpers —— */
+.shop-head { padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 28px; }
+.shop-readmore { margin: 14px 0 0; }
+.shop-next {
+  margin: 36px 0 0;
+  padding: 14px 16px;
+  border: 1px dashed var(--border);
+  background: var(--bg-box);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.shop-next .folder-locked__label { display: inline; margin-right: 8px; }
+.shop-footer { margin: 28px 0 0; }
+.folder-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--accent);
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  vertical-align: middle;
+}
+.folder-banner {
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  border: 1px solid var(--accent);
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
 
 /* Compact "THE EDIT / VIEW ALL" style section header row, reused for
    Source/Sell operational rows too. */

@@ -62,9 +62,7 @@
       <article class="study-article">
         <header class="study-article__header">
           <p class="study-article__eyebrow">
-            ${study.relatedDropId
-              ? `<a href="folder.html?id=${encodeURIComponent(study.relatedDropId)}">← Folder</a>`
-              : `<a href="index.html">← Folders</a>`}
+            <a href="lookbook.html">← Lookbook</a>
             <span>${study.studyNumber ? `Vol. ${esc(String(study.studyNumber).padStart(2, "0"))}` : "Visual Study"}${date ? ` · ${esc(date)}` : ""}</span>
           </p>
           <h1 class="study-article__title">${esc(study.title || "Untitled study")}</h1>

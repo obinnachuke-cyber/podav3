@@ -2,76 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/png" href="favicon.png" />
-  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#244CFF" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="poda" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>The Edit — poda</title>
-  <meta name="description" content="The Edit is poda's current drop — a narrow, deliberate selection of pieces chosen around one thesis." />
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shop — poda</title>
+  <!-- "The Edit" is now Shop. This stub keeps old links and bookmarks working
+       and carries any query string / hash across. -->
+  <meta http-equiv="refresh" content="0; url=shop.html" />
+  <link rel="canonical" href="shop.html" />
+  <meta name="robots" content="noindex" />
+  <script>window.location.replace("shop.html" + window.location.search + window.location.hash);</script>
 </head>
 <body>
-  <header class="site-header" id="siteHeader">
-    <div class="site-header__inner"></div>
-  </header>
-
-  <main class="portal-shell">
-    <!-- The Edit = the current release folder (live drop first, otherwise the
-         newest open folder). folders.js fills this in. -->
-    <div id="folderPage" data-mode="current" aria-live="polite">
-      <p class="status-message">Opening the current folder…</p>
-    </div>
-
-    <!-- Original store grid: only shown if no folder has been published yet. -->
-    <div id="legacyEdit" hidden>
-    <section class="page-section" style="border-bottom:none;">
-
-      <div class="purple-band">
-        <header id="dropHeader" class="drop-hero purple-band__inner">
-          <span class="drop-hero__eyebrow">The Edit</span>
-          <h1 class="drop-hero__title">Loading the edit…</h1>
-        </header>
-      </div>
-
-      <div id="dropControls"></div>
-      <section id="dropEmpty" class="status-message"></section>
-      <section id="dropGrid" class="items-grid" aria-live="polite"></section>
-
-    </section>
-    </div>
-  </main>
-
-  <footer class="site-footer portal-shell">
-    <div class="footer-left">
-      <span class="footer-brand">poda</span>
-      <a class="footer-admin" href="admin.html">Admin</a>
-    </div>
-    <nav class="footer-links" aria-label="Social">
-      <a class="footer-icon" href="https://instagram.com/podacapital" target="_blank" rel="noopener" aria-label="Instagram">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-          <rect x="3" y="3" width="18" height="18" rx="5"/>
-          <circle cx="12" cy="12" r="4"/>
-          <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
-        </svg>
-      </a>
-      <a class="footer-icon" href="https://x.com/podacap" target="_blank" rel="noopener" aria-label="X (Twitter)">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M13.2 10.8 19.5 4h-1.5l-5.5 5.9L8.4 4H4l6.6 7.7L4 20h1.5l5.8-6.3 4.6 6.3H20l-6.8-9.2z"/>
-        </svg>
-      </a>
-    </nav>
-  </footer>
-
-  <script src="supabase.min.js"></script>
-  <script src="supabase-config.js"></script>
-  <script src="db.js"></script>
-  <script src="marketplace-db.js"></script>
-  <script src="folders.js"></script>
-  <script src="script.js"></script>
-  <script src="subscribe.js"></script>
-  <script src="layout.js"></script>
+  <p><a href="shop.html">Continue to Shop →</a></p>
 </body>
 </html>

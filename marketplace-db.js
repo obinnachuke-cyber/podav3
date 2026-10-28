@@ -418,7 +418,7 @@
 
   async function updatePlacement(id, patch) {
     const row = {};
-    ["position", "editorial_title", "editorial_copy"].forEach(k => {
+    ["position", "editorial_title", "editorial_copy", "hero_image_id"].forEach(k => {
       if (patch[k] !== undefined) row[k] = patch[k] === "" ? null : patch[k];
     });
     const { data, error } = await client().from("edit_placements").update(row).eq("id", id).select().single();
@@ -453,7 +453,7 @@
 
   async function updateFolderUpdate(id, patch) {
     const row = { updated_at: new Date().toISOString() };
-    ["body", "published", "position"].forEach(k => { if (patch[k] !== undefined) row[k] = patch[k]; });
+    ["body", "published", "position", "image_path"].forEach(k => { if (patch[k] !== undefined) row[k] = patch[k]; });
     const { data, error } = await client().from("folder_updates").update(row).eq("id", id).select().single();
     if (error) throw error;
     return data;
@@ -472,7 +472,22 @@
   const PUBLIC_EDIT_STATUSES = ["scheduled", "live", "archived"];
   const EDIT_COLUMNS = "id, number, title, standfirst, status, publish_at, published_at, created_at";
 
-  async function getPublicFolders() {
+  // Public reads go through the public_releases view (migrations/
+  // 20261028_release_workspace.sql). It adds drop_open / is_shop / server_now,
+  // all decided by the database clock, never by this browser.
+  const RELEASE_COLUMNS =
+    "id, number, title, standfirst, status, publish_at, published_at, launched_at, " +
+    "cover_image, drop_timezone, created_at, drop_open, is_shop, server_now";
+
+  // Before the migration is applied the view doesn't exist. Fall back to the
+  // original behaviour (a 'live' folder is the open drop) instead of failing.
+  function isMissingSchema(error) {
+    return !!error && (error.code === "42P01" || error.code === "42703" ||
+      error.code === "PGRST205" || error.code === "PGRST204" ||
+      /does not exist|schema cache|Could not find/i.test(error.message || ""));
+  }
+
+  async function legacyFolders() {
     const { data, error } = await client()
       .from("edits")
       .select(EDIT_COLUMNS)
@@ -480,23 +495,35 @@
       .order("number", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false });
     if (error) throw error;
-    return data || [];
+    const rows = (data || []).map(r => ({ ...r, drop_open: r.status === "live", is_shop: false, server_now: new Date().toISOString() }));
+    const shop = rows.find(r => r.drop_open);
+    if (shop) shop.is_shop = true;
+    return rows;
+  }
+
+  async function getPublicFolders() {
+    const { data, error } = await client()
+      .from("public_releases")
+      .select(RELEASE_COLUMNS)
+      .order("number", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    if (!error) return data || [];
+    if (!isMissingSchema(error)) throw error;
+    return legacyFolders();
   }
 
   // Resolves to null (not an error) for an unknown id, a malformed id, or a
   // folder that isn't public — all three look the same to a visitor.
   async function getPublicFolder(id) {
     const { data, error } = await client()
-      .from("edits")
-      .select(EDIT_COLUMNS)
+      .from("public_releases")
+      .select(RELEASE_COLUMNS)
       .eq("id", id)
-      .in("status", PUBLIC_EDIT_STATUSES)
       .maybeSingle();
-    if (error) {
-      if (error.code === "22P02") return null; // not a uuid
-      throw error;
-    }
-    return data;
+    if (!error) return data;
+    if (error.code === "22P02") return null; // not a uuid
+    if (!isMissingSchema(error)) throw error;
+    return (await legacyFolders()).find(f => f.id === id) || null;
   }
 
   // Each content type loads independently: a failure in one (say the
@@ -524,7 +551,10 @@
     ]);
     return {
       notes: notes.map(r => ({ ...r.data, id: r.data && r.data.id ? r.data.id : r.note_id })),
-      studies: studies.map(r => ({ ...r.data, id: r.data && r.data.id ? r.data.id : r.study_id })),
+      // Lookbook sets keep the order the admin gave them (data.releaseOrder).
+      studies: studies
+        .map(r => ({ ...r.data, id: r.data && r.data.id ? r.data.id : r.study_id }))
+        .sort((a, b) => (a.releaseOrder ?? 999) - (b.releaseOrder ?? 999)),
       updates,
       products
     };
@@ -577,6 +607,90 @@
     return data.publicUrl;
   }
 
+  // note-media uploads come back as public URLs; folder updates store the path.
+  function noteMediaPath(publicUrl) {
+    const marker = "/object/public/note-media/";
+    const i = String(publicUrl || "").indexOf(marker);
+    return i === -1 ? "" : publicUrl.slice(i + marker.length);
+  }
+
+  /* ============================================================
+     Release workspace (admin). All of these rely on admin-only RLS; a
+     non-admin session simply gets empty results or an error back.
+     ============================================================ */
+  const RELEASE_PATCH_KEYS = [
+    "number", "title", "standfirst", "status", "publish_at",
+    "launched_at", "cover_image", "drop_timezone"
+  ];
+
+  // The release being prepared (explicit is_working flag), or null.
+  async function getWorkingRelease() {
+    const { data, error } = await client()
+      .from("edits").select("*").eq("is_working", true).maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async function setWorkingRelease(id) {
+    const { error } = await client().rpc("set_working_release", { p_id: id });
+    if (error) throw error;
+  }
+
+  // Unlike updateEdit, values are written as given ('' and 0 are not coerced).
+  async function updateRelease(id, patch) {
+    const row = {};
+    RELEASE_PATCH_KEYS.forEach(k => {
+      if (patch[k] === undefined) return;
+      row[k] = (patch[k] === "" ? null : patch[k]);
+    });
+    const { data, error } = await client().from("edits").update(row).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Activity log. Best effort: a failed log write never blocks the action.
+  async function addReleaseEvent(editId, event, detail) {
+    try {
+      await client().from("release_events").insert({ edit_id: editId, event, detail: detail || null });
+    } catch (e) { console.warn("Could not log release event:", e); }
+  }
+
+  async function getReleaseEvents(editId) {
+    const { data, error } = await client()
+      .from("release_events").select("*").eq("edit_id", editId)
+      .order("created_at", { ascending: false }).limit(50);
+    if (error) { console.warn("Release activity unavailable:", error.message); return []; }
+    return data || [];
+  }
+
+  // Placements with the product, its seller and its photos (for the workspace
+  // and the private preview).
+  async function getPlacementsFull(editId) {
+    const { data, error } = await client()
+      .from("edit_placements")
+      .select("*, products(title, brand, description, price_cents, currency, state, is_available, quantity, supplier_id, suppliers(name, type), product_images(id, path, position))")
+      .eq("edit_id", editId)
+      .order("position", { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Persist a new order: ids in the order they should now appear.
+  async function reorderPlacements(orderedIds) {
+    for (let i = 0; i < orderedIds.length; i++) {
+      const { error } = await client().from("edit_placements").update({ position: i }).eq("id", orderedIds[i]);
+      if (error) throw error;
+    }
+  }
+
+  async function reorderFolderUpdates(orderedIds) {
+    for (let i = 0; i < orderedIds.length; i++) {
+      const { error } = await client().from("folder_updates")
+        .update({ position: i, updated_at: new Date().toISOString() }).eq("id", orderedIds[i]);
+      if (error) throw error;
+    }
+  }
+
   window.PodaMarketplace = {
     getPublicFolders,
     getPublicFolder,
@@ -584,6 +698,15 @@
     getPublicActivity,
     getPublicUpdates,
     noteMediaUrl,
+    noteMediaPath,
+    getWorkingRelease,
+    setWorkingRelease,
+    updateRelease,
+    addReleaseEvent,
+    getReleaseEvents,
+    getPlacementsFull,
+    reorderPlacements,
+    reorderFolderUpdates,
     getSuppliers,
     createSupplier,
     updateSupplier,

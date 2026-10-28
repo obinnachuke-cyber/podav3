@@ -34,8 +34,13 @@
     console.error("Supabase library failed to load (check the CDN <script> tag).");
   }
 
+  // Database responses are never cached by the browser: a scheduled drop has
+  // to appear the moment the database says it is open, and must not linger
+  // as a stale "not yet" (or, worse, a stale "already").
+  const noStoreFetch = (input, init) => fetch(input, { ...(init || {}), cache: "no-store" });
+
   const client = (isConfigured && window.supabase)
-    ? window.supabase.createClient(URL, KEY)
+    ? window.supabase.createClient(URL, KEY, { global: { fetch: noStoreFetch } })
     : null;
 
   const TABLE          = "items";
@@ -134,6 +139,31 @@
       console.error("Failed to delete note:", error.message);
       throw error;
     }
+  }
+
+  /* —— Note working revisions (admin only). Unpublished edits to a note that
+     is already published are kept here, never in `notes` — a published note's
+     row is world-readable, so a draft stored on it would be public. —— */
+  async function getNoteRevision(noteId) {
+    if (!client) return null;
+    const { data, error } = await client
+      .from("note_revisions").select("data, updated_at").eq("note_id", noteId).maybeSingle();
+    if (error) { console.warn("Note revision unavailable:", error.message); return null; }
+    return data ? { ...data.data, _revisionAt: data.updated_at } : null;
+  }
+
+  async function saveNoteRevision(noteId, note) {
+    if (!client) throw new Error("Database not configured.");
+    const { error } = await client
+      .from("note_revisions")
+      .upsert({ note_id: noteId, data: note, updated_at: new Date().toISOString() }, { onConflict: "note_id" });
+    if (error) { console.error("Failed to save note revision:", error.message); throw error; }
+  }
+
+  async function deleteNoteRevision(noteId) {
+    if (!client) return;
+    const { error } = await client.from("note_revisions").delete().eq("note_id", noteId);
+    if (error) console.warn("Could not clear note revision:", error.message);
   }
 
   /* —— Archive images: read all, newest first —— */
@@ -464,6 +494,9 @@
     getNotes,
     upsertNote,
     deleteNote,
+    getNoteRevision,
+    saveNoteRevision,
+    deleteNoteRevision,
     getArchiveImages,
     upsertArchiveImage,
     deleteArchiveImage,
