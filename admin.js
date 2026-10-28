@@ -1329,6 +1329,7 @@ function bindMainEvents() {
     if (event.target.closest("[data-new-edit]")) { createNewEdit(); return; }
     if (event.target.closest("[data-back-to-edits]")) { renderEdits(); return; }
     if (event.target.closest("[data-new-folder-update]")) { addFolderUpdate(); return; }
+    if (event.target.closest("[data-save-edit-details]")) { saveEditDetails(); return; }
     if (event.target.closest("[data-export-subscribers]")) { exportSubscribersCSV(); return; }
     if (event.target.closest("[data-no-edit]")) return;
 
@@ -2693,7 +2694,7 @@ function renderStudies() {
 
   adminMain.innerHTML = `
     <div class="section-bar section-bar--admin">
-      <span class="section-bar__label">Lookbook</span>
+      <span class="section-bar__label">Folder imagery</span>
       <span class="section-bar__title">Visual Studies</span>
       <button type="button" class="admin-newitem section-bar__action" data-new-study>+ New Study</button>
     </div>
@@ -3210,9 +3211,21 @@ async function renderEditBuilder(editId) {
       </select>
     </div>
     <p style="font-size:12px;color:var(--text-dim);margin:0 0 20px;">
-      'scheduled' previews this folder (and anything published inside it) publicly before the drop opens.
-      'live' reveals the actual product grid.
+      'draft' keeps the folder private. 'scheduled' opens it on the public site so it can fill up over the
+      two weeks (notes, imagery and published updates appear as you add them). 'live' is the drop — it reveals
+      the product grid. 'archived' keeps a finished folder browsable.
     </p>
+
+    <form class="form-card" id="editDetailsForm" novalidate style="margin-bottom:28px;">
+      <div class="section-bar"><span class="section-bar__title">Folder details</span></div>
+      <div class="field-grid">
+        ${textField("Folder number", "number", edit.number ?? "", { id: "editNumber", placeholder: "e.g. 4 → shows as Folder 004" })}
+        ${textField("Drop date", "publish_at", toLocalInputValue(edit.publish_at), { id: "editPublishAt", type: "datetime-local" })}
+        ${textField("Title", "title", edit.title, { id: "editTitle", full: true })}
+        ${textareaField("Standfirst — one or two sentences", "standfirst", edit.standfirst)}
+      </div>
+      <button type="button" class="btn btn--primary" data-save-edit-details>Save details</button>
+    </form>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
       <section>
@@ -3244,6 +3257,41 @@ async function renderEditBuilder(editId) {
       </section>
     </div>
   `;
+}
+
+// <input type="datetime-local"> wants local "YYYY-MM-DDTHH:mm", not an ISO/UTC string.
+function toLocalInputValue(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+async function saveEditDetails() {
+  const form = document.getElementById("editDetailsForm");
+  if (!form) return;
+  const val = name => form.querySelector(`[name="${name}"]`).value.trim();
+
+  const numberRaw = val("number");
+  const number = numberRaw === "" ? null : Number(numberRaw);
+  if (numberRaw !== "" && (!Number.isInteger(number) || number < 1)) {
+    alert("Folder number must be a whole number, 1 or higher.");
+    return;
+  }
+  const title = val("title");
+  if (!title) { alert("A folder needs a title."); return; }
+
+  const publishRaw = val("publish_at");
+  try {
+    await window.PodaMarketplace.updateEdit(currentEditId, {
+      number,
+      title,
+      standfirst: val("standfirst"),
+      publish_at: publishRaw ? new Date(publishRaw).toISOString() : ""
+    });
+  } catch (e) { alert(e.message || "Could not save the folder details."); return; }
+  renderEditBuilder(currentEditId);
 }
 
 async function addPlacementToCurrentEdit(productId) {

@@ -23,33 +23,26 @@
 
   <main class="home-desktop">
     <section class="home-folders" aria-label="Browse poda">
-      <div class="home-folders__grid">
-        <a class="folder-tile" href="drop.html">
-          <img class="folder-tile__icon" src="folder-icon.png" alt="" aria-hidden="true" />
-          <span class="folder-tile__label">The Edit</span>
-        </a>
-        <a class="folder-tile" href="market-notes.html">
-          <img class="folder-tile__icon" src="folder-icon.png" alt="" aria-hidden="true" />
-          <span class="folder-tile__label">Inbox</span>
-        </a>
-        <a class="folder-tile" href="lookbook.html">
-          <img class="folder-tile__icon" src="folder-icon.png" alt="" aria-hidden="true" />
-          <span class="folder-tile__label">Lookbook</span>
-        </a>
-        <a class="folder-tile" href="source.html">
-          <img class="folder-tile__icon" src="folder-icon.png" alt="" aria-hidden="true" />
-          <span class="folder-tile__label">Source</span>
-        </a>
-        <a class="folder-tile" href="sell.html">
-          <img class="folder-tile__icon" src="folder-icon.png" alt="" aria-hidden="true" />
-          <span class="folder-tile__label">Sell with poda</span>
-        </a>
+      <!-- One folder per biweekly release, filled in by folders.js. -->
+      <div class="home-folders__grid" id="folderGrid" aria-live="polite">
+        <p class="status-message">Loading folders…</p>
       </div>
+      <nav class="home-folders__links" aria-label="More from poda">
+        <a href="market-notes.html">Inbox</a>
+        <a href="source.html">Source</a>
+        <a href="sell.html">Sell with poda</a>
+        <a href="about.html">About</a>
+      </nav>
     </section>
   </main>
 
   <footer class="site-footer" data-variant="minimal"></footer>
 
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script src="marketplace-db.js"></script>
+  <script src="folders.js"></script>
   <script src="layout.js"></script>
 </body>
 </html>

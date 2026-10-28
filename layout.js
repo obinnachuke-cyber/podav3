@@ -12,9 +12,9 @@
 
   // Primary navigation — the one source of truth for the site's structure.
   const PRIMARY = [
+    { href: "index.html",        label: "Folders" },
     { href: "drop.html",         label: "The Edit" },
     { href: "market-notes.html", label: "Inbox" },
-    { href: "lookbook.html",     label: "Lookbook" },
     { href: "source.html",       label: "Source" },
     { href: "sell.html",         label: "Sell with poda" }
   ];
@@ -37,7 +37,9 @@
   function activeFileFor(file) {
     if (file === "item.html") return "drop.html";
     if (file === "note.html") return "market-notes.html";
-    if (file === "study.html") return "lookbook.html";
+    // Imagery now lives inside folders, so a study (and a folder) belong
+    // to the Folders section.
+    if (file === "study.html" || file === "folder.html") return "index.html";
     return file;
   }
 

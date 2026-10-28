@@ -21,6 +21,26 @@ Row Level Security policies). See `OVERHAUL_SETUP.md`, `NOTES_SETUP.md`,
 `SUBSCRIBERS_SETUP.md`, and `MARKET_NOTES_STUDIO_SETUP.md` for the SQL/RLS
 each content type needs.
 
+### Release folders
+
+Each biweekly edition is a **folder** — an `edits` row (see
+`MARKETPLACE_SETUP.md`, Step 5/9). `index.html` lists public folders;
+`folder.html?id=<edit id>` shows one. Both are driven by `folders.js` and the
+public readers in `marketplace-db.js`.
+
+- **Admin → Edits → open a folder** sets its number, title, standfirst and drop
+  date, and attaches notes, imagery (Visual Studies), updates and products.
+- **Status drives visibility:** `draft` is private · `scheduled` is open and
+  fills up over the two weeks · `live` is the drop (the product grid appears) ·
+  `archived` stays browsable.
+- **Red dot** on a folder = new material since that visitor last opened it
+  (tracked in the visitor's own `localStorage`; nothing is stored server-side).
+- The folder art is the unmodified SVG set in `assets/folders/`.
+- Run `FOLDERS_PUBLIC_SETUP.sql` once in Supabase so signed-out visitors can
+  read the drop's product data and photos (the original `public_products`
+  view returned empty fields to them).
+- The Lookbook section is retired; `lookbook.html` only redirects.
+
 ### Market Note Publishing Studio (admin editor)
 
 `admin.html`'s Market Note editor is built on [Tiptap](https://tiptap.dev)
@@ -75,8 +95,9 @@ cd dist
 python -m http.server 8090
 ```
 
-Then click through: homepage (`/`), nav links, Market Notes index → an
-individual note, Lookbook → an individual study, The Edit → an individual
+Then click through: homepage (`/`, one folder per edition) → a folder, nav
+links, Market Notes index → an individual note, a study opened from inside a
+folder, The Edit → an individual
 product, the Source and Sell forms, About, and `admin.html` (login gated by
 Supabase Auth). Confirm the mobile nav toggle works at a narrow width, and
 that pages with no data yet (e.g. an empty drop, no published notes) show

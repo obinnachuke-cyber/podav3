@@ -464,7 +464,108 @@
     if (error) throw error;
   }
 
+  /* —— Public folder reads (signed-out visitors). RLS and the public_*
+     views in MARKETPLACE_SETUP.md / FOLDERS_PUBLIC_SETUP.sql do the real
+     gating; the status filters here only keep a signed-in admin's view of
+     the public site identical to a visitor's (admins can otherwise read
+     draft edits). —— */
+  const PUBLIC_EDIT_STATUSES = ["scheduled", "live", "archived"];
+  const EDIT_COLUMNS = "id, number, title, standfirst, status, publish_at, published_at, created_at";
+
+  async function getPublicFolders() {
+    const { data, error } = await client()
+      .from("edits")
+      .select(EDIT_COLUMNS)
+      .in("status", PUBLIC_EDIT_STATUSES)
+      .order("number", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Resolves to null (not an error) for an unknown id, a malformed id, or a
+  // folder that isn't public — all three look the same to a visitor.
+  async function getPublicFolder(id) {
+    const { data, error } = await client()
+      .from("edits")
+      .select(EDIT_COLUMNS)
+      .eq("id", id)
+      .in("status", PUBLIC_EDIT_STATUSES)
+      .maybeSingle();
+    if (error) {
+      if (error.code === "22P02") return null; // not a uuid
+      throw error;
+    }
+    return data;
+  }
+
+  // Each content type loads independently: a failure in one (say the
+  // products view hasn't been updated yet) must not blank the whole folder.
+  async function settled(label, query) {
+    const { data, error } = await query;
+    if (error) {
+      console.warn(`Folder ${label} unavailable:`, error.message);
+      return [];
+    }
+    return data || [];
+  }
+
+  async function getPublicFolderContent(editId) {
+    const c = client();
+    const [notes, studies, updates, products] = await Promise.all([
+      settled("notes", c.from("public_folder_notes").select("note_id, data").eq("edit_id", editId)),
+      settled("studies", c.from("public_folder_studies").select("study_id, data").eq("edit_id", editId)),
+      settled("updates", c.from("folder_updates")
+        .select("id, body, image_path, position, created_at")
+        .eq("edit_id", editId).eq("published", true)
+        .order("position", { ascending: true })),
+      settled("products", c.from("public_products").select("*").eq("edit_id", editId)
+        .order("position", { ascending: true }))
+    ]);
+    return {
+      notes: notes.map(r => ({ ...r.data, id: r.data && r.data.id ? r.data.id : r.note_id })),
+      studies: studies.map(r => ({ ...r.data, id: r.data && r.data.id ? r.data.id : r.study_id })),
+      updates,
+      products
+    };
+  }
+
+  // Latest public-content timestamp (ms) per folder id, used for the
+  // "new material" dot. Selects only a date key out of each jsonb row so the
+  // homepage doesn't download every note body. Never throws — a missing dot
+  // is better than a broken homepage.
+  async function getPublicActivity() {
+    const c = client();
+    const [notes, studies, updates] = await Promise.all([
+      settled("note activity", c.from("public_folder_notes")
+        .select("edit_id, published:data->>publishedAt, created:data->>createdAt")),
+      settled("study activity", c.from("public_folder_studies")
+        .select("edit_id, date:data->>date")),
+      settled("update activity", c.from("folder_updates")
+        .select("edit_id, created_at").eq("published", true))
+    ]);
+    const latest = {};
+    const bump = (editId, value) => {
+      const ms = Date.parse(value);
+      if (editId && Number.isFinite(ms) && ms > (latest[editId] || 0)) latest[editId] = ms;
+    };
+    notes.forEach(r => bump(r.edit_id, r.published || r.created));
+    studies.forEach(r => bump(r.edit_id, r.date));
+    updates.forEach(r => bump(r.edit_id, r.created_at));
+    return latest;
+  }
+
+  function noteMediaUrl(path) {
+    const { data } = client().storage.from("note-media").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
   window.PodaMarketplace = {
+    getPublicFolders,
+    getPublicFolder,
+    getPublicFolderContent,
+    getPublicActivity,
+    noteMediaUrl,
     getSuppliers,
     createSupplier,
     updateSupplier,

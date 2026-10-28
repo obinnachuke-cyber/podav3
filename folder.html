@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#244CFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="poda" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Folder — poda</title>
+  <meta name="description" content="A poda folder: one biweekly edition — a Market Note, imagery, updates and a curated drop, added over two weeks." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <main class="portal-shell">
+    <div id="folderPage" aria-live="polite">
+      <p class="status-message">Opening folder…</p>
+    </div>
+  </main>
+
+  <footer class="site-footer portal-shell"></footer>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script src="marketplace-db.js"></script>
+  <script src="folders.js"></script>
+  <script src="subscribe.js"></script>
+  <script src="layout.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs>
+<linearGradient id="back" x1="0" y1="0" x2=".8" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="#3855FF"/><stop offset="1" stop-color="#192FB8"/></linearGradient>
+<linearGradient id="front" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#3652FF"/><stop offset=".45" stop-color="#2845FF"/><stop offset="1" stop-color="#243EE8"/></linearGradient>
+<linearGradient id="rim" x1="0" y1="0" x2="1" y2=".5"><stop stop-color="#94A4FF" stop-opacity=".7"/><stop offset="1" stop-color="#617AFF" stop-opacity=".15"/></linearGradient>
+</defs><circle cx="847" cy="350" r="67" fill="#16214E" opacity=".1"/><circle cx="847" cy="347" r="65" fill="#E6533D"/></svg>

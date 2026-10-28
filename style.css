@@ -3078,23 +3078,43 @@ button.card-link {
   padding: 40px clamp(20px, 5vw, 48px);
 }
 
-/* Home "desktop" — folder tiles standing in for the primary nav sections.
-   Placeholder icons (plain boxes) until real folder art is dropped in;
-   grid is the real deliverable here, sized to reflow 2 → 3 → 5 across
-   rather than the loosely-scattered desktop-icon look, which doesn't
-   survive narrow viewports. */
+/* Home "desktop" — one folder tile per biweekly release (rendered by
+   folders.js), newest first. Reflows 2 → 3 → 5 across rather than the
+   loosely-scattered desktop-icon look, which doesn't survive narrow
+   viewports. Tracks are capped so a single folder doesn't stretch. */
+.home-folders { width: 100%; max-width: 960px; }
 .home-folders__grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-content: center;
   justify-items: stretch;
   gap: 24px 12px;
 }
+.home-folders__grid .status-message { grid-column: 1 / -1; margin: 0; }
 @media (min-width: 560px) {
-  .home-folders__grid { grid-template-columns: repeat(3, 1fr); justify-items: stretch; gap: 24px 12px; }
+  .home-folders__grid { grid-template-columns: repeat(3, minmax(0, 180px)); }
 }
 @media (min-width: 860px) {
-  .home-folders__grid { grid-template-columns: repeat(5, 1fr); gap: 24px; }
+  .home-folders__grid { grid-template-columns: repeat(5, minmax(0, 170px)); gap: 24px; }
 }
+.home-folders__links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 22px;
+  margin-top: 40px;
+}
+.home-folders__links a {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--text-dim);
+}
+.home-folders__links a:hover,
+.home-folders__links a:focus-visible { color: var(--accent); outline: none; }
 .folder-tile {
   display: flex;
   flex-direction: column;
@@ -3114,11 +3134,44 @@ button.card-link {
 .folder-tile:active {
   transform: scale(0.96);
 }
-.folder-tile__icon {
-  width: 100%;
-  max-width: 96px;
-  height: auto;
+/* The folder SVGs (assets/folders/) are 1024×1024 canvases with the folder
+   sitting in the middle, padded all round. This window crops to the folder
+   plus its notification dot (canvas x 130–930, y 270–780) without touching
+   the files: the image is scaled up 1024/800 and pulled back by the crop
+   offset. Percent margins resolve against the window's WIDTH, which is why
+   the vertical offset is 270/800, not a height fraction. */
+.folder-art {
+  position: relative;
   display: block;
+  width: 100%;
+  aspect-ratio: 800 / 510;
+  overflow: hidden;
+  pointer-events: none;
+}
+.folder-art img {
+  display: block;
+  width: 128%;
+  max-width: none;
+  height: auto;
+  margin-left: -16.25%;
+  margin-top: -33.75%;
+  transition: transform 0.2s ease;
+}
+.folder-tile .folder-art { max-width: 150px; }
+.folder-tile:hover .folder-art img,
+.folder-tile:focus-visible .folder-art img { transform: translateY(-3px); }
+@media (prefers-reduced-motion: reduce) {
+  .folder-art img { transition: none; }
+  .folder-tile:hover .folder-art img,
+  .folder-tile:focus-visible .folder-art img { transform: none; }
+}
+.folder-tile__no {
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
 .folder-tile__label {
   font-family: var(--font);
@@ -3129,6 +3182,138 @@ button.card-link {
   text-align: center;
   line-height: 1.3;
 }
+.folder-tile__state {
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: center;
+}
+.folder-tile__state--live { color: var(--accent); }
+.folder-tile--empty { cursor: default; opacity: 0.55; }
+.folder-tile--empty:hover { background: none; }
+
+/* —— Folder page (folder.html) —— */
+.folder-page { padding: 24px 0 64px; }
+.folder-page__back {
+  display: inline-block;
+  margin-bottom: 20px;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--text-dim);
+}
+.folder-page__back:hover,
+.folder-page__back:focus-visible { color: var(--accent); outline: none; }
+.folder-head {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 4vw, 40px);
+  padding-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+}
+.folder-head .folder-art { flex: 0 0 clamp(96px, 22vw, 200px); width: clamp(96px, 22vw, 200px); }
+.folder-head__no {
+  margin: 0 0 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--text-dim);
+}
+.folder-state {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.folder-state--live { border-color: var(--accent); color: var(--accent); }
+.folder-head__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.7rem, 6vw, 3rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.folder-head__standfirst {
+  margin: 12px 0 0;
+  max-width: 52ch;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+/* Contents list — reads like a directory listing. */
+.folder-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 24px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.folder-index a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font);
+  font-size: 11px;
+  text-decoration: none;
+  color: var(--text);
+}
+.folder-index a span { color: var(--text-faint); }
+.folder-index a em { font-style: normal; color: var(--text-dim); }
+.folder-index a:hover,
+.folder-index a:focus-visible { color: var(--accent); outline: none; }
+.folder-section { padding-top: 36px; scroll-margin-top: calc(var(--header-h) + 12px); }
+.folder-section__count {
+  margin-left: auto;
+  font-family: var(--font);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.folder-updates { list-style: none; margin: 0; padding: 0; }
+.folder-update { padding: 16px 0; border-top: 1px solid var(--border); }
+.folder-update:first-child { border-top: none; }
+.folder-update:last-child { border-bottom: 1px solid var(--border); }
+.folder-update__meta {
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.folder-update__body { margin: 8px 0 0; max-width: 60ch; line-height: 1.6; white-space: pre-wrap; }
+.folder-update__image { display: block; margin-top: 12px; max-width: min(100%, 420px); height: auto; }
+.folder-locked {
+  padding: 22px 18px;
+  border: 1px dashed var(--border);
+  background: var(--bg-box);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.folder-locked p { margin: 0; max-width: 56ch; }
+.folder-locked__label {
+  display: block;
+  margin-bottom: 8px;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.folder-inquire { display: inline-block; margin-top: 8px; }
 
 /* Compact "THE EDIT / VIEW ALL" style section header row, reused for
    Source/Sell operational rows too. */
