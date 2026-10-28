@@ -24,9 +24,13 @@ each content type needs.
 ### Release folders
 
 Each biweekly edition is a **folder** — an `edits` row (see
-`MARKETPLACE_SETUP.md`, Step 5/9). `index.html` lists public folders;
-`folder.html?id=<edit id>` shows one. Both are driven by `folders.js` and the
-public readers in `marketplace-db.js`.
+`MARKETPLACE_SETUP.md`, Step 5/9). The homepage is five folders: **The Edit**
+(`drop.html` — the current release: the live folder if there is one, otherwise
+the newest open one), **Inbox** (all notes and folder updates, each tagged with
+its folder), **Archive** (`archive.html` — `archived` folders),
+**Sell with poda** and **Source**. `folder.html?id=<edit id>` shows any one
+folder. All driven by `folders.js` and the public readers in
+`marketplace-db.js`. Signed-in sellers also get a **My Closet** link.
 
 - **Admin → Edits → open a folder** sets its number, title, standfirst and drop
   date, and attaches notes, imagery (Visual Studies), updates and products.

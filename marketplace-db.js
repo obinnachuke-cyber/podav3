@@ -534,25 +534,42 @@
   // "new material" dot. Selects only a date key out of each jsonb row so the
   // homepage doesn't download every note body. Never throws — a missing dot
   // is better than a broken homepage.
+  // Resolves to { folders: { [editId]: ms }, inbox: ms } — `inbox` is the
+  // newest published note or update anywhere, for the Inbox folder's dot.
   async function getPublicActivity() {
     const c = client();
-    const [notes, studies, updates] = await Promise.all([
+    const [notes, allNotes, studies, updates] = await Promise.all([
       settled("note activity", c.from("public_folder_notes")
         .select("edit_id, published:data->>publishedAt, created:data->>createdAt")),
+      settled("inbox activity", c.from("notes")
+        .select("published:data->>publishedAt, created:data->>createdAt")
+        .eq("data->>status", "published")),
       settled("study activity", c.from("public_folder_studies")
         .select("edit_id, date:data->>date")),
       settled("update activity", c.from("folder_updates")
         .select("edit_id, created_at").eq("published", true))
     ]);
-    const latest = {};
+    const folders = {};
+    let inbox = 0;
+    const ms = value => { const t = Date.parse(value); return Number.isFinite(t) ? t : 0; };
     const bump = (editId, value) => {
-      const ms = Date.parse(value);
-      if (editId && Number.isFinite(ms) && ms > (latest[editId] || 0)) latest[editId] = ms;
+      const t = ms(value);
+      if (editId && t > (folders[editId] || 0)) folders[editId] = t;
     };
     notes.forEach(r => bump(r.edit_id, r.published || r.created));
     studies.forEach(r => bump(r.edit_id, r.date));
     updates.forEach(r => bump(r.edit_id, r.created_at));
-    return latest;
+    allNotes.forEach(r => { inbox = Math.max(inbox, ms(r.published || r.created)); });
+    updates.forEach(r => { inbox = Math.max(inbox, ms(r.created_at)); });
+    return { folders, inbox };
+  }
+
+  // Every published update across public folders, for the Inbox feed.
+  async function getPublicUpdates() {
+    return settled("updates feed", client().from("folder_updates")
+      .select("id, edit_id, body, created_at")
+      .eq("published", true)
+      .order("created_at", { ascending: false }));
   }
 
   function noteMediaUrl(path) {
@@ -565,6 +582,7 @@
     getPublicFolder,
     getPublicFolderContent,
     getPublicActivity,
+    getPublicUpdates,
     noteMediaUrl,
     getSuppliers,
     createSupplier,

@@ -31,15 +31,9 @@ as $$
   );
 $$;
 
-create or replace function public.my_supplier_ids()
-returns setof uuid
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select supplier_id from public.supplier_users where user_id = auth.uid();
-$$;
+-- (public.my_supplier_ids() is defined in Step 2, right after the
+-- supplier_users table it reads from — a SQL-language function's body is
+-- checked at creation, so it can't come before that table exists.)
 
 drop policy if exists "Read own profile" on public.profiles;
 create policy "Read own profile"
@@ -82,6 +76,16 @@ create table if not exists public.supplier_users (
   created_at  timestamptz not null default now(),
   primary key (supplier_id, user_id)
 );
+
+create or replace function public.my_supplier_ids()
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select supplier_id from public.supplier_users where user_id = auth.uid();
+$$;
 
 alter table public.suppliers enable row level security;
 alter table public.supplier_users enable row level security;

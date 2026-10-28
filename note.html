@@ -33,6 +33,7 @@
   <script src="supabase.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="db.js"></script>
+  <script src="marketplace-db.js"></script>
   <!-- Defense-in-depth: note.websiteHtml is already sanitized when the
        Studio saves it (src/editor/render-website.js), but this page is
        what actually calls innerHTML with it, so it sanitizes again. -->
@@ -116,6 +117,18 @@
       const rawBodyHTML = note.websiteHtml || legacyBodyHTML(note.body) || "<p>—</p>";
       const bodyHTML = window.DOMPurify ? window.DOMPurify.sanitize(rawBodyHTML) : escHTML(rawBodyHTML);
 
+      // A note attached to a release folder links back into it.
+      let folderLink = "";
+      if (note.folderId && window.PodaMarketplace) {
+        try {
+          const folder = await window.PodaMarketplace.getPublicFolder(note.folderId);
+          if (folder) {
+            const name = folder.number == null ? "the folder" : "Folder " + String(folder.number).padStart(3, "0");
+            folderLink = `<a href="folder.html?id=${encodeURIComponent(folder.id)}">Open ${escHTML(name)} →</a>`;
+          }
+        } catch (e) { /* the note still reads fine without the link */ }
+      }
+
       page.innerHTML = `
         <article class="note-article">
           ${note.coverImage
@@ -125,6 +138,7 @@
             <p class="note-article__eyebrow">
               <a href="market-notes.html">← Inbox</a>
               <span>${eyebrowMeta}</span>
+              ${folderLink}
             </p>
             <h1 class="note-article__title"><span class="note-article__title-mark">${escHTML(note.title)}</span></h1>
             ${note.subtitle ? `<p class="note-article__subtitle">${escHTML(note.subtitle)}</p>` : ""}

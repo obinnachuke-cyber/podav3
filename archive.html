@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#244CFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="poda" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Archive — poda</title>
+  <meta name="description" content="poda's archive: every past release folder, with its writing, imagery and drop kept intact." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <main class="portal-shell">
+    <section class="page-section">
+      <div class="section-bar">
+        <span class="section-bar__label">Past</span>
+        <span class="section-bar__title">Archive</span>
+      </div>
+      <p class="about__text" style="margin:0 0 28px;max-width:60ch;">Every finished folder, exactly as it was — the writing, the imagery and the drop.</p>
+      <div class="home-folders__grid" id="archiveGrid" aria-live="polite">
+        <p class="status-message">Loading the archive…</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer portal-shell"></footer>
+
+  <script src="supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
+  <script src="db.js"></script>
+  <script src="marketplace-db.js"></script>
+  <script src="folders.js"></script>
+  <script src="subscribe.js"></script>
+  <script src="layout.js"></script>
+</body>
+</html>

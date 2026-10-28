@@ -12,9 +12,9 @@
 
   // Primary navigation — the one source of truth for the site's structure.
   const PRIMARY = [
-    { href: "index.html",        label: "Folders" },
     { href: "drop.html",         label: "The Edit" },
     { href: "market-notes.html", label: "Inbox" },
+    { href: "archive.html",      label: "Archive" },
     { href: "source.html",       label: "Source" },
     { href: "sell.html",         label: "Sell with poda" }
   ];
@@ -37,9 +37,9 @@
   function activeFileFor(file) {
     if (file === "item.html") return "drop.html";
     if (file === "note.html") return "market-notes.html";
-    // Imagery now lives inside folders, so a study (and a folder) belong
-    // to the Folders section.
-    if (file === "study.html" || file === "folder.html") return "index.html";
+    // Imagery now lives inside release folders, so a study and a folder
+    // page both sit under The Edit.
+    if (file === "study.html" || file === "folder.html") return "drop.html";
     return file;
   }
 
@@ -153,11 +153,33 @@
     }
   }
 
+  // Accepted sellers get a clear way back to their closet. Only runs on
+  // pages that load the marketplace data layer, and only for a signed-in
+  // supplier (admins can read every supplier row, so the role is checked
+  // rather than just "has a supplier").
+  async function addClosetLink() {
+    const db = window.PodaDB;
+    const market = window.PodaMarketplace;
+    if (!db || !db.isConfigured || !market) return;
+    try {
+      const profile = await market.myProfile();
+      if (!profile || profile.role !== "supplier") return;
+      const link = `<a href="seller.html">My Closet</a>`;
+      const utility = document.querySelector(".site-header__utility");
+      // The homepage's minimal header has no utility area; its links row
+      // carries the link instead.
+      const homeLinks = document.querySelector(".home-folders__links");
+      if (utility) utility.insertAdjacentHTML("afterbegin", link);
+      if (homeLinks) homeLinks.insertAdjacentHTML("afterbegin", link);
+    } catch (e) { /* no closet link is better than a broken header */ }
+  }
+
   function init() {
     const active = activeFileFor(currentFile());
     renderHeader(active);
     renderFooter();
     bindMobileNav();
+    addClosetLink();
   }
 
   if (document.readyState === "loading") {

@@ -483,6 +483,15 @@ function renderProductPage(items) {
    ============================================================ */
 let inboxNotes = [];
 let inboxFilter = "all";
+// Release folders and their published updates — loaded when marketplace-db.js
+// is on the page, so the Inbox can tag entries with their folder and show
+// folder updates alongside Market Notes in one chronological feed.
+let inboxFolders = {};
+let inboxUpdates = [];
+
+function folderLabel(folder) {
+  return folder.number == null ? "Folder" : `Folder ${String(folder.number).padStart(3, "0")}`;
+}
 
 function noteDateLabel(note) {
   const d = note.publishedAt || note.createdAt;
@@ -497,16 +506,38 @@ function inboxRowHTML(note) {
   const cat = String(note.category || "").toLowerCase();
   const catTag = cat ? `<span class="inbox-row__tag inbox-row__tag--${cat}">${escapeHTML(cat.toUpperCase())}</span>` : "";
   const issue = note.issueNumber ? `<span class="inbox-row__issue">No. ${escapeHTML(String(note.issueNumber))}</span>` : "";
+  const folder = note.folderId ? inboxFolders[note.folderId] : null;
+  const folderTag = folder ? `<span class="inbox-row__issue">${escapeHTML(folderLabel(folder))}</span>` : "";
 
   return `
     <a class="inbox-row" href="note.html?id=${encodeURIComponent(note.id)}">
       <div class="inbox-thumb">${thumb}</div>
       <div class="inbox-row__body">
-        <span class="inbox-row__from">${issue || "poda"} ${catTag}</span>
+        <span class="inbox-row__from">${issue || "poda"} ${catTag} ${folderTag}</span>
         <span class="inbox-row__title">${escapeHTML(note.title || "Untitled")}</span>
         ${note.subtitle ? `<span class="inbox-row__preview">${escapeHTML(note.subtitle)}</span>` : ""}
       </div>
       <span class="inbox-row__date">${escapeHTML(noteDateLabel(note))}</span>
+    </a>
+  `;
+}
+
+// A folder update has no page of its own, so its row opens the folder at
+// its Updates section.
+function inboxUpdateRowHTML(update) {
+  const folder = inboxFolders[update.edit_id];
+  if (!folder) return "";
+  const text = String(update.body || "").trim().replace(/\s+/g, " ");
+  const title = text.length > 110 ? `${text.slice(0, 107)}…` : text;
+  const date = new Date(update.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `
+    <a class="inbox-row" href="folder.html?id=${encodeURIComponent(update.edit_id)}#updates">
+      <div class="inbox-thumb"><div class="inbox-thumb__placeholder"></div></div>
+      <div class="inbox-row__body">
+        <span class="inbox-row__from">poda <span class="inbox-row__tag">UPDATE</span> <span class="inbox-row__issue">${escapeHTML(folderLabel(folder))}</span></span>
+        <span class="inbox-row__title">${escapeHTML(title)}</span>
+      </div>
+      <span class="inbox-row__date">${escapeHTML(date)}</span>
     </a>
   `;
 }
@@ -517,16 +548,29 @@ function renderInbox() {
   if (!list) return;
 
   const published = inboxNotes.filter(n => n.status === "published");
-  const filtered = inboxFilter === "all"
+  const notes = inboxFilter === "all"
     ? published
     : published.filter(n => String(n.category || "").toLowerCase() === inboxFilter);
 
-  if (!filtered.length) {
+  // Updates have no Buy/Sell/Watch category, so they only appear under "All".
+  const entries = notes.map(n => ({
+    ms: Date.parse(n.publishedAt || n.createdAt) || 0,
+    html: inboxRowHTML(n)
+  }));
+  if (inboxFilter === "all") {
+    inboxUpdates.forEach(u => {
+      const html = inboxUpdateRowHTML(u);
+      if (html) entries.push({ ms: Date.parse(u.created_at) || 0, html });
+    });
+  }
+  entries.sort((a, b) => b.ms - a.ms);
+
+  if (!entries.length) {
     list.innerHTML = `<p class="status-message">${published.length ? "Nothing in this category yet." : "No notes published yet."}</p>`;
     return;
   }
   if (empty) empty.remove();
-  list.innerHTML = filtered.map(inboxRowHTML).join("");
+  list.innerHTML = entries.map(e => e.html).join("");
 }
 
 function initInboxTabs() {
@@ -547,8 +591,25 @@ async function loadInbox() {
   if (!list) return;
   try {
     inboxNotes = await window.PodaDB.getNotes();
+
+    // Best effort: without folder data the Inbox is just the Market Notes.
+    if (window.PodaMarketplace && window.PodaMarketplace.getPublicFolders) {
+      try {
+        const [folders, updates] = await Promise.all([
+          window.PodaMarketplace.getPublicFolders(),
+          window.PodaMarketplace.getPublicUpdates()
+        ]);
+        inboxFolders = Object.fromEntries(folders.map(f => [f.id, f]));
+        inboxUpdates = updates;
+      } catch (e) {
+        console.warn("Inbox folder data unavailable:", e);
+      }
+    }
+
     initInboxTabs();
     renderInbox();
+    // Opening the Inbox clears its "new material" dot on the homepage.
+    if (window.PodaFolders) window.PodaFolders.markSeen("inbox");
   } catch (error) {
     console.error(error);
     const empty = document.getElementById("marketNotesEmpty");

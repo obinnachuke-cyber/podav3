@@ -19,6 +19,14 @@
   </header>
 
   <main class="portal-shell">
+    <!-- The Edit = the current release folder (live drop first, otherwise the
+         newest open folder). folders.js fills this in. -->
+    <div id="folderPage" data-mode="current" aria-live="polite">
+      <p class="status-message">Opening the current folder…</p>
+    </div>
+
+    <!-- Original store grid: only shown if no folder has been published yet. -->
+    <div id="legacyEdit" hidden>
     <section class="page-section" style="border-bottom:none;">
 
       <div class="purple-band">
@@ -33,6 +41,7 @@
       <section id="dropGrid" class="items-grid" aria-live="polite"></section>
 
     </section>
+    </div>
   </main>
 
   <footer class="site-footer portal-shell">
@@ -59,6 +68,8 @@
   <script src="supabase.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="db.js"></script>
+  <script src="marketplace-db.js"></script>
+  <script src="folders.js"></script>
   <script src="script.js"></script>
   <script src="subscribe.js"></script>
   <script src="layout.js"></script>

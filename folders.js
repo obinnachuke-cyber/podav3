@@ -94,6 +94,7 @@
     } catch (e) { /* non-fatal */ }
   }
 
+  // `activity` is the per-folder map (folderId → latest content ms).
   function isUnread(folder, activity, seen) {
     if (!seen || folder.status === "archived") return false;
     const opened = seen[folder.id] ? Date.parse(seen[folder.id]) : NaN;
@@ -129,7 +130,37 @@
       </a>`;
   }
 
-  async function bootGrid(mount) {
+  // The Edit is the folder a visitor should land in: the live drop if there
+  // is one, otherwise the newest open (accumulating) folder. Input is already
+  // newest-number-first (see getPublicFolders).
+  function pickCurrent(folders) {
+    const open = folders.filter(f => f.status !== "archived");
+    const live = open.filter(f => f.status === "live");
+    return (live.length ? live : open)[0] || null;
+  }
+
+  // Swap a static tile between the plain and red-dot folder art.
+  function setUnread(tile, unread) {
+    if (!tile) return;
+    const art = tile.querySelector(".folder-art");
+    const img = art && art.querySelector("img");
+    if (img) img.src = unread ? ART.unread : ART.base;
+    if (art) art.classList.toggle("folder-art--unread", unread);
+    const name = tile.dataset.name || "";
+    tile.setAttribute("aria-label", unread ? `${name} — new material` : name);
+  }
+
+  function setSub(tile, text) {
+    const el = tile && tile.querySelector(".folder-tile__state");
+    if (el && text) el.textContent = text;
+  }
+
+  /* —— Homepage: five fixed folders (markup lives in index.html so the
+     links work with no JS). This only enriches them with live state: the
+     current release on The Edit, the past-folder count on Archive, and the
+     new-material dot on The Edit and Inbox. —— */
+  async function bootHome(root) {
+    const tile = key => root.querySelector(`[data-folder="${key}"]`);
     let folders, activity;
     try {
       [folders, activity] = await Promise.all([
@@ -138,26 +169,40 @@
       ]);
     } catch (error) {
       console.error("Could not load folders:", error);
-      mount.innerHTML = `<p class="status-message">Could not load the folders — try refreshing.</p>`;
-      return;
-    }
-
-    if (!folders.length) {
-      // Nothing published yet — a quiet, non-clickable placeholder so the
-      // desktop never looks broken.
-      mount.innerHTML = `
-        <div class="folder-tile folder-tile--empty">
-          ${folderArt(false)}
-          <span class="folder-tile__no">Folder 001</span>
-          <span class="folder-tile__label">Opening soon</span>
-        </div>`;
-      return;
+      return; // the static folders still work
     }
 
     const seen = readSeen();
-    mount.innerHTML = folders
-      .map(f => folderTile(f, isUnread(f, activity, seen)))
-      .join("");
+    const open = folders.filter(f => f.status !== "archived");
+    const current = pickCurrent(folders);
+
+    setSub(tile("edit"), current
+      ? `${folderName(current)} · ${stateInfo(current).label}`
+      : "Opening soon");
+    setUnread(tile("edit"), open.some(f => isUnread(f, activity.folders, seen)));
+
+    const archived = folders.length - open.length;
+    setSub(tile("archive"), archived
+      ? `${archived} past folder${archived === 1 ? "" : "s"}`
+      : "Past folders");
+
+    const inboxOpened = seen && seen.inbox ? Date.parse(seen.inbox) : NaN;
+    setUnread(tile("inbox"), !!seen && activity.inbox > 0 && !(inboxOpened >= activity.inbox));
+  }
+
+  /* —— Archive: past release folders —— */
+  async function bootArchive(mount) {
+    let folders;
+    try {
+      folders = (await market().getPublicFolders()).filter(f => f.status === "archived");
+    } catch (error) {
+      console.error("Could not load folders:", error);
+      mount.innerHTML = `<p class="status-message">Could not load the archive — try refreshing.</p>`;
+      return;
+    }
+    mount.innerHTML = folders.length
+      ? folders.map(f => folderTile(f, false)).join("")
+      : `<p class="status-message">Nothing archived yet. Finished folders are kept here, complete with their writing, imagery and drop.</p>`;
   }
 
   /* ============================================================
@@ -292,7 +337,21 @@
       </section>`;
   }
 
-  function renderFolder(mount, folder, content) {
+  // Other open folders, shown under The Edit so a live drop and the next
+  // folder that is already filling up are both one click away.
+  function alsoOpenSection(others) {
+    if (!others.length) return "";
+    return `
+      <section class="folder-section">
+        <div class="section-bar">
+          <span class="section-bar__label">+</span>
+          <span class="section-bar__title">Also open</span>
+        </div>
+        <div class="home-folders__grid folder-also">${others.map(f => folderTile(f, false)).join("")}</div>
+      </section>`;
+  }
+
+  function renderFolder(mount, folder, content, others) {
     const state = stateInfo(folder);
     const notes = content.notes.slice().sort((a, b) =>
       (Date.parse(b.publishedAt || b.createdAt) || 0) - (Date.parse(a.publishedAt || a.createdAt) || 0));
@@ -328,7 +387,7 @@
 
     mount.innerHTML = `
       <article class="folder-page">
-        <a class="folder-page__back" href="index.html">← All folders</a>
+        <a class="folder-page__back" href="index.html">← Home</a>
         <header class="folder-head">
           ${folderArt(false)}
           <div class="folder-head__text">
@@ -341,48 +400,78 @@
         <nav class="folder-index" aria-label="Contents">${index}</nav>
         ${justOpened}
         ${parts.map((p, i) => section(p.id, i + 1, p.title, p.html, p.count)).join("")}
+        ${alsoOpenSection(others || [])}
       </article>`;
   }
 
+  // Two ways in: folder.html?id=… (any public folder) and The Edit
+  // (data-mode="current"), which resolves to the current release itself.
   async function bootFolder(mount) {
-    const id = new URLSearchParams(window.location.search).get("id");
+    const isEdit = mount.dataset.mode === "current";
     const notFound = message => {
       mount.innerHTML = `
         <div class="product-error">
           <p>${esc(message)}</p>
-          <a class="product-link" href="index.html">← All folders</a>
+          <a class="product-link" href="index.html">← Home</a>
         </div>`;
     };
-    if (!id) { notFound("This folder isn't available."); return; }
 
-    let folder;
+    let folder = null;
+    let others = [];
     try {
-      folder = await market().getPublicFolder(id);
+      if (isEdit) {
+        const all = await market().getPublicFolders();
+        folder = pickCurrent(all);
+        others = folder ? all.filter(f => f.status !== "archived" && f.id !== folder.id) : [];
+      } else {
+        const id = new URLSearchParams(window.location.search).get("id");
+        folder = id ? await market().getPublicFolder(id) : null;
+      }
     } catch (error) {
       console.error("Could not load folder:", error);
       notFound("Could not load this folder — try refreshing.");
       return;
     }
-    if (!folder) { notFound("This folder isn't available."); return; }
 
-    document.title = `${folderName(folder)} — ${folder.title} — poda`;
+    if (!folder) {
+      // The Edit with nothing published yet: fall back to the page's
+      // original store grid if it has one, otherwise say so plainly.
+      const legacy = document.getElementById("legacyEdit");
+      if (isEdit && legacy) { mount.remove(); legacy.hidden = false; return; }
+      notFound(isEdit ? "The first folder opens soon." : "This folder isn't available.");
+      return;
+    }
+
+    document.title = `${isEdit ? "The Edit" : folderName(folder)} — ${folder.title} — poda`;
     const content = await market().getPublicFolderContent(folder.id);
-    renderFolder(mount, folder, content);
+    renderFolder(mount, folder, content, others);
     markSeen(folder.id);
+    // Deep links such as folder.html?id=…#updates (from the Inbox) are
+    // resolved before the content exists, so scroll once it's rendered.
+    const target = window.location.hash && document.getElementById(window.location.hash.slice(1));
+    if (target) target.scrollIntoView();
   }
 
   /* —— Boot —— */
-  function start() {
-    const grid = document.getElementById("folderGrid");
-    const page = document.getElementById("folderPage");
-    if (!grid && !page) return;
+  // Shared with other pages (the Inbox marks itself opened).
+  window.PodaFolders = { markSeen };
 
-    if (!window.PodaDB || !window.PodaDB.isConfigured || !market()) {
-      const target = grid || page;
-      target.innerHTML = `<p class="status-message">Folders are unavailable right now.</p>`;
+  function start() {
+    const home = document.getElementById("homeFolders");
+    const archive = document.getElementById("archiveGrid");
+    const page = document.getElementById("folderPage");
+    if (!home && !archive && !page) return;
+
+    const ready = window.PodaDB && window.PodaDB.isConfigured && market();
+    if (!ready) {
+      // The home folders are static links and still work; the other two
+      // pages have nothing to show without data.
+      const target = archive || page;
+      if (target) target.innerHTML = `<p class="status-message">Folders are unavailable right now.</p>`;
       return;
     }
-    if (grid) bootGrid(grid);
+    if (home) bootHome(home);
+    if (archive) bootArchive(archive);
     if (page) bootFolder(page);
   }
 
