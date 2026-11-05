@@ -11,7 +11,7 @@
 -- ============================================================
 
 insert into public.profiles (user_id, role, full_name)
-values ('YOUR-AUTH-USER-UUID', 'admin', 'Chuke')
+values ('1a81015a-0f19-4aff-8805-54b09f247eb0', 'admin', 'Chuke')
 on conflict (user_id) do update set role = 'admin';
 
 -- Your own inventory as a first-class supplier record, not a typed name.

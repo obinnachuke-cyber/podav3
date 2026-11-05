@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Concept — Market Note (full intensity)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,400;1,9..144,600;1,9..144,900&display=swap" />
+<style>
+  * { box-sizing: border-box; }
+  :root {
+    --bg: #090909;
+    --text: #EFEDE7;
+    --text-dim: #C9C7C1;
+    --accent: #244CFF;
+    --accent-text: #fff;
+    --brass: #c8a86b;
+    --border: rgba(239,237,231,0.18);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font: "Space Mono", "Courier New", monospace;
+  }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
+  img, .ph { display: block; }
+
+  .concept-banner {
+    background: #000;
+    color: var(--brass);
+    font-family: var(--font);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 8px;
+    border-bottom: 1px dashed var(--border);
+  }
+
+  .wrap { max-width: 740px; margin: 0 auto; padding: 0 20px; }
+
+  /* —— Noise/grain texture, reused as a background layer sitting behind
+     whole sections (not a near-invisible overlay this time). —— */
+  .grain {
+    position: relative;
+  }
+  .grain::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      repeating-linear-gradient(115deg, rgba(239,237,231,0.05) 0px, rgba(239,237,231,0.05) 1px, transparent 1px, transparent 3px),
+      radial-gradient(rgba(239,237,231,0.4) 1px, transparent 1.3px);
+    background-size: auto, 4px 4px;
+    opacity: 0.5;
+    mix-blend-mode: overlay;
+    z-index: 0;
+  }
+  .grain > * { position: relative; z-index: 1; }
+
+  /* —— Header —— */
+  .site-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px; border-bottom: 2px solid var(--text);
+  }
+  .site-head__logo { font-family: var(--font-serif); font-style: italic; font-weight: 900; font-size: 22px; }
+  .site-head__nav { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); }
+
+  /* —— Eyebrow: big stamped badge, not a thin text row —— */
+  .eyebrow-row { display: flex; align-items: center; gap: 14px; padding: 28px 20px 0; flex-wrap: wrap; }
+  .stamp {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    transform: rotate(-3deg);
+    border: 2px solid #fff;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+  }
+  .eyebrow-meta { font-size: 11px; letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase; }
+
+  /* —— Headline: full-bleed color block, huge type —— */
+  .headline-band {
+    background: var(--accent);
+    margin-top: 20px;
+    padding: 56px 20px 64px;
+    overflow: hidden;
+  }
+  .headline-band h1 {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 900;
+    font-size: clamp(3rem, 13vw, 6.5rem);
+    line-height: 0.86;
+    letter-spacing: -0.02em;
+    color: #fff;
+    max-width: 740px;
+  }
+  .headline-band p {
+    margin: 18px 0 0;
+    max-width: 56ch;
+    font-family: var(--font);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.85);
+  }
+
+  /* —— Cover image: diagonal placeholder gradient + loud halftone + tape —— */
+  .cover {
+    position: relative;
+    margin: 28px 20px 0;
+    aspect-ratio: 16/9;
+    background: linear-gradient(135deg, #1b1b1e 0%, #33363f 45%, #10131a 100%);
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .cover::before {
+    content: "";
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.9) 1.1px, transparent 1.4px);
+    background-size: 6px 6px;
+    mix-blend-mode: overlay;
+    opacity: 0.85;
+  }
+  .cover::after {
+    content: "SAMPLE IMAGE — PLACEHOLDER";
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; letter-spacing: 0.2em; color: rgba(255,255,255,0.4);
+  }
+  .tape {
+    position: absolute; top: 14px; width: 74px; height: 30px;
+    background: rgba(239,237,231,0.22); border: 1px solid rgba(239,237,231,0.5);
+    z-index: 2;
+  }
+  .tape--l { left: 10%; transform: rotate(-6deg); }
+  .tape--r { right: 10%; transform: rotate(5deg); }
+
+  /* —— Body —— */
+  .body-copy { padding: 36px 20px 0; max-width: 680px; margin: 0 auto; }
+  .body-copy p { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 1.1rem; line-height: 1.7; margin: 0 0 1.3em; }
+
+  /* —— Pull quote: full-bleed brass block, huge italic serif, torn edge —— */
+  .pull-quote-band {
+    position: relative;
+    margin: 48px 0;
+    padding: 52px 20px;
+    background: var(--brass);
+    clip-path: polygon(
+      0% 2%, 4% 0%, 9% 3%, 14% 0%, 19% 2.5%, 24% 0.5%, 29% 3%, 34% 0%, 39% 2%, 44% 0.5%,
+      49% 3%, 54% 0%, 59% 2.5%, 64% 0.5%, 69% 3%, 74% 0%, 79% 2%, 84% 0.5%, 89% 3%, 94% 0%, 100% 2%,
+      100% 98%, 96% 100%, 91% 97%, 86% 100%, 81% 97.5%, 76% 99.5%, 71% 97%, 66% 100%, 61% 98%, 56% 99.5%,
+      51% 97%, 46% 100%, 41% 97.5%, 36% 99.5%, 31% 97%, 26% 100%, 21% 98%, 16% 99.5%, 11% 97%, 6% 100%, 0% 98%
+    );
+  }
+  .pull-quote-band blockquote {
+    margin: 0 auto;
+    max-width: 620px;
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 900;
+    font-size: clamp(1.6rem, 5vw, 2.6rem);
+    line-height: 1.15;
+    color: #15120a;
+    text-align: center;
+  }
+
+  /* —— Liner-notes block: dense mono credits, ink-blot bleeding through —— */
+  .liner {
+    position: relative;
+    margin: 0 20px 48px;
+    padding: 28px 24px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .liner::before {
+    content: "";
+    position: absolute;
+    width: 260px; height: 190px;
+    top: -40px; right: -40px;
+    background: #4fae6e;
+    opacity: 0.9;
+    border-radius: 38% 62% 58% 42% / 42% 38% 62% 58%;
+    z-index: 0;
+  }
+  .liner__inner {
+    position: relative; z-index: 1;
+    columns: 2;
+    column-gap: 24px;
+    font-size: 10.5px;
+    line-height: 1.8;
+    letter-spacing: 0.02em;
+    color: var(--text-dim);
+  }
+  .liner__inner strong { color: var(--text); }
+  @media (max-width: 560px) { .liner__inner { columns: 1; } }
+
+  /* —— Vol stamp —— */
+  .vol-stamp {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin: 0 20px 40px;
+    font-family: var(--font); font-weight: 700; font-size: 12px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    border: 2px solid var(--text); padding: 8px 16px;
+    transform: rotate(2deg);
+  }
+
+  .foot-note { padding: 0 20px 60px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); text-align: center; }
+</style>
+</head>
+<body>
+
+  <div class="concept-banner">Design concept only — not wired into the live site</div>
+
+  <header class="site-head">
+    <span class="site-head__logo">poda</span>
+    <span class="site-head__nav">Inbox ↗</span>
+  </header>
+
+  <div class="eyebrow-row">
+    <span class="stamp">Buy</span>
+    <span class="eyebrow-meta">No. 012 · October 21, 2026</span>
+  </div>
+
+  <div class="headline-band">
+    <h1>Shell<br/>Toe<br/>Season</h1>
+    <p>Why the cleanest silhouette of the last decade is suddenly everywhere again — and what it says about where taste is headed next.</p>
+  </div>
+
+  <div class="cover">
+    <span class="tape tape--l"></span>
+    <span class="tape tape--r"></span>
+  </div>
+
+  <div class="body-copy">
+    <p>Sneakers died, then came back wearing the quietest shoe in the archive. The shell toe never disappeared — it just waited out a decade of maximalism until the room got quiet enough to hear it again.</p>
+    <p>What's different this time is distribution: it's not one brand's comeback story, it's a dozen smaller labels converging on the same silhouette independently, which is usually the signal that a shift is structural, not seasonal.</p>
+  </div>
+
+  <div class="pull-quote-band">
+    <blockquote>"The quietest shoe in the room is the one everyone's actually looking at."</blockquote>
+  </div>
+
+  <div class="body-copy">
+    <p>That's the thesis in one line. The rest of this note is the receipts: three supply chains, two resale charts, and one very loud argument from a sneaker forum we are not going to link to.</p>
+  </div>
+
+  <div class="wrap">
+    <span class="vol-stamp">Market Note · Vol. 012</span>
+  </div>
+
+  <div class="liner grain">
+    <div class="liner__inner">
+      <p><strong>FILED UNDER</strong> — Footwear / Silhouette shift / Low-top revival<br/>
+      <strong>SOURCES</strong> — Internal resale data, three independent label interviews, one very opinionated group chat<br/>
+      <strong>FIRST FLAGGED</strong> — Sourcing Desk, September 2026<br/>
+      <strong>CONFIDENCE</strong> — High on the shift, medium on the timeline<br/>
+      <strong>RELATED</strong> — See Lookbook Vol. 09 for the full visual case<br/>
+      <strong>NEXT</strong> — Revisit in Q1 once the next resale print lands</p>
+    </div>
+  </div>
+
+  <p class="foot-note">— end of note —</p>
+
+</body>
+</html>

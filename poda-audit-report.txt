@@ -1,0 +1,214 @@
+# Poda — current-state audit
+
+Read-only audit. No code or data was changed, no migrations were run, and the live database was not queried.
+Audience: another assistant that will plan changes from this diagnostic.
+
+## 1. Executive summary
+
+- Stack: a static multi-page site (hand-written HTML, one CSS file, vanilla JS) with no framework or router. Supabase provides Postgres, Auth and Storage. A small Cloudflare Worker (_worker.js) handles three /api/* routes and sends mail through Resend. The note editor is Tiptap, prebuilt into poda-editor.bundle.js.
+- Production vs local:
+  - Production matches commit 4fcedbb: it has the 5-folder homepage and the Archive page, and no Lookbook tile.
+  - The local checkout is ahead of production, with uncommitted changes (section 10).
+- Two release systems exist side by side.
+  - The legacy one: drops, items, studies and notes are JSON rows ({id, data jsonb}). home.html, item.html and the old Edit grid still use it.
+  - The new one is relational: edits (folders), edit_placements, products, suppliers and folder_updates. The homepage and folder pages use it.
+- A folder is an `edits` row. There is no "current folder" flag. The public site derives the current folder: the live one first, otherwise the newest open one.
+- Admin: a single page (admin.html, admin.js) with 15 views and a password-only login. The folder workspace is Edits -> open a folder. It has a details form, a status dropdown, product placement, text updates, and attach/detach for notes and studies.
+- Missing in the folder admin: no folder delete, no placement reorder, no editorial-copy UI, no folder preview, no image upload for updates.
+- Notes: a full editor with autosave, and only draft and published states. Editing an already-published note autosaves straight to the live site after 4 seconds.
+- Lookbook (Visual Studies): images are pasted as URLs only, with no upload UI. Studies have no draft state and are public the moment they exist.
+- Access control (from the SQL in the repo; not checked against the database): several legacy tables are world-readable or writable by any signed-in user. Hiding is done in the interface only. Details in section 8.
+- Draft folders: a draft folder does not hide a published note attached to it from the Inbox.
+- Scheduling is manual. publish_at is only a display label, and there is no scheduler.
+- Email: it only goes out from the admin "Send" action on a note. Publishing a note or a folder sends nothing.
+- Database state is unverified. The owner reported running the setup SQL and hitting errors. Whether FOLDERS_PUBLIC_SETUP.sql is applied is unknown.
+
+## 2. Public route map
+
+Cloudflare answers *.html with a 307 redirect to the extensionless path, and the query string is kept (verified: /folder.html?id=test goes to /folder?id=test).
+
+| Route | Purpose | Content source | Status |
+|---|---|---|---|
+| / (index.html) | Homepage: 5 static folder tiles (Edit, Inbox, Archive, Sell, Source) | Tiles are static markup. folders.js (bootHome) adds live labels and red dots from edits, public_folder_* and folder_updates. | Functional. If the DB call fails, the static links still work. The header "Home" link goes to the old home.html. |
+| /drop | "The Edit" = the current release folder | folders.js (pickCurrent) | Functional. If no public folder exists it falls back to the old store grid from items where status is Live. |
+| /folder?id= | One folder: notes, imagery, updates, drop | getPublicFolder plus getPublicFolderContent | Functional. An unknown, draft or malformed id shows "isn't available". |
+| /archive | Folders with status archived | getPublicFolders | Functional (new). |
+| /market-notes | Inbox: published notes plus folder updates, filter Buy/Sell/Watch | notes and folder_updates | Functional. Updates show only under "All". |
+| /note?id= | Article | notes.data (websiteHtml, sanitised by DOMPurify) | Functional. Shows an "Open Folder NNN" link if the note is attached to a public folder. |
+| /lookbook, /study?id= | Visual Studies index and detail | studies | Local only. Production serves a redirect stub on /lookbook, and lookbook.js returns 404 there. |
+| /sell | Seller application (name, email, Instagram, message, photos) | None (form) | Functional. See the note below the table. |
+| /source | Same form, for requesting a piece | None (form) | Functional, same mechanism as /sell. |
+| /seller?invite=... | Seller invite signup, login, product CRUD ("My Closet") | products and related tables, Supabase Auth | Functional. No public link points to it. |
+| /home | Old one-scroll editorial homepage (ticker, featured note, legacy items) | drops, items, notes, studies | Functional, legacy. It is a second homepage. |
+| /item?id= | Legacy product page with CTA | items where status is Live or Sold | Functional, legacy. |
+| /about, /unsubscribe?token= | Static text; unsubscribe | about is static. unsubscribe calls the RPC unsubscribe_by_token. | Functional. |
+| /api/notes-send, /api/unsubscribe, /api/submit-request | Worker routes | Resend, Supabase | See section 6. |
+
+Notes on the table:
+- Seller and sourcing forms: both POST to /api/submit-request, which emails the contact address. Nothing is stored in the database except photos, which go to the public "submissions" bucket.
+- What happens on a click:
+  - A folder tile opens the folder page.
+  - A note row opens the note.
+  - An update row opens the folder at #updates.
+  - A study card opens the study page.
+  - A folder product shows "Inquire", a mailto link (or an Instagram link if no contact email is configured).
+  - Legacy items show their original call to action: email, Instagram DM or partner link.
+  - There is no checkout or payment code anywhere (searched).
+- Mobile: viewport meta and a 2-column folder grid below 560px (3 across above that). The nav has a toggle (layout.js). manifest.json sets display: standalone with the poda wordmark icons and an #244CFF splash colour.
+
+## 3. Admin map
+
+Entry is /admin. A login-gate screen takes a password only, and the email is read from window.PODA_ADMIN_EMAIL in supabase-config.js. It uses real Supabase Auth (signInWithPassword). The view switcher is renderCurrentView(), admin.js:363.
+
+| View | Actions | Status |
+|---|---|---|
+| Dashboard (opens first) | Metrics for the legacy items, plus a marketplace summary | Functional |
+| Suppliers | Create or edit a supplier; create an invite link (seller.html?invite=<token>) | Functional |
+| Review Queue | Accept, decline or request changes on submitted products | Functional |
+| Marketplace Inventory | Cross-supplier product list; clear an availability hold; approve a proposed price | Functional |
+| Edits (folders) | See section 4 | Partial |
+| Closets, Available, Selected, Live, Sold, All Items | The old item pipeline (Closet -> Available -> Selected -> Live -> Sold), item modal, image upload with compression | Functional, legacy |
+| Drops | Old drop records (number, title, thesis, question, status In Assembly / Live / Archived) | Functional, legacy. Does not drive the new folders. |
+| Visual Studies (Lookbook) | Study modal: title, framing, date, cover URL, image URLs, captions, related ids | Functional. URL-only. |
+| Inbox (notes) | Note list -> full-screen Studio editor, Send modal (test, broadcast) | Functional |
+| Subscribers | List, status change, CSV export | Functional |
+| Header actions | Download Excel, Backup (JSON), Restore | Functional (legacy items only, from the code reviewed) |
+
+## 4. Current folder workflow
+
+1. Create. Edits -> "+ New Edit". The title is entered in a browser prompt(). The row is created as draft, with the number, standfirst and date empty.
+2. Details. The builder opens with a form for folder number, drop date, title and standfirst, plus a status dropdown (draft, scheduled, live, archived). The details form needs "Save details". The status dropdown saves the moment you change it.
+3. Products. The left column lists accepted, unplaced products with "+ Add to folder". The right column lists the placements. There is only a Remove button, and new placements are appended at the end.
+4. Updates. "+ New update" uses a browser prompt() for text. New updates are unpublished by default. The only actions are Publish/Unpublish and Delete. There is no text edit and no image, even though the table has an image_path column.
+5. Notes and studies. Published notes and all studies are listed with Attach/Detach. An attachment is a single value stored inside the note or study record, so each can belong to one folder only.
+6. Release. Set the status to scheduled to open the folder publicly (notes, imagery and published updates show; the product grid stays locked). Set it to live to reveal the products. Set it to archived to move it to the Archive page.
+7. Missing: delete a folder, reorder placements, edit a placement's editorial title or copy, preview the public folder, a designated current folder, or any scheduler.
+
+Multiple drafts: allowed. There is no uniqueness on number (SQL: nullable integer).
+
+Current-folder rule (folders.js:pickCurrent, ordering from marketplace-db.js:getPublicFolders): live first, otherwise the newest open one, ordered by number descending (nulls last).
+
+## 5. Data model and relationships
+
+Definitions are from the SQL in the repo, not verified against the database.
+
+| Entity | Storage | Key fields | Link to a folder |
+|---|---|---|---|
+| Folder | edits | number (int), title, standfirst, status, publish_at, published_at | n/a |
+| Placement | edit_placements | edit_id, product_id (unique pair), position, editorial_title, editorial_copy, hero_image_id | Real foreign key. A product can sit in several folders. |
+| Folder update | folder_updates | edit_id, body, image_path, position, published | Foreign key, on delete cascade |
+| Market Note | notes ({id, data jsonb}) | status (draft / published), publishedAt, contentJson, websiteHtml, emailHtml | data.folderId: a loose reference with no foreign key. One folder per note. |
+| Study / lookbook | studies (jsonb) | images[], captions[], coverImage | data.relatedDropId: loose reference. One folder per study. No status field. |
+| Product (new) | products + product_images + product_variants | state (draft / submitted / accepted / declined / withdrawn), is_available, price_cents, proposed_price_cents | Through placements |
+| Seller | suppliers, supplier_users, supplier_invites, profiles | type (consignor / brand / boutique / poda), commission_bps, status | n/a |
+| Legacy item | items (jsonb) | status, dropNumber, closetOwner, ownerMinPayout, commissionPercent, privateNotes, pricing, soldActuals | dropNumber (a text number) |
+| Legacy drop | drops (jsonb) | number (string such as "001"), status (In Assembly / Live / Archived) | Not connected to edits |
+| Subscribers | subscribers (jsonb) | status, unsubscribeToken | n/a |
+| Archive images | archive_images (jsonb) | n/a | None; no code path found that uses it publicly |
+| Requests | None | Sell and Source forms are email only | n/a |
+
+- Ordering: only placements and updates have a position, and the admin never changes it after creation.
+- Folder delete: no function or UI exists. At the database level, placements and updates cascade. A note's or study's folderId is left pointing at nothing. The edit_placements.product_id link uses "on delete restrict", so products can't be deleted while placed.
+- Naming drift: the same idea has several names. The admin calls folders "Edits", the old admin calls them "Drops", and the public site calls them "Folder 004". Numbering is also different in each place: an edits number is an integer, a legacy drops number is a string like "001", and notes and studies have their own issueNumber and studyNumber.
+
+## 6. Publishing and permissions
+
+| Thing | Rule | Enforced in |
+|---|---|---|
+| Folder visible | status in scheduled / live / archived | RLS "Public reads live edits" |
+| Product grid | Only for live folders, via the public_products view | RLS on placements, plus the view |
+| Product photos and seller name | The original view exposed neither. FOLDERS_PUBLIC_SETUP.sql adds both and withholds details when is_available is false. A closet's name is never exposed. | The view. Whether it is applied is UNVERIFIED. |
+| Folder updates | published and the folder is public | RLS |
+| Notes on the folder page | public_folder_notes view: published and folder public | The view |
+| Note drafts | notes read policy allows only status = published | RLS |
+| Unread dots | Per visitor, in localStorage (poda:folderSeen:v1) | The browser only. Dots are not shown when storage is blocked. |
+| Email | Only /api/notes-send. It requires the admin account (checked in the Worker). Test mode sends to the admin address. Broadcast needs confirm: "SEND" and blocks a repeat send unless overridden. It logs to send_logs. | _worker.js |
+
+Do saves change live content?
+- A draft note is private by RLS.
+- A published note is live. Autosave (admin.js: scheduleAutosave, saveStudioNote) writes edits to it about 4 seconds after typing.
+- Studies, drops and legacy items have no draft concept.
+
+Environment names in use (no values read or shown): SUPABASE_URL, SUPABASE_ANON_KEY, SITE_URL, CONTACT_EMAIL (in wrangler.toml [vars]), plus ADMIN_EMAIL and RESEND_API_KEY, which the Worker reads.
+
+## 7. Reusable components and assets
+
+| Need | Where |
+|---|---|
+| Folder art | assets/folders/poda-folder.svg, poda-folder-unread.svg, poda-notification-badge.svg. These are the horizontal originals, unmodified. |
+| Folder rendering and unread state | folders.js (folderArt, setUnread, folderTile). Both SVGs share one 1024x1024 canvas. The .folder-art CSS window crops them to the folder. Unread swaps the src to the red-dot SVG. The badge SVG is shipped but unused. |
+| Folder list and detail | index.html and archive.html (tiles), folder.html, folders.js (renderFolder, noteRow, studyCard, updateItem, productCard, dropSection) |
+| Public data readers | marketplace-db.js (getPublicFolders, getPublicFolderContent, getPublicActivity, getPublicUpdates) |
+| Rich-text editor | src/editor/*, bundled as poda-editor.bundle.js (npm run build:editor). It has image, pull-quote, thesis, sources and product-card blocks (src/editor/nodes/). |
+| Image upload | db.js: uploadImage (item-images), uploadPublicImage (submissions), uploadNoteMedia (note-media, with progress). marketplace-db.js: uploadProductImage (supplier-media). |
+| Admin forms | admin.js: textField, selectField, textareaField, dateField, modal pattern. Styles in admin.css. |
+| Product card | script.js:pieceCard (legacy) and folders.js:productCard (new) |
+| Header, footer, nav | layout.js (single source for nav, plus the My Closet link) |
+
+## 8. Confirmed gaps and unknowns
+
+Severity is a judgement. "Confirmed" means shown by code or SQL in the repo.
+
+| # | Severity | Finding | Evidence | Practical effect |
+|---|---|---|---|---|
+| 1 | High | items, studies and drops are readable by anyone. items holds private fields: ownerMinPayout, commissionPercent, privateNotes, closetOwner, pricing. Filtering is only in the UI. | Policy "Public can read items using (true)" (SUPABASE_SETUP.md, SUPABASE_FOUNDATION.sql); fields in admin.js:blankItem; UI filter in script.js:renderEdit | A visitor who calls the Supabase API directly can read internal pricing and notes. Needs to be verified against the live DB. |
+| 2 | High | Several policies allow any signed-in user, not just the admin. They cover write on items, read/update/delete on subscribers, manage on archive_images, and write on item-images storage. Sign-up is open in the client. | SUPABASE_FOUNDATION.sql ("to authenticated using (true)"); db.js:signUp | Any registered user could read subscriber emails and edit items. The seller invite check is in the UI and the invite RPC, not at sign-up. Unverified against the live DB. |
+| 3 | Medium | Attaching a note to a draft folder does not hide it. Once the note is published it shows in the Inbox and on note.html. | script.js:loadInbox uses getNotes(); the folder gate exists only in the public_folder_notes view | An "embargoed" note can be seen early. |
+| 4 | Medium | Studies are public as soon as they exist, whatever the folder status. | Policy "Public can read studies using (true)"; lookbook.js | Attached lookbook images are visible before the folder opens. |
+| 5 | Medium | Autosave edits a published note live. | admin.js:scheduleAutosave | Half-finished edits can go live. |
+| 6 | Medium | public_products was created with security_invoker = true, and there is no public read policy on products. | MARKETPLACE_APPLY_PART1.sql; no public policy on products | A signed-out visitor sees null product fields, and no photos. FOLDERS_PUBLIC_SETUP.sql fixes it, but it is uncommitted and unverified as applied. |
+| 7 | Medium | /api/submit-request accepts anonymous POSTs and sends an email each time, with no rate limit or bot check. | _worker.js:handleSubmitRequest | Spam risk, and Resend quota use. |
+| 8 | Medium | Two systems for drops and products, and two homepages. The header "Home" link on / opens the legacy page. | layout.js minimal header, home.html, home.js | Visitors and the admin can see different content than expected. |
+| 9 | Medium | The Lookbook has no image upload. | admin.js:buildStudyForm (URL textareas only) | Hard to build image sets from the admin. |
+| 10 | Low | Folder "Updates" are text-only via prompt(). The image column and a body-edit function exist but have no UI. | admin.js:addFolderUpdate; updateFolderUpdate unused | Cannot add pictures or fix a typo. |
+| 11 | Low | updatePlacement (reorder, editorial title, copy, hero image) exists in the data layer and public view but has no admin UI. | marketplace-db.js:updatePlacement; no call in admin.js | Feature is built underneath but not reachable. |
+| 12 | Low | A seller on a new device has no discoverable login. seller.html is only linked from invite emails and from My Closet, which shows only once logged in. | grep seller.html | Returning sellers must keep their invite link. |
+| 13 | Low | MARKETPLACE_SETUP.md defines my_supplier_ids() (line 57) before the table it reads (line 113). That is the error the owner hit. | Doc line numbers | Using that doc fails. The APPLY file has the fix. |
+| 14 | Low | SUPABASE_FULL_SETUP.sql is a pasted copy of three other files. | File header | Can drift from its sources. |
+| 15 | Low | README says Cloudflare Pages. wrangler.toml says a Worker with static assets. shell.js is shipped but no page loads it. | README.md, wrangler.toml, build.js | Misleading docs. |
+| 16 | Info | The .html -> extensionless redirect is a 307. | Verified on production | Harmless; links work. |
+
+Unknowns:
+- Whether the live database matches any SQL in the repo.
+- Whether FOLDERS_PUBLIC_SETUP.sql is applied.
+- Whether Supabase email confirmation is on.
+- How production deploys. Its content matches the latest pushed commit, which fits a git-connected deploy, but the mechanism is not proven.
+
+## 9. Fit with a folder-first admin
+
+Already supports it:
+- A folder record with status, number, standfirst and drop date.
+- Product placements with a foreign key, and a seller approval pipeline feeding them.
+- Published updates, and note and study attachment.
+- Public read rules keyed to folder status.
+- Placement editorial fields in the data layer and the public view.
+
+Needs adjusting:
+- Notes and studies live in a separate area of the admin. Adding them to a folder means attaching existing records. You cannot create a note or study from inside the folder.
+- There is no concept of a "current" folder in the data. It is computed in the public JavaScript.
+- Draft folders do not hide attached published notes, or any study (findings 3 and 4).
+- Publishing is manual per piece. Notes, updates and the folder each have their own publish control.
+- The legacy drops and items admin views still sit beside the new ones.
+
+Would need to be added:
+- Delete or archive-safely for folders, reordering, folder preview, upload in studies and updates, editing updates, and folder-level enforcement for notes and studies. Everything else above is wiring, not new capability.
+
+## 10. Checks performed and limitations
+
+Done:
+- Read the source for the public pages, admin.js (views, folder builder, studio save and autosave), marketplace-db.js, db.js, folders.js, script.js, layout.js, _worker.js, build.js, wrangler.toml (variable names only) and the setup SQL and docs.
+- Ran git status and log, and checked file lists.
+- Made read-only GET requests to the public site, to compare its content to local code.
+- Earlier in the session, rendered the folder pages in a headless browser against stub data.
+
+Not done:
+- No live database queries. RLS, tables and applied migrations were not checked.
+- No authenticated admin session. Admin actions and the email routes were not run.
+- Cloudflare dashboard settings were not checked.
+
+Local vs production:
+- Production is at 4fcedbb (verified by markers: 5 folder tiles, no Lookbook tile, lookbook.js 404).
+- Local uncommitted changes:
+  - Modified: FOLDERS_PUBLIC_SETUP.sql, MARKETPLACE_APPLY_PART1.sql, SUPABASE_FULL_SETUP.sql, README.md, admin.js, build.js, index.html, layout.js, lookbook.html, study.js, style.css.
+  - Untracked: lookbook.js and four scratch items (_icon_backup/, design-concepts/, podainspo/, poda-folder-system.zip).
+  - The practical changes are the restored Lookbook folder, the removed small labels, and the drop-view SQL fix.
