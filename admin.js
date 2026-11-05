@@ -1334,6 +1334,11 @@ function bindMainEvents() {
     if (event.target.closest("[data-new-folder-update]")) { addFolderUpdate(); return; }
     if (event.target.closest("[data-save-edit-details]")) { saveEditDetails(); return; }
     if (event.target.closest("[data-export-subscribers]")) { exportSubscribersCSV(); return; }
+    // Invite sits inside a [data-no-edit] cell (so it doesn't open the row
+    // modal), so it must be handled before the no-edit guard below.
+    const inviteBtn = event.target.closest("[data-supplier-invite]");
+    if (inviteBtn) { createInvite(inviteBtn.dataset.supplierInvite); return; }
+
     if (event.target.closest("[data-no-edit]")) return;
 
     const sendBtn = event.target.closest("[data-send-note]");
@@ -1350,9 +1355,6 @@ function bindMainEvents() {
 
     const supplierRow = event.target.closest("[data-supplier-edit]");
     if (supplierRow) { openSupplierModal(supplierRow.dataset.supplierEdit); return; }
-
-    const inviteBtn = event.target.closest("[data-supplier-invite]");
-    if (inviteBtn) { createInvite(inviteBtn.dataset.supplierInvite); return; }
 
     const acceptBtn = event.target.closest("[data-accept-product]");
     if (acceptBtn) { reviewAccept(acceptBtn.dataset.acceptProduct); return; }
