@@ -3665,3 +3665,81 @@ button.card-link {
 .btn--primary:hover, .btn--primary:focus-visible { background: transparent; color: var(--text); }
 .btn:disabled { opacity: 0.6; cursor: default; }
 
+
+/* ============================================================
+   Folder nav — the primary links on inner pages are the homepage
+   folders, name in white on top. Reuses .folder-art for the crop.
+   ============================================================ */
+.site-nav { align-items: center; gap: 6px; padding: 6px 0; }
+
+.site-nav a.nav-folder {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  width: 96px;
+  padding: 0;
+  border-left: 0;
+  background: none;
+  color: #fff;
+  text-decoration: none;
+}
+.site-nav a.nav-folder:hover,
+.site-nav a.nav-folder:focus-visible,
+.site-nav a.nav-folder.is-active { color: #fff; background: none; outline: none; }
+
+.nav-folder .folder-art { width: 100%; max-width: none; }
+.nav-folder .folder-art img { transition: transform 0.2s ease; }
+.nav-folder:hover .folder-art img,
+.nav-folder:focus-visible .folder-art img { transform: translateY(-2px); }
+
+/* White name, centered on the lower, flat part of the folder */
+.nav-folder__label {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 19%;
+  text-align: center;
+  font-family: var(--font);
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(10, 20, 90, 0.45);
+  pointer-events: none;
+}
+
+/* Current page: a short ink bar under its folder */
+.nav-folder.is-active::after {
+  content: "";
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: -5px;
+  height: 2px;
+  background: var(--text);
+}
+
+@media (min-width: 768px) { :root { --header-h: 72px; } }
+
+/* Phone menu: folders in a two-column grid instead of text rows */
+@media (max-width: 767px) {
+  .site-header.is-open .site-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 14px;
+    align-content: start;
+  }
+  .site-header.is-open .site-nav a.nav-folder {
+    width: 100%;
+    padding: 0;
+    border-bottom: 0;
+  }
+  .site-header.is-open .nav-folder__label { font-size: 11px; bottom: 20%; }
+  .site-header.is-open .nav-folder.is-active::after { bottom: -6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-folder .folder-art img,
+  .nav-folder:hover .folder-art img { transition: none; transform: none; }
+}

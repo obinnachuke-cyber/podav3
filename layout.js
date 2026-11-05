@@ -49,6 +49,16 @@
     return `<a href="${item.href}"${isActive ? ' class="is-active" aria-current="page"' : ""}>${item.label}</a>`;
   }
 
+  // Primary nav items are drawn as the same blue folders as the homepage,
+  // with the name in white on top. The folder crop comes from .folder-art.
+  function folderLinkHTML(item, active) {
+    const isActive = item.href === active;
+    return `<a class="nav-folder${isActive ? " is-active" : ""}" href="${item.href}"${isActive ? ' aria-current="page"' : ""}>
+      <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
+      <span class="nav-folder__label">${item.label}</span>
+    </a>`;
+  }
+
   function renderHeader(active) {
     const header = document.querySelector(".site-header");
     const inner = header && header.querySelector(".site-header__inner");
@@ -67,7 +77,7 @@
     inner.innerHTML = `
       <a class="site-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
       <nav class="site-nav" aria-label="Primary">
-        ${PRIMARY.map(i => linkHTML(i, active)).join("")}
+        ${PRIMARY.map(i => folderLinkHTML(i, active)).join("")}
       </nav>
       <div class="site-header__utility">
         ${SECONDARY.map(i => linkHTML(i, active)).join("")}
