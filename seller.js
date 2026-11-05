@@ -93,7 +93,21 @@ document.getElementById("inviteForm").addEventListener("submit", async event => 
   const token = inviteTokenFromUrl();
 
   try {
-    await window.PodaDB.signUp(email, password);
+    let session = await window.PodaDB.signUp(email, password);
+    if (!session) {
+      // signUp gives no session when the email already has an account, or
+      // when Supabase requires email confirmation. Without a session the
+      // redeem step has no user and would fail with a misleading
+      // "different email address" error, so try signing in first.
+      try {
+        session = await window.PodaDB.signIn(email, password);
+      } catch (signInError) {
+        const msg = String((signInError && signInError.message) || "").toLowerCase();
+        throw new Error(msg.includes("confirm")
+          ? "Check your inbox and confirm your email, then open this invite link again."
+          : "An account with this email may already exist. Use the same password you set before, or reset it, then open this link again.");
+      }
+    }
     await window.PodaMarketplace.redeemSupplierInvite(token);
   } catch (e) {
     errorBox.textContent = e && e.message ? e.message : "Could not create your account.";
