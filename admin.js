@@ -2987,7 +2987,8 @@ async function emailInvite(token) {
     });
     const body = await res.json().catch(() => ({}));
     if (res.ok && body.ok) return { ok: true, to: body.to };
-    return { ok: false, error: body.error || `The email service returned ${res.status}.` };
+    const detail = typeof body.detail === "string" ? ` (${body.detail})` : "";
+    return { ok: false, error: (body.error || `The email service returned ${res.status}.`) + detail };
   } catch (e) {
     return { ok: false, error: "Could not reach the email service." };
   }

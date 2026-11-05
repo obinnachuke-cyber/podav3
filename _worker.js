@@ -36,6 +36,13 @@ async function verifyAdmin(request, env, action = "send Market Notes") {
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return { ok: false, status: 401, error: "Sign in required." };
 
+  // A missing runtime variable looks exactly like a bad login from the
+  // outside, so name it. Only the variable names are reported, never values.
+  const missing = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "ADMIN_EMAIL"].filter(k => !env[k]);
+  if (missing.length) {
+    return { ok: false, status: 500, error: `The server is missing: ${missing.join(", ")}. Set them in Cloudflare.` };
+  }
+
   let res;
   try {
     res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
@@ -47,7 +54,12 @@ async function verifyAdmin(request, env, action = "send Market Notes") {
   } catch (e) {
     return { ok: false, status: 502, error: "Could not verify your session." };
   }
-  if (!res.ok) return { ok: false, status: 401, error: "Invalid or expired session." };
+  if (!res.ok) {
+    // Say what Supabase answered, so "bad key" and "bad login" can be told apart.
+    const why = await res.json().catch(() => ({}));
+    const detail = `Supabase said ${res.status}: ${why.msg || why.message || why.error_description || why.error || "no detail"}`;
+    return { ok: false, status: 401, error: "Invalid or expired session.", detail };
+  }
 
   const user = await res.json().catch(() => null);
   const email = String((user && user.email) || "").toLowerCase();
@@ -571,7 +583,7 @@ async function handleSendInvite(request, env) {
   if (!UUID_RE.test(token)) return json(400, { error: "A valid invite token is required." });
 
   const auth = await verifyAdmin(request, env, "send invites");
-  if (!auth.ok) return json(auth.status, { error: auth.error });
+  if (!auth.ok) return json(auth.status, { error: auth.error, detail: auth.detail });
 
   let rows;
   try {
