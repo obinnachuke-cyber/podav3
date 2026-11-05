@@ -2377,3 +2377,9 @@ article.form-card > div:nth-child(2) { padding: 14px 18px 16px 0; }
 @media (max-width: 559px) {
   .pcard__photo { aspect-ratio: 4 / 5; }
 }
+
+/* Invite status line (Supply → Suppliers) */
+.invite-link__status { font-size: 13px; line-height: 1.45; color: var(--text-dim); }
+.invite-link__status--ok { color: var(--accent); font-weight: 700; }
+.invite-link__status--warn { color: var(--danger); }
+.invite-link__row .btn { flex: 0 0 auto; white-space: nowrap; }

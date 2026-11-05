@@ -66,7 +66,9 @@ revisions and the access fixes. Re-running a base script afterwards replaces
 Then run **`SELLER_CARDS_APPLY.sql`**: it adds `products.size` and
 `products.is_hidden`, lets sellers delete their own never-live pieces, and
 re-creates `public_products` so a hidden piece counts as unavailable. Re-run it
-after any re-run of the release migration.
+after any re-run of the release migration. Then run **`SELLER_INVITES_APPLY.sql`**,
+which locks down the supplier invite list and powers emailed invites; see
+MARKETPLACE_SETUP.md Step 10.
 `FOLDERS_PUBLIC_SETUP.sql` is superseded and refuses to run.
 
 ### Market Note Publishing Studio (admin editor)

@@ -2972,32 +2972,79 @@ async function saveSupplier(existingId) {
   closeModal(); renderSuppliers();
 }
 
+// Ask the worker to email the invite. The worker reads the recipient from the
+// database itself; the browser only sends the token.
+async function emailInvite(token) {
+  try {
+    const session = await window.PodaDB.getSession();
+    const res = await fetch("/api/send-invite", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${session ? session.access_token : ""}`
+      },
+      body: JSON.stringify({ token })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok && body.ok) return { ok: true, to: body.to };
+    return { ok: false, error: body.error || `The email service returned ${res.status}.` };
+  } catch (e) {
+    return { ok: false, error: "Could not reach the email service." };
+  }
+}
+
+// Shows the result under the Suppliers table: whether the email went out,
+// plus the link as a backup that can be copied or re-sent.
+function renderInviteBox(box, { email, link, token, status }) {
+  const statusHTML = status.ok
+    ? `<span class="invite-link__status invite-link__status--ok">Emailed to ${escapeHTML(status.to || email)}</span>`
+    : `<span class="invite-link__status invite-link__status--warn">The invite was created but the email did not send: ${escapeHTML(status.error)} Copy the link below and send it yourself.</span>`;
+
+  box.innerHTML = `
+    ${statusHTML}
+    <span class="invite-link__label">Backup link for ${escapeHTML(email)}</span>
+    <span class="invite-link__row">
+      <input type="text" class="invite-link__input" readonly value="${escapeHTML(link)}" />
+      <button type="button" class="btn" data-no-edit data-copy-invite>Copy</button>
+      <button type="button" class="btn" data-no-edit data-resend-invite>Resend email</button>
+    </span>`;
+
+  const input = box.querySelector(".invite-link__input");
+  input.addEventListener("focus", () => input.select());
+
+  box.querySelector("[data-copy-invite]").addEventListener("click", async event => {
+    try { await navigator.clipboard.writeText(link); event.target.textContent = "Copied"; }
+    catch (e) { input.select(); }
+  });
+
+  box.querySelector("[data-resend-invite]").addEventListener("click", async event => {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = "Sending…";
+    const result = await emailInvite(token);
+    renderInviteBox(box, { email, link, token, status: result });
+  });
+}
+
 async function createInvite(supplierId) {
   const email = prompt("Email address to invite:");
   if (!email) return;
   const box = document.getElementById("inviteLinkBox");
+
+  let invite;
   try {
-    const invite = await window.PodaMarketplace.createSupplierInvite(supplierId, email.trim());
-    const link = `${window.location.origin}/seller.html?invite=${invite.token}`;
-    if (box) {
-      // Readonly field + Copy button so the link is easy to grab and send.
-      box.innerHTML = `
-        <span class="invite-link__label">Invite link for ${escapeHTML(email)}: copy and send it</span>
-        <span class="invite-link__row">
-          <input type="text" class="invite-link__input" readonly value="${escapeHTML(link)}" />
-          <button type="button" class="btn" data-no-edit data-copy-invite>Copy</button>
-        </span>`;
-      const input = box.querySelector(".invite-link__input");
-      input.addEventListener("focus", () => input.select());
-      box.querySelector("[data-copy-invite]").addEventListener("click", async event => {
-        try { await navigator.clipboard.writeText(link); event.target.textContent = "Copied"; }
-        catch (e) { input.select(); }
-      });
-    }
-    try { await navigator.clipboard.writeText(link); } catch (e) { /* clipboard may be unavailable; link is shown either way */ }
+    invite = await window.PodaMarketplace.createSupplierInvite(supplierId, email.trim());
   } catch (e) {
     alert(e && e.message ? e.message : "Could not create the invite.");
+    return;
   }
+
+  const link = `${window.location.origin}/seller.html?invite=${invite.token}`;
+  if (box) {
+    box.innerHTML = `<span class="invite-link__status">Sending the invite email…</span>`;
+  }
+  const status = await emailInvite(invite.token);
+  if (box) renderInviteBox(box, { email: email.trim(), link, token: invite.token, status });
 }
 
 /* ============================================================

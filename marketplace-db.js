@@ -95,15 +95,28 @@
     return data || [];
   }
 
+  // Looks up one unused invite by its token. Uses get_invite_by_token()
+  // from SELLER_INVITES_APPLY.sql, which only ever returns the single invite
+  // whose token you hold. Falls back to the old direct read when that
+  // function is not installed yet, so deploying the code and running the SQL
+  // can happen in either order.
   async function getInviteByToken(token) {
-    const { data, error } = await client()
+    const { data, error } = await client().rpc("get_invite_by_token", { invite_token: token });
+    if (!error) {
+      const row = Array.isArray(data) ? data[0] : data;
+      return row ? { email: row.email, suppliers: { name: row.supplier_name } } : null;
+    }
+    const missing = error.code === "PGRST202" || error.code === "42883" || /could not find the function/i.test(error.message || "");
+    if (!missing) throw error;
+
+    const legacy = await client()
       .from("supplier_invites")
       .select("*, suppliers(name)")
       .eq("token", token)
       .is("used_at", null)
       .maybeSingle();
-    if (error) throw error;
-    return data;
+    if (legacy.error) throw legacy.error;
+    return legacy.data;
   }
 
   async function redeemSupplierInvite(token) {

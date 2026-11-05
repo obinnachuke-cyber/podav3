@@ -31,7 +31,7 @@ function json(status, body) {
    /api/notes-send
    ============================================================ */
 
-async function verifyAdmin(request, env) {
+async function verifyAdmin(request, env, action = "send Market Notes") {
   const authHeader = request.headers.get("Authorization") || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) return { ok: false, status: 401, error: "Sign in required." };
@@ -53,7 +53,7 @@ async function verifyAdmin(request, env) {
   const email = String((user && user.email) || "").toLowerCase();
   const adminEmail = String(env.ADMIN_EMAIL || "").toLowerCase();
   if (!email || !adminEmail || email !== adminEmail) {
-    return { ok: false, status: 403, error: "This account is not authorized to send Market Notes." };
+    return { ok: false, status: 403, error: `This account is not authorized to ${action}.` };
   }
   return { ok: true, token, email };
 }
@@ -496,6 +496,121 @@ async function handleSubmitRequest(request, env) {
 }
 
 /* ============================================================
+   /api/send-invite — emails a supplier their join link.
+   Admin only. The browser sends just the invite token. The recipient
+   address and supplier name are read from the database with the admin's
+   own session, never taken from the request, so this can't be used to
+   send mail to arbitrary addresses.
+   ============================================================ */
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function buildInviteEmail(supplierName, joinUrl, siteUrl) {
+  const name = escapeHTML(supplierName || "poda");
+  const subject = `You're invited to sell with poda`;
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f2f1ed;font-family:Georgia,'Times New Roman',serif;color:#15151a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f1ed;padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #dcdbd6;">
+            <tr>
+              <td style="padding:32px 32px 8px;"><img src="${siteUrl}/logo-blue.png" alt="poda" height="30" style="display:block;height:30px;width:auto;" /></td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#8a8882;">Selective retail / market intelligence</td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 14px;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.12;color:#15151a;">You're invited to join ${name}</td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 26px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#4a4a47;">
+                Create your password to open your closet. Upload your pieces, add the details, and poda chooses what goes live.
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 30px;">
+                <a href="${joinUrl}" style="display:inline-block;background:#15151a;color:#ffffff;text-decoration:none;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;padding:15px 26px;">Create your account &rarr;</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 32px;border-top:1px solid #dcdbd6;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.06em;line-height:1.6;color:#8a8882;">
+                This link is for you only and works once. If the button does not work, paste this into your browser:<br />
+                <span style="word-break:break-all;">${joinUrl}</span>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text =
+    `You're invited to join ${supplierName || "poda"}\n\n` +
+    `Create your password to open your closet. Upload your pieces, add the details, and poda chooses what goes live.\n\n` +
+    `Create your account: ${joinUrl}\n\n` +
+    `This link is for you only and works once.\n\n— poda`;
+
+  return { subject, html, text };
+}
+
+async function handleSendInvite(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (e) {
+    return json(400, { error: "Invalid request body." });
+  }
+
+  const token = String((payload && payload.token) || "").trim();
+  if (!UUID_RE.test(token)) return json(400, { error: "A valid invite token is required." });
+
+  const auth = await verifyAdmin(request, env, "send invites");
+  if (!auth.ok) return json(auth.status, { error: auth.error });
+
+  let rows;
+  try {
+    rows = await supabaseSelect(
+      env, auth.token, "supplier_invites",
+      `token=eq.${encodeURIComponent(token)}&select=email,used_at,suppliers(name)`
+    );
+  } catch (e) {
+    return json(502, { error: "Could not load the invite." });
+  }
+  const invite = rows && rows[0];
+  if (!invite) return json(404, { error: "Invite not found." });
+  if (invite.used_at) return json(409, { error: "This invite has already been used." });
+
+  const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
+  const joinUrl = `${siteUrl}/seller.html?invite=${encodeURIComponent(token)}`;
+  const supplierName = invite.suppliers && invite.suppliers.name;
+  const { subject, html, text } = buildInviteEmail(supplierName, joinUrl, siteUrl);
+
+  let result;
+  try {
+    result = await sendViaResend(env, {
+      from: FROM_ADDRESS,
+      to: [invite.email],
+      reply_to: REPLY_TO,
+      subject,
+      html,
+      text
+    });
+  } catch (e) {
+    return json(502, { error: "Could not reach Resend." });
+  }
+  if (!result.ok) {
+    return json(502, { error: "Resend rejected the invite email.", detail: result.body });
+  }
+  return json(200, { ok: true, to: invite.email });
+}
+
+/* ============================================================
    Router — API routes handled here; everything else falls through
    to the static assets binding (the existing dist/ site, unchanged).
    ============================================================ */
@@ -506,6 +621,7 @@ export default {
     if (url.pathname === "/api/notes-send") return handleNotesSend(request, env);
     if (url.pathname === "/api/unsubscribe") return handleUnsubscribe(request, env);
     if (url.pathname === "/api/submit-request") return handleSubmitRequest(request, env);
+    if (url.pathname === "/api/send-invite") return handleSendInvite(request, env);
 
     return env.ASSETS.fetch(request);
   }

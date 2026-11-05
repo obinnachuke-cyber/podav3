@@ -951,3 +951,32 @@ after `migrations/20261028_release_workspace.sql`:
   draft, declined or withdrawn. A piece placed in a release cannot be deleted
   because `edit_placements.product_id` is `on delete restrict`. The portal
   tells the seller to withdraw it instead.
+
+## Step 10 — Emailed supplier invites
+
+**+ Invite** now emails the seller a branded join link. The browser only sends the
+invite token to `/api/send-invite`. The Worker confirms the caller is the admin,
+reads the recipient address from `supplier_invites` itself, and sends through
+Resend from `notes@podapodapoda.co`. The link is also shown under the Suppliers
+table as a backup, with Copy and Resend email buttons.
+
+Setup, once:
+
+1. Run `SELLER_INVITES_APPLY.sql` in the Supabase SQL editor. It removes the old
+   policy that let anyone list every unused invite, and adds
+   `get_invite_by_token()`, which returns one invite to whoever holds its token.
+2. In Cloudflare, `RESEND_API_KEY` and `ADMIN_EMAIL` must be set as secrets.
+   `ADMIN_EMAIL` must equal the address you sign in to admin with, or the
+   endpoint answers 403.
+3. In Supabase, go to Authentication, Providers, Email and turn off
+   **Confirm email**. The invite email already proves the seller owns the
+   address, so a second confirmation email only adds a step. Do this only after
+   step 1, because the old open invite list would let a stranger claim an
+   invited address.
+
+An account created before step 3 stays unconfirmed. Confirm it once with:
+
+```sql
+update auth.users set email_confirmed_at = now()
+where lower(email) = 'seller@example.com';
+```
