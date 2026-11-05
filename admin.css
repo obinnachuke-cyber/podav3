@@ -1963,3 +1963,65 @@
   font-family: var(--font);
   font-size: 12px;
 }
+
+/* ============================================================
+   Admin layout fix: Supply sub-tabs + content placement.
+   At >=900px the shell is a 2-column grid (150px sidebar + content).
+   The sub-tab bar (#adminTabs) and <main> are separate grid children,
+   so with auto-placement the tabs took the wide column and <main> fell
+   into the 150px sidebar column below it. Pin them explicitly: sidebar
+   spans the rows in column 1; tabs and main stack in column 2.
+   ============================================================ */
+@media (min-width: 900px) {
+  .admin-shell > .admin-sidebar { grid-column: 1; grid-row: span 2; }
+  .admin-shell > #adminTabs,
+  .admin-shell > .admin-main { grid-column: 2; }
+
+  /* Sub-tabs read as one horizontal row, not a second sidebar. */
+  .admin-nav--sub {
+    flex-direction: row;
+    position: static;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .admin-nav--sub .admin-nav__link {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 0 18px;
+    background: none;
+    border-left: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .admin-nav--sub .admin-nav__link.active { border-bottom-color: var(--accent); }
+}
+
+/* Secondary line under a title cell (brand) */
+.cell-sub {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.admin-table tbody td.cell-strong { white-space: normal; }
+
+/* Wider content area on desktop so tables aren't cramped beside the sidebar */
+@media (min-width: 900px) {
+  .admin-shell { width: min(1220px, 100%); }
+}
+
+/* Admin section bars: label + title on the left, action on the right */
+.admin-body .section-bar--admin { justify-content: flex-start; align-items: baseline; }
+.admin-body .section-bar--admin .section-bar__action { margin-left: auto; }
+
+/* Row action buttons stack and stay compact */
+.cell-actions { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.cell-actions .btn { min-height: 34px; padding: 0 12px; white-space: nowrap; }
+.admin-table tbody td.cell-strong { min-width: 170px; }
+
+/* Review Queue card: breathing room around the text column */
+article.form-card > div:nth-child(2) { padding: 14px 18px 16px 0; }

@@ -3111,16 +3111,22 @@ async function renderMarketplaceInventory() {
     const availability = p.state === "accepted"
       ? (p.is_available ? "Available" : "Unavailable (re-review)")
       : "—";
+    const thumb = p.product_images && p.product_images[0]
+      ? `<img class="seller-thumb" src="${escapeHTML(window.PodaMarketplace.productImageUrl(p.product_images[0].path))}" alt="" />`
+      : `<div class="seller-thumb seller-thumb--empty">No photo</div>`;
     return `
       <tr>
-        <td class="cell-strong">${escapeHTML(p.title || "Untitled")}</td>
+        <td>${thumb}</td>
+        <td class="cell-strong">${escapeHTML(p.title || "Untitled")}${p.brand ? `<span class="cell-sub">${escapeHTML(p.brand)}</span>` : ""}</td>
         <td>${escapeHTML(supplier.name || "—")}</td>
-        <td><span class="badge">${escapeHTML(p.state)}</span></td>
+        <td><span class="badge badge--${escapeHTML(p.state)}">${escapeHTML(p.state)}</span></td>
         <td>${escapeHTML(availability)}</td>
         <td class="cell-mono">${dollarsAdmin(p.price_cents)}</td>
         <td>
-          ${p.state === "accepted" && !p.is_available ? `<button type="button" class="btn" data-clear-hold="${escapeHTML(p.id)}">Clear hold</button>` : ""}
-          ${p.proposed_price_cents !== null && p.proposed_price_cents !== undefined ? `<button type="button" class="btn" data-approve-price="${escapeHTML(p.id)}">Approve $${(p.proposed_price_cents / 100).toFixed(2)}</button>` : ""}
+          <div class="cell-actions">
+            ${p.state === "accepted" && !p.is_available ? `<button type="button" class="btn" data-clear-hold="${escapeHTML(p.id)}">Clear hold</button>` : ""}
+            ${p.proposed_price_cents !== null && p.proposed_price_cents !== undefined ? `<button type="button" class="btn" data-approve-price="${escapeHTML(p.id)}">Approve $${(p.proposed_price_cents / 100).toFixed(2)}</button>` : ""}
+          </div>
         </td>
       </tr>
     `;
@@ -3134,7 +3140,7 @@ async function renderMarketplaceInventory() {
     ${marketplaceInventoryCache.length === 0
       ? `<p class="admin-empty">No products yet.</p>`
       : `<div class="table-wrap"><table class="admin-table">
-          <thead><tr><th>Title</th><th>Supplier</th><th>State</th><th>Availability</th><th>Price</th><th></th></tr></thead>
+          <thead><tr><th></th><th>Piece</th><th>Supplier</th><th>State</th><th>Availability</th><th>Price</th><th></th></tr></thead>
           <tbody>${rows}</tbody></table></div>`}
   `;
 }
