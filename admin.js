@@ -2980,7 +2980,19 @@ async function createInvite(supplierId) {
     const invite = await window.PodaMarketplace.createSupplierInvite(supplierId, email.trim());
     const link = `${window.location.origin}/seller.html?invite=${invite.token}`;
     if (box) {
-      box.textContent = `Invite link for ${email} — copy and send it: ${link}`;
+      // Readonly field + Copy button so the link is easy to grab and send.
+      box.innerHTML = `
+        <span class="invite-link__label">Invite link for ${escapeHTML(email)}: copy and send it</span>
+        <span class="invite-link__row">
+          <input type="text" class="invite-link__input" readonly value="${escapeHTML(link)}" />
+          <button type="button" class="btn" data-no-edit data-copy-invite>Copy</button>
+        </span>`;
+      const input = box.querySelector(".invite-link__input");
+      input.addEventListener("focus", () => input.select());
+      box.querySelector("[data-copy-invite]").addEventListener("click", async event => {
+        try { await navigator.clipboard.writeText(link); event.target.textContent = "Copied"; }
+        catch (e) { input.select(); }
+      });
     }
     try { await navigator.clipboard.writeText(link); } catch (e) { /* clipboard may be unavailable; link is shown either way */ }
   } catch (e) {

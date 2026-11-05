@@ -1696,3 +1696,270 @@
 .pe-sources { margin: 16px 0; padding: 12px; border: 1px solid var(--border); }
 .pe-sources__row { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .pe-sources__row:last-child { border-bottom: none; }
+
+/* ============================================================
+   Seller portal (seller.html) — carries the public poda look:
+   blue wordmark, Fraunces headings, Space Mono labels, cobalt
+   accent, warm cream panels. Scoped to .seller-body so the admin
+   screens are untouched.
+   ============================================================ */
+
+/* —— Sign in / invite screens —— */
+.seller-body .login-gate { background: var(--bg-box); }
+
+.seller-body .login-card {
+  max-width: 420px;
+  gap: 16px;
+  padding: 40px 34px 34px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+.login-logo { display: inline-block; align-self: flex-start; }
+.login-logo img { display: block; height: 34px; width: auto; }
+
+.seller-body .login-sub {
+  margin: -4px 0 0;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.login-heading {
+  margin: 8px 0 0;
+  font-family: var(--font-serif);
+  font-size: clamp(26px, 6vw, 32px);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.login-note {
+  margin: -6px 0 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.seller-body .login-card .field span {
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.seller-body .login-card input { background: var(--bg); }
+.seller-body .login-card input[readonly] { background: var(--bg-box); color: var(--text-dim); }
+.seller-body .login-card input:focus-visible { border-color: var(--accent); }
+
+/* —— Buttons: black solid like the public site, cobalt on hover —— */
+.seller-body .btn--primary {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+.seller-body .btn--primary:hover,
+.seller-body .btn--primary:focus-visible {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.seller-body .admin-newitem {
+  background: var(--text);
+  color: var(--bg);
+}
+.seller-body .admin-newitem:hover,
+.seller-body .admin-newitem:focus-visible {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* —— Header —— */
+.seller-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: var(--header-h);
+  padding: 0 max(var(--pad), env(safe-area-inset-left));
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.seller-header .site-logo img { display: block; height: 26px; width: auto; }
+.seller-header__nav { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.seller-header__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.seller-header__out {
+  appearance: none;
+  padding: 8px 0;
+  border: 0;
+  background: none;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text);
+  cursor: pointer;
+}
+.seller-header__out:hover,
+.seller-header__out:focus-visible { color: var(--accent); outline: none; }
+
+/* —— Page shell: one full-width column (the admin shell reserves a
+   150px sidebar column at desktop widths, which squeezed the seller's
+   content into it) —— */
+.seller-shell {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 48px) max(var(--pad), env(safe-area-inset-left));
+}
+.seller-main { min-width: 0; }
+
+.seller-body .section-bar { align-items: flex-end; margin-bottom: 24px; padding-bottom: 16px; }
+.seller-body .section-bar__title {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 5vw, 40px);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.05;
+  text-transform: none;
+}
+.seller-body .section-bar__label { flex-basis: 100%; color: var(--text-faint); }
+.seller-body .section-bar--admin .section-bar__action { margin-left: auto; }
+
+/* Photo thumbnail in the inventory list */
+.seller-thumb {
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  background: var(--image-bg);
+}
+.seller-thumb--empty {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  font-family: var(--font);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.seller-body .admin-table tbody td { height: 64px; }
+.seller-body .admin-table tbody td.cell-strong { white-space: normal; min-width: 180px; }
+
+/* Piece status badges */
+.badge--draft     { color: var(--text-dim); background: var(--bg-box); }
+.badge--submitted { color: var(--signal); border-color: var(--signal); background: transparent; }
+.badge--accepted  { color: #fff; background: var(--accent); border-color: var(--accent); }
+.badge--declined  { color: var(--danger); border-color: var(--danger); background: transparent; }
+.badge--withdrawn { color: var(--text-faint); background: transparent; }
+
+/* How-it-works strip shown above the inventory */
+.seller-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+}
+.seller-steps li {
+  padding: 14px 16px;
+  background: var(--bg-box);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+.seller-steps b {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+@media (max-width: 600px) {
+  .seller-body .login-card { padding: 32px 22px 26px; }
+  .seller-header__nav { gap: 12px; }
+}
+
+/* Field labels inside the seller forms use the site's mono label voice */
+.seller-main .field > span {
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.seller-main .field input,
+.seller-main .field textarea { border-radius: 0; }
+.seller-main .field input:focus,
+.seller-main .field textarea:focus { border-color: var(--accent); }
+
+/* Phones: keep Status, Price and Edit in view by dropping Brand and
+   Availability from the inventory table. */
+@media (max-width: 600px) {
+  .seller-main .admin-table th:nth-child(3),
+  .seller-main .admin-table td:nth-child(3),
+  .seller-main .admin-table th:nth-child(5),
+  .seller-main .admin-table td:nth-child(5) { display: none; }
+  .seller-body .admin-table tbody td.cell-strong { min-width: 120px; }
+}
+
+@media (max-width: 600px) {
+  .seller-main .admin-table th,
+  .seller-main .admin-table td { padding-left: 6px; padding-right: 6px; }
+  .seller-main .admin-table .btn { padding: 0 12px; min-height: 34px; }
+  .seller-main .seller-thumb { width: 40px; height: 40px; }
+  .seller-body .admin-table tbody td.cell-strong { min-width: 0; }
+}
+@media (max-width: 600px) {
+  .seller-main .admin-table th,
+  .seller-main .admin-table td { padding-left: 4px; padding-right: 4px; }
+}
+
+/* Supplier invite link box (Supply → Suppliers). Hidden until an invite is made. */
+#inviteLinkBox:empty { display: none; }
+#inviteLinkBox { display: flex; flex-direction: column; gap: 8px; }
+.invite-link__label {
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.invite-link__row { display: flex; gap: 8px; }
+.invite-link__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+}

@@ -189,9 +189,18 @@ function readForm(form) {
   return out;
 }
 
+// Friendly status wording for sellers; the raw state names stay internal.
+const STATE_LABELS = {
+  draft: "Draft",
+  submitted: "In review",
+  accepted: "Accepted",
+  declined: "Declined",
+  withdrawn: "Withdrawn"
+};
+
 function stateBadge(p) {
-  const label = p.state.charAt(0).toUpperCase() + p.state.slice(1);
-  return `<span class="badge">${escHTML(label)}</span>`;
+  const label = STATE_LABELS[p.state] || p.state;
+  return `<span class="badge badge--${escHTML(p.state)}">${escHTML(label)}</span>`;
 }
 
 function availabilityNote(p) {
@@ -218,15 +227,15 @@ async function renderInventoryList() {
 
   const rows = products.map(p => {
     const thumb = p.product_images && p.product_images[0]
-      ? `<img src="${escHTML(window.PodaMarketplace.productImageUrl(p.product_images[0].path))}" alt="" style="width:40px;height:40px;object-fit:cover;" />`
-      : `<div class="image-placeholder" style="width:40px;height:40px;font-size:8px;">poda</div>`;
+      ? `<img class="seller-thumb" src="${escHTML(window.PodaMarketplace.productImageUrl(p.product_images[0].path))}" alt="" />`
+      : `<div class="seller-thumb seller-thumb--empty">No photo</div>`;
     return `
       <tr data-product-row="${escHTML(p.id)}">
         <td>${thumb}</td>
         <td class="cell-strong">${escHTML(p.title || "Untitled")}</td>
         <td>${escHTML(p.brand || "—")}</td>
         <td>${stateBadge(p)}</td>
-        <td>${p.is_available === false ? `<span class="badge">Unavailable</span>` : "—"}</td>
+        <td>${p.state === "accepted" && p.is_available === false ? `<span class="badge badge--submitted">Off sale</span>` : "—"}</td>
         <td class="cell-mono">${p.price_cents !== null ? "$" + dollars(p.price_cents) : "—"}</td>
         <td>
           <button type="button" class="btn" data-edit-product="${escHTML(p.id)}">Edit</button>
@@ -241,6 +250,11 @@ async function renderInventoryList() {
       <span class="section-bar__title">My Inventory</span>
       <button type="button" class="admin-newitem section-bar__action" id="newProductBtn">+ New Piece</button>
     </div>
+    <ol class="seller-steps">
+      <li><b>1 · Upload</b>Add each piece with photos, condition and your price.</li>
+      <li><b>2 · Submit</b>Send finished pieces to poda for review.</li>
+      <li><b>3 · poda picks</b>Accepted pieces get placed in a release and go live in Shop.</li>
+    </ol>
     ${products.length === 0
       ? `<p class="admin-empty">Nothing here yet — add your first piece.</p>`
       : `<div class="table-wrap"><table class="admin-table">

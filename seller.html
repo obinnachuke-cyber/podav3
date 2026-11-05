@@ -9,13 +9,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Seller portal — poda</title>
   <meta name="description" content="Manage your inventory with poda — submit pieces, track review status, and see what's live." />
+  <meta name="robots" content="noindex" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="admin.css" />
 </head>
-<body class="admin-body">
+<body class="admin-body seller-body">
   <!-- Shown while we figure out: invite token? signed in already? neither? -->
   <div class="login-gate" id="sellerLoading">
-    <div class="login-card"><p class="login-sub">Loading…</p></div>
+    <div class="login-card">
+      <a class="login-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
+      <p class="login-sub">Loading…</p>
+    </div>
   </div>
 
   <!-- Invite redemption: only shown when the URL has ?invite=TOKEN and the
@@ -24,8 +28,10 @@
        locking the field avoids a confusing round-trip to that error. -->
   <div class="login-gate" id="inviteGate" hidden>
     <form class="login-card" id="inviteForm">
-      <h1 class="login-title">poda</h1>
-      <p class="login-sub" id="inviteSupplierName">You've been invited</p>
+      <a class="login-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
+      <p class="login-sub">Selective retail / market intelligence</p>
+      <h1 class="login-heading" id="inviteSupplierName">You've been invited</h1>
+      <p class="login-note">Create a password to open your closet. You'll upload your pieces here and poda chooses what goes live.</p>
       <label class="field field--full">
         <span>Email</span>
         <input type="email" id="inviteEmail" readonly />
@@ -35,15 +41,16 @@
         <input type="password" id="invitePassword" autocomplete="new-password" required minlength="8" />
       </label>
       <p class="login-error" id="inviteError" hidden></p>
-      <button type="submit" class="btn btn--primary" id="inviteSubmitBtn">Create account &amp; join</button>
+      <button type="submit" class="btn btn--primary" id="inviteSubmitBtn">Create account</button>
     </form>
   </div>
 
   <!-- Ordinary returning-supplier sign-in. -->
   <div class="login-gate" id="loginGate" hidden>
     <form class="login-card" id="loginForm">
-      <h1 class="login-title">poda</h1>
-      <p class="login-sub">Supplier sign in</p>
+      <a class="login-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
+      <p class="login-sub">Selective retail / market intelligence</p>
+      <h1 class="login-heading">Seller sign in</h1>
       <label class="field field--full">
         <span>Email</span>
         <input type="email" id="loginEmail" autocomplete="username" required />
@@ -57,20 +64,18 @@
     </form>
   </div>
 
-  <!-- The actual seller app, revealed once signed in and linked to a
-       supplier. Inventory/upload/submission-status build out here next —
-       this pass is the gate everything else depends on. -->
+  <!-- The seller app, revealed once signed in and linked to a supplier. -->
   <div class="admin-app" id="sellerApp" hidden>
-    <header class="site-header site-header--admin">
+    <header class="site-header seller-header">
       <a class="site-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
-      <nav class="site-nav" aria-label="Seller">
-        <span class="admin-public-link" id="sellerSupplierName"></span>
-        <button type="button" class="admin-public-link" id="sellerLogoutBtn">Log out</button>
+      <nav class="seller-header__nav" aria-label="Seller">
+        <span class="seller-header__name" id="sellerSupplierName"></span>
+        <button type="button" class="seller-header__out" id="sellerLogoutBtn">Log out</button>
       </nav>
     </header>
-    <div class="admin-shell">
-      <main class="admin-main" id="sellerMain" aria-live="polite">
-        <p class="admin-empty">Your inventory goes here — next piece of this build.</p>
+    <div class="seller-shell">
+      <main class="seller-main" id="sellerMain" aria-live="polite">
+        <p class="admin-empty">Loading your closet…</p>
       </main>
     </div>
   </div>
