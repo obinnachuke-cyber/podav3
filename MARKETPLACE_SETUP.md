@@ -932,3 +932,22 @@ not just the interface:
 | Same note, but its own `status` is `draft` | the note does **not** appear, even though its folder is public |
 | Set a study's `relatedDropId` to an edit's id, read `public_folder_studies` signed out | the study appears (no status gate — studies have none) |
 | Publish a `folder_updates` row on a `draft` edit | does not appear in `public_folder_notes`-style read; the edit itself isn't public yet either |
+
+## Step 9 — Seller cards: size, hide, delete
+
+The seller portal shows each piece as a flippable card. Three database
+changes back it, all in `SELLER_CARDS_APPLY.sql` at the repo root. Run it
+after `migrations/20261028_release_workspace.sql`:
+
+- **`products.size`** is one text field on the front of the card. It counts
+  as a disclosure change in `products_guard()`, so editing the size of a live
+  piece pulls it from sale for re-review, like condition or brand. Per-size
+  stock still lives in `product_variants`.
+- **`products.is_hidden`** is the seller's own off-sale switch. It is separate
+  from `is_available`, which stays poda's re-review hold: a seller cannot
+  clear a hold by showing a piece again. Hiding does not trigger a re-review.
+  `public_products` treats a hidden piece as unavailable.
+- **Supplier delete policy.** A seller can delete their own pieces in state
+  draft, declined or withdrawn. A piece placed in a release cannot be deleted
+  because `edit_placements.product_id` is `on delete restrict`. The portal
+  tells the seller to withdraw it instead.

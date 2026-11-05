@@ -63,6 +63,10 @@ Apply, in order, in the Supabase SQL editor: the base schema
 deletes nothing; it adds the release columns, the timed-drop views, private note
 revisions and the access fixes. Re-running a base script afterwards replaces
 `public_products` with the older ungated view, so re-run the migration after it.
+Then run **`SELLER_CARDS_APPLY.sql`**: it adds `products.size` and
+`products.is_hidden`, lets sellers delete their own never-live pieces, and
+re-creates `public_products` so a hidden piece counts as unavailable. Re-run it
+after any re-run of the release migration.
 `FOLDERS_PUBLIC_SETUP.sql` is superseded and refuses to run.
 
 ### Market Note Publishing Studio (admin editor)

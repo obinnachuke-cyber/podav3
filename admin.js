@@ -3109,7 +3109,8 @@ async function renderMarketplaceInventory() {
   const rows = marketplaceInventoryCache.map(p => {
     const supplier = p.suppliers || {};
     const availability = p.state === "accepted"
-      ? (p.is_available ? "Available" : "Unavailable (re-review)")
+      ? (p.is_hidden ? "Hidden by seller"
+        : (p.is_available ? "Available" : "Unavailable (re-review)"))
       : "—";
     const thumb = p.product_images && p.product_images[0]
       ? `<img class="seller-thumb" src="${escapeHTML(window.PodaMarketplace.productImageUrl(p.product_images[0].path))}" alt="" />`

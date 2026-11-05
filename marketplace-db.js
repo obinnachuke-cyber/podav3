@@ -160,11 +160,14 @@
     const copy = [
       "title", "brand", "category", "color", "material", "condition",
       "condition_notes", "description", "measurements", "currency",
-      "is_unique", "quantity"
+      "is_unique", "quantity", "size"
     ];
     copy.forEach(k => { if (fields[k] !== undefined) row[k] = fields[k]; });
     if (fields.priceDollars !== undefined) {
-      row.price_cents = Math.round(Number(fields.priceDollars) * 100);
+      // An empty price means "not set yet", not zero dollars.
+      row.price_cents = (fields.priceDollars === "" || fields.priceDollars === null)
+        ? null
+        : Math.round(Number(fields.priceDollars) * 100);
     }
     return row;
   }
@@ -206,11 +209,55 @@
     return data;
   }
 
-  async function deleteProductDraft(id) {
-    // RLS only lets the admin delete (see MARKETPLACE_SETUP.md) — a
-    // supplier removing a draft they never submitted is really a
-    // withdrawal of something that was never live, same button either way.
+  // Take a piece off the market for good while keeping its history.
+  function withdrawProduct(id) {
     return setProductState(id, "withdrawn");
+  }
+
+  // The seller's own off-sale switch (SELLER_CARDS_APPLY.sql). Separate from
+  // is_available, which is poda's re-review hold.
+  async function setProductHidden(id, hidden) {
+    const { data, error } = await client()
+      .from("products")
+      .update({ is_hidden: !!hidden })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Permanent delete. RLS allows a supplier this only for draft, declined
+  // and withdrawn pieces (SELLER_CARDS_APPLY.sql). A piece placed in a release
+  // is blocked by the restrict foreign key; that surfaces as a typed error so
+  // the portal can say "withdraw it instead". Storage files go last, so a
+  // blocked delete leaves the photos alone.
+  async function deleteProduct(id) {
+    const { data: imgs } = await client()
+      .from("product_images").select("path").eq("product_id", id);
+
+    const { data, error } = await client()
+      .from("products").delete().eq("id", id).select("id");
+    if (error) {
+      const placed = error.code === "23503" || /foreign key|violates/i.test(error.message || "");
+      const err = new Error(placed
+        ? "This piece was placed in a release. Withdraw it instead."
+        : (error.message || "Could not delete this piece."));
+      err.code = placed ? "PLACED" : error.code;
+      throw err;
+    }
+    // RLS hides rows the supplier may not delete: zero rows back means no.
+    if (!data || data.length === 0) {
+      const err = new Error("This piece can't be deleted. Withdraw it instead.");
+      err.code = "NOT_DELETABLE";
+      throw err;
+    }
+
+    const paths = (imgs || []).map(i => i.path).filter(Boolean);
+    if (paths.length) {
+      try { await client().storage.from("supplier-media").remove(paths); }
+      catch (e) { /* orphaned files cost nothing user-visible */ }
+    }
   }
 
   /* —— Variants (brand/boutique sizes+stock; unique pieces skip this) —— */
@@ -400,7 +447,9 @@
       .eq("state", "accepted")
       .order("updated_at", { ascending: false });
     if (error) throw error;
-    return data || [];
+    // A piece the seller has hidden can't be placed. Filtered here, not in
+    // the query, so the picker still works before SELLER_CARDS_APPLY.sql runs.
+    return (data || []).filter(p => !p.is_hidden);
   }
 
   async function addPlacement(editId, productId) {
@@ -668,7 +717,7 @@
   async function getPlacementsFull(editId) {
     const { data, error } = await client()
       .from("edit_placements")
-      .select("*, products(title, brand, description, price_cents, currency, state, is_available, quantity, supplier_id, suppliers(name, type), product_images(id, path, position))")
+      .select("*, products(title, brand, description, price_cents, currency, state, is_available, is_hidden, size, quantity, supplier_id, suppliers(name, type), product_images(id, path, position))")
       .eq("edit_id", editId)
       .order("position", { ascending: true });
     if (error) throw error;
@@ -722,7 +771,9 @@
     createProduct,
     updateProduct,
     setProductState,
-    deleteProductDraft,
+    withdrawProduct,
+    setProductHidden,
+    deleteProduct,
     upsertVariant,
     deleteVariant,
     uploadProductImage,

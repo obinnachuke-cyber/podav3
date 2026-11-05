@@ -319,7 +319,7 @@
 
     const productsHTML = d.placements.length ? d.placements.map((p, i) => {
       const pr = p.products || {};
-      const hold = !(pr.state === "accepted" && pr.is_available);
+      const hold = !(pr.state === "accepted" && pr.is_available && !pr.is_hidden);
       const seller = (pr.suppliers || {}).name || "—";
       return `
       <div class="rel-row">
@@ -824,7 +824,7 @@
   function readinessItems(d) {
     const r = d.release;
     const products = d.placements;
-    const held = products.filter(p => { const pr = p.products || {}; return !(pr.state === "accepted" && pr.is_available); }).length;
+    const held = products.filter(p => { const pr = p.products || {}; return !(pr.state === "accepted" && pr.is_available && !pr.is_hidden); }).length;
     const due = r.publish_at ? Date.parse(r.publish_at) : NaN;
     return [
       { ok: r.number != null, required: true, text: "Release number set" },
@@ -1030,7 +1030,7 @@
   function previewProducts(placements) {
     return placements.map(p => {
       const pr = p.products || {};
-      const live = pr.state === "accepted" && pr.is_available;
+      const live = pr.state === "accepted" && pr.is_available && !pr.is_hidden;
       const images = (pr.product_images || []).slice().sort((a, b) =>
         ((b.id === p.hero_image_id) - (a.id === p.hero_image_id)) || (a.position - b.position));
       const sup = pr.suppliers || {};
