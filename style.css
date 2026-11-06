@@ -3668,3 +3668,207 @@ button.card-link {
 /* index.html holds two views; folders.js shows one. The class rules above set
    display on these, which would otherwise override the [hidden] attribute. */
 #landingHome[hidden], #landingShop[hidden] { display: none !important; }
+
+/* ============================================================
+   Folder homepage — a row of six tabbed folders in 3D. Hover or focus
+   one and it lifts and its cards fan out; click goes in. A red stack
+   rises behind a folder with new material. The scene is decorative;
+   .findex underneath is the real navigation.
+   Geometry: the row recedes along Z (i. at the back, vi. at the front)
+   and the whole row is turned so the faces point right and the row
+   climbs to the upper left.
+   ============================================================ */
+.fscene {
+  --fw: 270px;          /* folder width  */
+  --fh: 188px;          /* folder height */
+  --fp: 98px;           /* gap between folders along the row */
+  position: relative;
+  display: flex;
+  justify-content: center;
+  height: clamp(320px, 46vw, 440px);
+  margin: 0 0 8px;
+  perspective: 1700px;
+  perspective-origin: 50% 40%;
+}
+/* Soft contact shadow on the floor under the row */
+.fscene::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: min(560px, 80%);
+  height: 38px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(25, 40, 140, 0.22), rgba(25, 40, 140, 0) 68%);
+  pointer-events: none;
+}
+
+.frow {
+  position: relative;
+  align-self: center;
+  width: var(--fw);
+  height: var(--fh);
+  transform-style: preserve-3d;
+  transform: translate(150px, 22px) rotateX(-17deg) rotateY(38deg);
+}
+
+.fstack {
+  --z: calc((var(--i) - 5) * var(--fp));
+  --lift: 0px;
+  --spread: 5px;
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-style: preserve-3d;
+  transform: translate3d(0, var(--lift), var(--z));
+  transition: transform 0.38s cubic-bezier(0.2, 0.7, 0.2, 1);
+  cursor: pointer;
+  outline: none;
+}
+.fstack:hover,
+.fstack.is-active { --lift: -22px; --spread: 10px; }
+
+/* Idle ripple: a quiet wave runs along the row every few seconds. */
+.fripple {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-style: preserve-3d;
+  animation: fripple 7s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 0.14s + 1s);
+}
+@keyframes fripple {
+  0%, 12%, 100% { transform: translateY(0); }
+  5% { transform: translateY(-9px); }
+}
+
+/* Each card is a plane, stacked behind the front card and nudged up and back */
+.fc {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border-radius: 7px;
+  background: #1f38d6;
+  box-shadow: inset 0 0 0 1px rgba(148, 164, 255, 0.42);
+  transition: transform 0.38s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.4s ease;
+}
+.fc--front {
+  background: linear-gradient(158deg, #3d58ff 0%, #2845ff 46%, #2139e0 100%);
+  box-shadow: inset 0 0 0 1px rgba(186, 198, 255, 0.55), 0 0 0 0.5px rgba(20, 30, 120, 0.4);
+  transform: translateZ(0);
+}
+.fc--b1 { background: #2640ea; transform: translate3d(0, calc(var(--spread) * -1), -6px); }
+.fc--b2 { background: #1f36cc; transform: translate3d(0, calc(var(--spread) * -2), -12px); }
+.fc--b3 { background: #192fb0; transform: translate3d(0, calc(var(--spread) * -3), -18px); }
+.fc--b4 { background: #142694; transform: translate3d(0, calc(var(--spread) * -4), -24px); }
+
+/* Folder tab, top left of the front card, with the numeral */
+.ftab {
+  position: absolute;
+  left: 0;
+  top: -19px;
+  width: 38%;
+  height: 20px;
+  padding: 3px 0 0 11px;
+  border-radius: 7px 0 0 0;
+  background: inherit;
+  clip-path: polygon(0 0, 78% 0, 100% 100%, 0 100%);
+  box-shadow: inset 0 1px 0 rgba(186, 198, 255, 0.55);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1;
+  color: #fff;
+}
+
+/* The red stack: new material. Tucked behind until the folder has some. */
+.fc--r1, .fc--r2, .fc--r3 { opacity: 0; background: #e6533d; box-shadow: inset 0 0 0 1px rgba(255, 190, 180, 0.5); }
+.fc--r1 { transform: translate3d(0, 0, -5px); }
+.fc--r2 { background: #cf4531; transform: translate3d(0, 0, -9px); }
+.fc--r3 { background: #b23927; transform: translate3d(0, 0, -13px); }
+.fstack.is-unread .fc--r1 { opacity: 1; transform: translate3d(0, -34px, -5px); }
+.fstack.is-unread .fc--r2 { opacity: 1; transform: translate3d(0, -42px, -9px); }
+.fstack.is-unread .fc--r3 { opacity: 1; transform: translate3d(0, -50px, -13px); }
+.fstack.is-unread:hover .fc--r1,
+.fstack.is-unread.is-active .fc--r1 { transform: translate3d(0, -44px, -5px); }
+.fstack.is-unread:hover .fc--r2,
+.fstack.is-unread.is-active .fc--r2 { transform: translate3d(0, -54px, -9px); }
+.fstack.is-unread:hover .fc--r3,
+.fstack.is-unread.is-active .fc--r3 { transform: translate3d(0, -64px, -13px); }
+
+/* Others step back while one is held */
+.frow:hover .fstack:not(:hover):not(.is-active) .fripple { opacity: 0.62; }
+.fripple { transition: opacity 0.3s ease; }
+
+/* —— Index: the real navigation under the scene —— */
+.findex {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  width: min(960px, 100%);
+  margin: 0 auto;
+  border-top: 1px solid var(--border);
+}
+.findex__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 14px 14px;
+  border-left: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+.findex__item:first-child { border-left: 0; }
+.findex__item:hover,
+.findex__item:focus-visible,
+.findex__item.is-active { background: var(--purple-deep); outline: none; }
+.findex__no {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--accent);
+}
+.findex__item .folder-tile__label {
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+}
+.findex__item .folder-tile__state {
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  text-align: left;
+}
+.findex__item.is-unread .findex__no::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: #e6533d;
+  vertical-align: 2px;
+}
+
+@media (max-width: 900px) {
+  .findex { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; }
+  .findex__item { border-left: 0; border-top: 1px solid var(--border); }
+}
+@media (max-width: 640px) {
+  .fscene { --fw: 168px; --fh: 124px; --fp: 62px; height: 280px; }
+  .frow { transform: translate(92px, 16px) rotateX(-17deg) rotateY(38deg); }
+  .ftab { font-size: 11px; top: -16px; height: 17px; padding: 2px 0 0 8px; }
+  .findex { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fripple { animation: none; }
+  .fstack, .fc, .fripple { transition: none; }
+}

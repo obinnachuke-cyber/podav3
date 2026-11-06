@@ -165,6 +165,31 @@
     if (art) art.classList.toggle("folder-art--unread", unread);
     const name = tile.dataset.name || "";
     tile.setAttribute("aria-label", unread ? `${name} — new material` : name);
+    // The 3D folder homepage: raise the red stack on this folder and mark its
+    // index entry.
+    tile.classList.toggle("is-unread", !!unread);
+    const scene = document.querySelector(`[data-scene="${tile.dataset.folder}"]`);
+    if (scene) scene.classList.toggle("is-unread", !!unread);
+  }
+
+  // Hovering or focusing a folder in the 3D scene lights its index entry, and
+  // the other way round, so the two always read as one control.
+  function bindFolderScene(root) {
+    if (!root) return;
+    const targets = root.querySelectorAll("[data-scene], [data-folder]");
+    const keyOf = el => el.dataset.scene || el.dataset.folder;
+    const set = (key, on) => {
+      root.querySelectorAll("[data-scene], [data-folder]").forEach(el => {
+        if (keyOf(el) === key) el.classList.toggle("is-active", on);
+      });
+    };
+    targets.forEach(el => {
+      const key = keyOf(el);
+      el.addEventListener("mouseenter", () => set(key, true));
+      el.addEventListener("mouseleave", () => set(key, false));
+      el.addEventListener("focus", () => set(key, true));
+      el.addEventListener("blur", () => set(key, false));
+    });
   }
 
   function setSub(tile, text) {
@@ -601,6 +626,8 @@
       return;
     }
 
+    // The hover link between the scene and the index needs no data.
+    bindFolderScene(homeEl);
     if (folders) bootHome(document.getElementById("homeFolders"));
 
     // Waiting on a scheduled drop: reload at the drop moment, by the server's

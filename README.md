@@ -27,9 +27,13 @@ Each biweekly edition is a **release** (a folder) — an `edits` row. The
 homepage (`index.html`) shows one of two views, chosen by `folders.js`:
 **when a release is in Shop, the homepage is the Shop** (the release plus a
 quiet "next drop" notice). **When nothing is in Shop, it is the folder
-homepage**: six folders, **Shop**, **Inbox** (Market Notes and release
-updates), **Lookbook**, **Archive** (past releases), **Sell with poda** and
-**Source**. The folder homepage reloads itself at a scheduled drop time, so a
+homepage**: a 3D row of six tabbed folders, i. to vi., that lift and fan
+out on hover, with a red card stack behind a folder that has new material.
+The folders are **Shop**, **Inbox** (Market Notes and release updates),
+**Lookbook**, **Archive** (past releases), **Sell with poda** and **Source**.
+An index row under the scene is the real navigation (keyboard, screen
+readers, phones); hovering either one highlights both. The scene is CSS 3D
+(`.fscene` in `style.css`), with no images. The folder homepage reloads itself at a scheduled drop time, so a
 waiting visitor lands on the Shop. `index.html?view=shop` always shows the
 Shop, and the nav's Shop link uses it. If the data can't load, the folder
 homepage is shown, since its links are static. `folder.html?id=<id>` shows any
