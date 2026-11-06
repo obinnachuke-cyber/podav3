@@ -598,7 +598,11 @@
   async function bootLanding() {
     const homeEl = document.getElementById("landingHome");
     const shopEl = document.getElementById("landingShop");
-    const forceShop = new URLSearchParams(window.location.search).get("view") === "shop";
+    // ?view=shop always shows the Shop; ?view=home always shows the folder
+    // homepage, even while a release is live.
+    const view = new URLSearchParams(window.location.search).get("view");
+    const forceShop = view === "shop";
+    const forceHome = view === "home";
 
     let folders = null;
     if (window.PodaDB && window.PodaDB.isConfigured && market()) {
@@ -606,7 +610,7 @@
       catch (error) { console.error("Could not load the landing view:", error); }
     }
     const hasShop = !!(folders && folders.some(f => f.is_shop));
-    const showShop = forceShop || hasShop;
+    const showShop = forceHome ? false : (forceShop || hasShop);
 
     // Header and footer take their look from the view.
     const header = document.getElementById("siteHeader");

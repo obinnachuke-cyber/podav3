@@ -35,7 +35,8 @@ An index row under the scene is the real navigation (keyboard, screen
 readers, phones); hovering either one highlights both. The scene is CSS 3D
 (`.fscene` in `style.css`), with no images. The folder homepage reloads itself at a scheduled drop time, so a
 waiting visitor lands on the Shop. `index.html?view=shop` always shows the
-Shop, and the nav's Shop link uses it. If the data can't load, the folder
+Shop, and the nav's Shop link uses it. `index.html?view=home` always shows the
+folders, even while a release is live. If the data can't load, the folder
 homepage is shown, since its links are static. `folder.html?id=<id>` shows any
 one release. Old URLs redirect: `/shop`, `/drop` and `/item` go to
 `/index.html?view=shop`, and `/home` goes to `/`.
