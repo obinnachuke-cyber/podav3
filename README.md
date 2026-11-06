@@ -27,7 +27,7 @@ Each biweekly edition is a **release** (a folder) — an `edits` row. The
 homepage (`index.html`) shows one of two views, chosen by `folders.js`:
 **when a release is in Shop, the homepage is the Shop** (the release plus a
 quiet "next drop" notice). **When nothing is in Shop, it is the folder
-homepage**: a 3D row of six tabbed folders, i. to vi., that lift and fan
+homepage**: a 3D row of six tabbed folders, each named on its tab, that lift and fan
 out on hover, with a red card stack behind a folder that has new material.
 The folders are **Shop**, **Inbox** (Market Notes and release updates),
 **Lookbook**, **Archive** (past releases), **Sell with poda** and **Source**.

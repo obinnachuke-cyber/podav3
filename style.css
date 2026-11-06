@@ -3681,7 +3681,7 @@ button.card-link {
 .fscene {
   --fw: 270px;          /* folder width  */
   --fh: 188px;          /* folder height */
-  --fp: 98px;           /* gap between folders along the row */
+  --fp: 114px;          /* gap between folders along the row */
   position: relative;
   display: flex;
   justify-content: center;
@@ -3709,7 +3709,7 @@ button.card-link {
   width: var(--fw);
   height: var(--fh);
   transform-style: preserve-3d;
-  transform: translate(150px, 22px) rotateX(-17deg) rotateY(38deg);
+  transform: translate(172px, 22px) rotateX(-17deg) rotateY(38deg);
 }
 
 .fstack {
@@ -3767,9 +3767,10 @@ button.card-link {
   position: absolute;
   left: 0;
   top: -19px;
-  width: 38%;
-  height: 20px;
-  padding: 3px 0 0 11px;
+  min-width: 38%;
+  height: 21px;
+  padding: 3px 20px 0 11px;
+  white-space: nowrap;
   border-radius: 7px 0 0 0;
   background: inherit;
   clip-path: polygon(0 0, 78% 0, 100% 100%, 0 100%);
@@ -3777,8 +3778,8 @@ button.card-link {
   font-family: var(--font-serif);
   font-style: italic;
   font-weight: 600;
-  font-size: 13px;
-  line-height: 1;
+  font-size: 14px;
+  line-height: 1.1;
   color: #fff;
 }
 
@@ -3824,13 +3825,6 @@ button.card-link {
 .findex__item:hover,
 .findex__item:focus-visible,
 .findex__item.is-active { background: var(--purple-deep); outline: none; }
-.findex__no {
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--accent);
-}
 .findex__item .folder-tile__label {
   font-family: var(--font);
   font-size: 11px;
@@ -3846,7 +3840,7 @@ button.card-link {
   color: var(--text-faint);
   text-align: left;
 }
-.findex__item.is-unread .findex__no::after {
+.findex__item.is-unread .folder-tile__label::after {
   content: "";
   display: inline-block;
   width: 7px;
@@ -3862,9 +3856,10 @@ button.card-link {
   .findex__item { border-left: 0; border-top: 1px solid var(--border); }
 }
 @media (max-width: 640px) {
-  .fscene { --fw: 168px; --fh: 124px; --fp: 62px; height: 280px; }
-  .frow { transform: translate(92px, 16px) rotateX(-17deg) rotateY(38deg); }
-  .ftab { font-size: 11px; top: -16px; height: 17px; padding: 2px 0 0 8px; }
+  .fscene { --fw: 160px; --fh: 120px; --fp: 70px; height: 280px; }
+  /* More side-on than desktop so each folder shows its whole name */
+  .frow { transform: translate(122px, 16px) rotateX(-17deg) rotateY(50deg) scale(0.84); }
+  .ftab { font-size: 10.5px; top: -15px; height: 16px; padding: 2px 12px 0 7px; }
   .findex { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
