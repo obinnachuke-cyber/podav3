@@ -6,12 +6,12 @@
   <title>Shop — poda</title>
   <!-- "The Edit" is now Shop. This stub keeps old links and bookmarks working
        and carries any query string / hash across. -->
-  <meta http-equiv="refresh" content="0; url=index.html" />
-  <link rel="canonical" href="index.html" />
+  <meta http-equiv="refresh" content="0; url=index.html?view=shop" />
+  <link rel="canonical" href="index.html?view=shop" />
   <meta name="robots" content="noindex" />
-  <script>window.location.replace("index.html" + window.location.search + window.location.hash);</script>
+  <script>var q = new URLSearchParams(window.location.search); q.set("view", "shop"); window.location.replace("index.html?" + q.toString() + window.location.hash);</script>
 </head>
 <body>
-  <p><a href="index.html">Continue to Shop →</a></p>
+  <p><a href="index.html?view=shop">Continue to Shop →</a></p>
 </body>
 </html>

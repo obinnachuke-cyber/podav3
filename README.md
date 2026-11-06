@@ -24,13 +24,17 @@ each content type needs.
 ### Releases, Shop and the timed drop
 
 Each biweekly edition is a **release** (a folder) — an `edits` row. The
-homepage **is the Shop** (`index.html`: the release currently in Shop plus a
-quiet "next drop" notice). The header nav on every page is six folders:
-**Shop**, **Inbox** (Market Notes and release updates), **Lookbook**,
-**Archive** (past releases), **Sell with poda** and **Source**.
-`folder.html?id=<id>` shows any one release. Old URLs redirect: `/shop`,
-`/drop`, `/item` and `/home` all go to `/`. The earlier folder-desktop
-homepage is in git history before this change.
+homepage (`index.html`) shows one of two views, chosen by `folders.js`:
+**when a release is in Shop, the homepage is the Shop** (the release plus a
+quiet "next drop" notice). **When nothing is in Shop, it is the folder
+homepage**: six folders, **Shop**, **Inbox** (Market Notes and release
+updates), **Lookbook**, **Archive** (past releases), **Sell with poda** and
+**Source**. The folder homepage reloads itself at a scheduled drop time, so a
+waiting visitor lands on the Shop. `index.html?view=shop` always shows the
+Shop, and the nav's Shop link uses it. If the data can't load, the folder
+homepage is shown, since its links are static. `folder.html?id=<id>` shows any
+one release. Old URLs redirect: `/shop`, `/drop` and `/item` go to
+`/index.html?view=shop`, and `/home` goes to `/`.
 
 **The drop is decided by the database clock, not the browser.** A release's
 products are returned by the `public_products` view only once

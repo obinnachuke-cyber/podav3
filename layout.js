@@ -12,7 +12,7 @@
 
   // Primary navigation — the one source of truth for the site's structure.
   const PRIMARY = [
-    { href: "index.html",        label: "Shop" },
+    { href: "index.html?view=shop", label: "Shop" },
     { href: "market-notes.html", label: "Inbox" },
     { href: "lookbook.html",     label: "Lookbook" },
     { href: "archive.html",      label: "Archive" },
@@ -47,7 +47,7 @@
   }
 
   function linkHTML(item, active) {
-    const isActive = item.href === active;
+    const isActive = item.href.split("?")[0] === active;
     return `<a href="${item.href}"${isActive ? ' class="is-active" aria-current="page"' : ""}>${item.label}</a>`;
   }
 
@@ -182,9 +182,18 @@
     addClosetLink();
   }
 
+  // index.html chooses between the Shop and the folder homepage first, so
+  // the header and footer are drawn for the right one. The timeout means a
+  // failed script can never leave the page without a header.
+  function boot() {
+    const ready = window.PODA_LANDING_READY;
+    if (!ready) { init(); return; }
+    Promise.race([ready, new Promise(resolve => setTimeout(resolve, 4000))]).then(init);
+  }
+
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", boot);
   } else {
-    init();
+    boot();
   }
 })();

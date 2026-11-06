@@ -3664,3 +3664,7 @@ button.card-link {
 .btn--primary { background: var(--text); border-color: var(--text); color: var(--bg); }
 .btn--primary:hover, .btn--primary:focus-visible { background: transparent; color: var(--text); }
 .btn:disabled { opacity: 0.6; cursor: default; }
+
+/* index.html holds two views; folders.js shows one. The class rules above set
+   display on these, which would otherwise override the [hidden] attribute. */
+#landingHome[hidden], #landingShop[hidden] { display: none !important; }

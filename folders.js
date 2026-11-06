@@ -492,6 +492,7 @@
       if (!shop) {
         mount.innerHTML = `
           <article class="folder-page shop-page">
+            <a class="folder-page__back" href="index.html">← Home</a>
             <header class="shop-head">
               <p class="folder-head__no">SHOP</p>
               <h1 class="folder-head__title">Shop</h1>
@@ -560,12 +561,75 @@
     load();
   }
 
+  /* ============================================================
+     Landing (index.html) — one address, two views.
+       - a release is in Shop  -> the Shop is the homepage
+       - nothing is in Shop    -> the folder homepage
+     index.html?view=shop always shows the Shop. If the data can't be
+     loaded the folder homepage is shown, because its links are static.
+     The header and footer are drawn by layout.js after this decides, so
+     the page never flashes the wrong one.
+     ============================================================ */
+  async function bootLanding() {
+    const homeEl = document.getElementById("landingHome");
+    const shopEl = document.getElementById("landingShop");
+    const forceShop = new URLSearchParams(window.location.search).get("view") === "shop";
+
+    let folders = null;
+    if (window.PodaDB && window.PodaDB.isConfigured && market()) {
+      try { folders = await market().getPublicFolders(); }
+      catch (error) { console.error("Could not load the landing view:", error); }
+    }
+    const hasShop = !!(folders && folders.some(f => f.is_shop));
+    const showShop = forceShop || hasShop;
+
+    // Header and footer take their look from the view.
+    const header = document.getElementById("siteHeader");
+    const footer = document.getElementById("siteFooter");
+    document.body.classList.toggle("site-body", !showShop);
+    if (!showShop) {
+      if (header) header.dataset.variant = "minimal";
+      if (footer) { footer.dataset.variant = "minimal"; footer.classList.remove("portal-shell"); }
+    }
+    (showShop ? shopEl : homeEl).hidden = false;
+    document.body.dataset.landing = showShop ? "shop" : "home";
+    if (window.__landingResolve) window.__landingResolve();
+
+    if (showShop) {
+      if (folders || (window.PodaDB && window.PodaDB.isConfigured && market())) bootShop(document.getElementById("shopPage"));
+      else document.getElementById("shopPage").innerHTML = `<p class="status-message">This page is unavailable right now.</p>`;
+      return;
+    }
+
+    if (folders) bootHome(document.getElementById("homeFolders"));
+
+    // Waiting on a scheduled drop: reload at the drop moment, by the server's
+    // clock, so a visitor on the folder homepage lands on the Shop.
+    if (folders) {
+      const upcoming = pickUpcoming(folders, Date.now() + clockSkew(folders));
+      if (upcoming) {
+        const wait = Date.parse(upcoming.publish_at) - (Date.now() + clockSkew(folders)) + 1500;
+        if (wait > 0) setTimeout(() => window.location.reload(), Math.min(wait, MAX_TIMEOUT));
+      }
+    }
+  }
+
   /* —— Boot —— */
   // Shared with other pages (the Inbox marks itself opened; the admin
   // renders the private preview with the same markup the public sees).
   window.PodaFolders = { markSeen, renderFolder, stateInfo, folderName };
 
   function start() {
+    // index.html carries both the folder homepage and the Shop.
+    if (document.getElementById("landingHome") && document.getElementById("landingShop")) {
+      bootLanding().catch(error => {
+        console.error("Landing failed:", error);
+        const homeEl = document.getElementById("landingHome");
+        if (homeEl) homeEl.hidden = false;
+        if (window.__landingResolve) window.__landingResolve();
+      });
+      return;
+    }
     const home = document.getElementById("homeFolders");
     const archive = document.getElementById("archiveGrid");
     const page = document.getElementById("folderPage");
