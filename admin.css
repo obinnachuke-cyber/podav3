@@ -2383,3 +2383,217 @@ article.form-card > div:nth-child(2) { padding: 14px 18px 16px 0; }
 .invite-link__status--ok { color: var(--accent); font-weight: 700; }
 .invite-link__status--warn { color: var(--danger); }
 .invite-link__row .btn { flex: 0 0 auto; white-space: nowrap; }
+
+/* ============================================================
+   Pick board, needs-you strip and bulk accept (admin)
+   ============================================================ */
+
+/* —— Needs you —— */
+.ny {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  background: var(--bg-box);
+  border-left: 3px solid var(--signal);
+}
+.ny-label {
+  display: block;
+  margin-bottom: 10px;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.ny-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ny-chip {
+  appearance: none;
+  min-height: 34px;
+  padding: 0 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  cursor: pointer;
+}
+.ny-chip--hot { border-color: var(--accent); color: var(--accent); }
+.ny-chip:hover, .ny-chip:focus-visible { background: var(--text); border-color: var(--text); color: var(--bg); outline: none; }
+.ny-detail { margin: 12px 0 0; padding: 0; list-style: none; font-size: 12px; line-height: 1.6; color: var(--text-dim); }
+.ny-detail li::before { content: "·"; margin-right: 8px; color: var(--text-faint); }
+
+/* —— Pick board —— */
+.pb-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 20px; margin-bottom: 6px; }
+.pb-title { margin: 2px 0 0; font-family: var(--font-serif); font-size: clamp(24px, 3.4vw, 34px); font-weight: 400; line-height: 1.1; }
+
+.pb-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 12px; }
+.pb-filters select,
+.pb-filters input[type="search"],
+.pb-filters input[type="number"] {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+.pb-search { flex: 1 1 220px; min-width: 0; }
+.pb-price { display: inline-flex; gap: 6px; }
+.pb-price input { width: 86px; }
+.pb-filters select:focus, .pb-filters input:focus { outline: none; border-color: var(--accent); }
+.pb-check-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+
+.pb-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+  font-family: var(--font);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.pb-summary__actions { display: inline-flex; gap: 16px; }
+.pb-link {
+  appearance: none;
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid var(--text);
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+.pb-link:hover { color: var(--accent); border-color: var(--accent); }
+
+.pb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+.pb-group { margin: 0 0 26px; }
+.pb-group__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+}
+.pb-group__title i { font-family: var(--font); font-style: normal; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); }
+.pb-group__title b { margin-left: auto; font-family: var(--font); font-size: 11px; color: var(--text-dim); }
+
+.pb-card {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.pb-card:hover { border-color: var(--text); }
+.pb-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pb-card.is-selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.pb-card.is-in { opacity: 0.55; cursor: default; }
+.pb-card.is-in:hover { border-color: var(--border); }
+
+.pb-photo { position: relative; display: block; aspect-ratio: 3 / 4; background: var(--image-bg); overflow: hidden; }
+.pb-photo > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pb-nophoto {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--font); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint);
+}
+.pb-tick {
+  position: absolute; top: 8px; right: 8px;
+  display: grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: #fff; font-size: 14px; font-weight: 700;
+  opacity: 0; transform: scale(0.6); transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.pb-card.is-selected .pb-tick { opacity: 1; transform: scale(1); }
+.pb-badges { position: absolute; left: 8px; bottom: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+.pb-badge {
+  padding: 2px 6px;
+  background: #fff;
+  font-family: var(--font); font-size: 8px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text);
+}
+.pb-badge--new { background: var(--accent); color: #fff; }
+.pb-badge--in { background: var(--text); color: #fff; }
+.pb-badge--hold { background: #fff; color: var(--danger); box-shadow: inset 0 0 0 1px var(--danger); }
+
+.pb-meta { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 12px; min-width: 0; }
+.pb-brand { font-family: var(--font); font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint); }
+.pb-name { font-size: 13px; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.pb-line { font-family: var(--font); font-size: 11px; color: var(--text-dim); }
+.pb-seller { margin-top: 4px; font-size: 11px; color: var(--text-dim); }
+.pb-seller i { margin-left: 6px; font-family: var(--font); font-style: normal; font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint); }
+
+/* The tray follows you down the page */
+.pb-tray {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin: 24px 0 0;
+  padding: 12px 16px;
+  background: var(--bg);
+  border-top: 1px solid var(--text);
+  box-shadow: 0 -10px 24px rgba(20, 20, 30, 0.08);
+}
+.pb-tray__main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; min-width: 0; }
+.pb-tray__count { font-family: var(--font-serif); font-size: 20px; font-weight: 400; }
+.pb-tray__sellers { font-family: var(--font); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+.pb-tray__note { font-size: 11px; color: var(--text-faint); }
+.pb-tray__note--warn { color: var(--danger); }
+.pb-tray__actions { display: flex; gap: 8px; }
+
+/* —— Bulk accept —— */
+.bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  margin: 0 0 16px;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+.bulk-all { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.bulk-bar select { min-height: 36px; padding: 0 10px; border: 1px solid var(--border); background: var(--bg); font-size: 13px; }
+.bulk-count { margin-left: auto; font-family: var(--font); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); }
+.bulk-check {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  display: grid; place-items: center;
+  width: 30px; height: 30px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border-light);
+  cursor: pointer;
+}
+.bulk-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+
+@media (max-width: 640px) {
+  .pb-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .pb-tray { padding: 10px 12px; }
+  .pb-tray__actions { width: 100%; }
+  .pb-tray__actions .btn { flex: 1; }
+}
+
+/* body{overflow-x:hidden} makes the body a scroll container, so a sticky bar
+   (the pick board tray) never sticks to the window. clip keeps the sideways
+   clipping without that side effect. */
+body.admin-body { overflow-x: clip; }

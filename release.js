@@ -243,6 +243,7 @@
     else if (R.tab === "preview") await renderPreview(body);
     else renderActivity(body);
     window.scrollTo(0, keepScroll);
+    if (window.PodaPickBoard) window.PodaPickBoard.mountNeedsYou();
   }
 
   /* ============================================================
@@ -321,11 +322,18 @@
       const pr = p.products || {};
       const hold = !(pr.state === "accepted" && pr.is_available && !pr.is_hidden);
       const seller = (pr.suppliers || {}).name || "—";
+      const rawType = (pr.suppliers || {}).type || "";
+      const sellerType = rawType === "poda" ? "" : rawType; // "poda · poda" says nothing
+      const firstImg = (pr.product_images || []).slice().sort((x, y) => x.position - y.position)[0];
+      const thumb = firstImg
+        ? `<img class="seller-thumb" src="${esc(A().productImageUrl(firstImg.path))}" alt="" />`
+        : `<div class="seller-thumb seller-thumb--empty">No photo</div>`;
       return `
       <div class="rel-row">
+        ${thumb}
         <div class="rel-row__main">
           <p class="rel-row__title">${i + 1}. ${esc(p.editorial_title || pr.title || "Untitled")}</p>
-          <p class="rel-row__meta">${esc(pr.brand || "")} · ${esc(seller)}
+          <p class="rel-row__meta">${esc(pr.brand || "")} · ${esc(seller)}${sellerType ? ` · ${esc(sellerType)}` : ""}
             ${hold ? chip("On hold / not available", false) : ""}
             ${p.editorial_title || p.editorial_copy ? " · custom copy" : ""}</p>
         </div>
@@ -736,37 +744,14 @@
     await renderWorkspace();
   }
 
-  /* —— Products picker (accepted supplier products only) —— */
-  async function openProductPicker() {
-    R.modal = { kind: "picker" };
-    openModalHTML("Select products", `<p class="rel-note">Loading accepted products…</p>`,
-      `<button type="button" class="btn" data-rel="close-modal">Close</button>`);
-    let accepted;
-    try { accepted = await A().getAcceptedProducts(); }
-    catch (e) { modalError(e.message); return; }
-    const placed = new Set(R.data.placements.map(p => p.product_id));
-    const rows = accepted.filter(p => !placed.has(p.id)).map(p => `
-      <div class="rel-row">
-        <div class="rel-row__main">
-          <p class="rel-row__title">${esc(p.title || "Untitled")}</p>
-          <p class="rel-row__meta">${esc(p.brand || "")} · ${esc((p.suppliers || {}).name || "—")}
-            ${p.is_available ? "" : chip("On hold", false)}
-            ${p.price_cents != null ? " · $" + (p.price_cents / 100).toFixed(0) : ""}</p>
-        </div>
-        <button type="button" class="btn" data-rel="add-product" data-id="${esc(p.id)}">Add</button>
-      </div>`).join("") || `<p class="rel-note">Nothing accepted and unplaced. Accept products in Supply → Review Queue first.</p>`;
-    openModalHTML("Select products", `
-      <p class="rel-note">Only accepted products can be selected. Selecting a product does not publish it — the release's drop time does.</p>${rows}`,
-      `<button type="button" class="btn" data-rel="close-modal">Close</button>`);
-  }
-
-  async function addProduct(productId) {
-    try {
-      await A().addPlacement(R.data.release.id, productId);
-      await logEvent("product_added", { product: productId });
-    } catch (e) { modalError(e.message || "Could not add that product."); return; }
-    await loadWorkspace(R.data.release.id);
-    openProductPicker();
+  /* —— Products: the pick board (pickboard.js) replaces the old text-only pop-up —— */
+  function openPickBoard() {
+    window.PodaPickBoard.open(R.data.release, {
+      onClose: async count => {
+        await renderWorkspace();
+        if (count) setNotice(`Added ${count} ${count === 1 ? "piece" : "pieces"} to this release.`);
+      }
+    });
   }
 
   /* —— Placement: editorial copy and hero image —— */
@@ -1210,9 +1195,11 @@
       { key: "inventory", label: "Inventory" },
       { key: "suppliers", label: "Suppliers" }
     ], R.supplyTab, renderSupply);
-    if (R.supplyTab === "inventory") renderMarketplaceInventory();
-    else if (R.supplyTab === "suppliers") renderSuppliers();
-    else renderReviewQueue();
+    const drawn = R.supplyTab === "inventory" ? renderMarketplaceInventory()
+      : R.supplyTab === "suppliers" ? renderSuppliers()
+      : renderReviewQueue();
+    // The tabs fill the page asynchronously, so add the strip once they are done.
+    Promise.resolve(drawn).then(() => { if (window.PodaPickBoard) window.PodaPickBoard.mountNeedsYou(); });
   }
 
   function renderSubscribersArea(tab) {
@@ -1297,8 +1284,7 @@
         case "toggle-update": await toggleUpdate(id); break;
         case "delete-update": await deleteUpdate(id); break;
         case "move-update": await moveUpdate(id, dir); break;
-        case "pick-products": await openProductPicker(); break;
-        case "add-product": await addProduct(id); break;
+        case "pick-products": openPickBoard(); break;
         case "remove-product": await removeProduct(id); break;
         case "move-product": await moveProduct(id, dir); break;
         case "edit-placement": openPlacementModal(id); break;
@@ -1370,7 +1356,14 @@
     modalContent.addEventListener("change", onChange);
   }
 
+  // Go to a Supply tab from elsewhere. The tab is chosen BEFORE the view
+  // renders, so there is one render, not a default tab racing the chosen one.
+  function showSupply(tab) {
+    R.supplyTab = tab;
+    if (state.view === "supply") renderSupply(); else setView("supply");
+  }
+
   window.PodaRelease = {
-    renderCurrent, renderAll, renderSupply, renderSubscribersArea, renderSettings
+    renderCurrent, renderAll, renderSupply, renderSubscribersArea, renderSettings, showSupply
   };
 })();

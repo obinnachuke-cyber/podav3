@@ -41,6 +41,18 @@ homepage is shown, since its links are static. `folder.html?id=<id>` shows any
 one release. Old URLs redirect: `/shop`, `/drop` and `/item` go to
 `/index.html?view=shop`, and `/home` goes to `/`.
 
+**Picking for a drop** (`pickboard.js`). In a release, **+ Add to release,
+Products** opens the pick board: a photo grid of every accepted piece that the
+seller hasn't hidden, with the seller's name and type. Filter by seller, brand,
+category, price and drop history, group by seller, then click cards to pick
+them. A tray at the bottom shows the picks and the split by seller, and one
+button adds them all. Badges flag pieces that are new since the last drop, were
+in an earlier drop, are on hold, or are sold out. The **Needs you** strip above
+the release and Supply views counts pieces awaiting review, holds, pending price
+changes, invites not accepted and sellers who joined but uploaded nothing. In
+the Review Queue, tick several pieces (or all from one seller) and accept them
+in one go. Accepting never publishes; the drop time does.
+
 **The drop is decided by the database clock, not the browser.** A release's
 products are returned by the `public_products` view only once
 `edits.publish_at <= now()` (or after a manual launch, `launched_at`). No cron

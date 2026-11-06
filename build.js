@@ -53,6 +53,7 @@ const INCLUDE = [
   "script.js",
   "tz.js",
   "release.js",
+  "pickboard.js",
   "layout.js",
   "shell.js",
   "folders.js",

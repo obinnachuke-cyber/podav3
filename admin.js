@@ -1323,7 +1323,11 @@ function bindModalEvents() {
 }
 
 function bindMainEvents() {
+  adminMain.addEventListener("change", onBulkChange);
   adminMain.addEventListener("click", event => {
+    if (event.target.closest("[data-bulk-all]")) { bulkSetAll(event.target.closest("[data-bulk-all]").checked); return; }
+    if (event.target.closest("[data-bulk-check]")) { bulkUpdate(); return; }
+    if (event.target.closest("[data-bulk-accept]")) { reviewBulkAccept(); return; }
     if (event.target.closest("[data-new-item]")) { openModal(null); return; }
     if (event.target.closest("[data-new-note]")) { openNoteModal(null); return; }
     if (event.target.closest("[data-new-drop]")) { openDropModal(null); return; }
@@ -3067,6 +3071,65 @@ function splitLine(priceCents, bps) {
 
 let reviewQueueCache = [];
 
+/* —— Bulk accept in the Review Queue —— */
+function bulkBarHTML() {
+  const sellers = new Map();
+  reviewQueueCache.forEach(p => {
+    const e = sellers.get(p.supplier_id) || { name: (p.suppliers || {}).name || "Unknown", n: 0 };
+    e.n += 1;
+    sellers.set(p.supplier_id, e);
+  });
+  const options = [...sellers].map(([id, e]) =>
+    `<option value="${escapeHTML(id)}">${escapeHTML(e.name)}: ${e.n}</option>`).join("");
+  return `
+    <div class="bulk-bar">
+      <label class="bulk-all"><input type="checkbox" data-bulk-all /> Select all</label>
+      <select data-bulk-seller aria-label="Select all from one seller">
+        <option value="">Select all from…</option>${options}
+      </select>
+      <span class="bulk-count" id="bulkCount">0 selected</span>
+      <button type="button" class="btn btn--primary" data-bulk-accept disabled>Accept selected</button>
+    </div>`;
+}
+
+function bulkBoxes() { return [...adminMain.querySelectorAll("[data-bulk-check]")]; }
+
+function bulkUpdate() {
+  const boxes = bulkBoxes();
+  const n = boxes.filter(b => b.checked).length;
+  const count = document.getElementById("bulkCount");
+  if (count) count.textContent = `${n} selected`;
+  const btn = adminMain.querySelector("[data-bulk-accept]");
+  if (btn) { btn.disabled = n === 0; btn.textContent = n ? `Accept ${n} selected` : "Accept selected"; }
+  const all = adminMain.querySelector("[data-bulk-all]");
+  if (all) { all.checked = n > 0 && n === boxes.length; all.indeterminate = n > 0 && n < boxes.length; }
+}
+
+function bulkSetAll(on) { bulkBoxes().forEach(b => { b.checked = on; }); bulkUpdate(); }
+
+function onBulkChange(event) {
+  const sel = event.target.closest("[data-bulk-seller]");
+  if (!sel || !sel.value) return;
+  const ids = new Set(reviewQueueCache.filter(p => p.supplier_id === sel.value).map(p => p.id));
+  bulkBoxes().forEach(b => { b.checked = ids.has(b.dataset.bulkCheck); });
+  bulkUpdate();
+}
+
+async function reviewBulkAccept() {
+  const ids = bulkBoxes().filter(b => b.checked).map(b => b.dataset.bulkCheck);
+  if (!ids.length) return;
+  if (!confirm(`Accept ${ids.length} ${ids.length === 1 ? "piece" : "pieces"}? Accepting does not publish them.`)) return;
+  const btn = adminMain.querySelector("[data-bulk-accept]");
+  if (btn) { btn.disabled = true; btn.textContent = "Accepting…"; }
+  let failed = 0;
+  for (const id of ids) {
+    try { await window.PodaMarketplace.acceptProduct(id); } catch (e) { failed += 1; }
+  }
+  await renderReviewQueue();
+  if (window.PodaPickBoard) window.PodaPickBoard.mountNeedsYou();
+  if (failed) alert(`${failed} could not be accepted. They are still in the queue.`);
+}
+
 async function renderReviewQueue() {
   adminMain.innerHTML = `<p class="admin-empty">Loading…</p>`;
   try { reviewQueueCache = await window.PodaMarketplace.getReviewQueue(); }
@@ -3091,7 +3154,8 @@ async function renderReviewQueue() {
       : `<div class="image-placeholder" style="aspect-ratio:3/4;">poda</div>`;
 
     return `
-      <article class="form-card" style="display:grid;grid-template-columns:160px 1fr;gap:16px;margin-bottom:16px;">
+      <article class="form-card" style="display:grid;grid-template-columns:160px 1fr;gap:16px;margin-bottom:16px;position:relative;">
+        <label class="bulk-check"><input type="checkbox" data-bulk-check="${escapeHTML(p.id)}" aria-label="Select this piece" /></label>
         <div>${thumb}</div>
         <div>
           <p style="margin:0;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-dim);">
@@ -3119,6 +3183,7 @@ async function renderReviewQueue() {
       <span class="section-bar__title">Review Queue</span>
       <span class="badge">${reviewQueueCache.length} waiting</span>
     </div>
+    ${bulkBarHTML()}
     ${cards}
   `;
 }
@@ -3167,7 +3232,7 @@ async function renderMarketplaceInventory() {
       <tr>
         <td>${thumb}</td>
         <td class="cell-strong">${escapeHTML(p.title || "Untitled")}${p.brand ? `<span class="cell-sub">${escapeHTML(p.brand)}</span>` : ""}</td>
-        <td>${escapeHTML(supplier.name || "—")}</td>
+        <td class="cell-strong">${escapeHTML(supplier.name || "—")}${supplier.type && supplier.type !== "poda" ? `<span class="cell-sub">${escapeHTML(supplier.type)}</span>` : ""}</td>
         <td><span class="badge badge--${escapeHTML(p.state)}">${escapeHTML(p.state)}</span></td>
         <td>${escapeHTML(availability)}</td>
         <td class="cell-mono">${dollarsAdmin(p.price_cents)}</td>

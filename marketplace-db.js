@@ -465,6 +465,55 @@
     return (data || []).filter(p => !p.is_hidden);
   }
 
+  /* —— Pick board + needs-you (admin only; every read is covered by the
+     admin RLS policies) —— */
+
+  // Everything that can be picked: accepted pieces, with photos and who
+  // uploaded them. Hidden pieces are left out, same as the old picker.
+  async function getPickCandidates() {
+    const { data, error } = await client()
+      .from("products")
+      .select("*, suppliers(name, type), product_images(id, path, position)")
+      .eq("state", "accepted")
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    return (data || []).filter(p => !p.is_hidden);
+  }
+
+  // Which releases each piece has been placed in, to flag repeats.
+  async function getPlacementHistory() {
+    const { data, error } = await client()
+      .from("edit_placements")
+      .select("product_id, edit_id, edits(id, number, title, status, publish_at, launched_at)");
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Light reads for the needs-you strip.
+  async function getProductSummaries() {
+    const { data, error } = await client()
+      .from("products")
+      .select("id, supplier_id, state, is_available, is_hidden, proposed_price_cents");
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function getSupplierMembers() {
+    const { data, error } = await client().from("supplier_users").select("supplier_id");
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function getOpenInvites() {
+    const { data, error } = await client()
+      .from("supplier_invites")
+      .select("supplier_id, email, created_at")
+      .is("used_at", null)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
   async function addPlacement(editId, productId) {
     const { data: existing } = await client()
       .from("edit_placements").select("position").eq("edit_id", editId)
@@ -806,6 +855,11 @@
     getEdit,
     getPlacements,
     getAcceptedProducts,
+    getPickCandidates,
+    getPlacementHistory,
+    getProductSummaries,
+    getSupplierMembers,
+    getOpenInvites,
     addPlacement,
     updatePlacement,
     removePlacement,
