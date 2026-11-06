@@ -35,7 +35,7 @@ const INCLUDE = [
   "admin.html",
   "archive.html",
   "seller.html",
-  "drop.html", // redirect stub -> shop.html
+  "drop.html", // redirect stub -> index.html (the Shop is the homepage)
   "shop.html",
   "folder.html",
   "item.html",

@@ -16,63 +16,31 @@
   <meta property="og:type" content="website" />
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="site-body">
-  <header class="site-header" id="siteHeader" data-variant="minimal">
+<body>
+  <!-- The homepage IS the Shop: the release currently in Shop, plus a quiet
+       notice of the next drop. The folders (Shop, Inbox, Lookbook, Archive,
+       Source, Sell) live in the header nav on every page. shop.html is a
+       redirect stub that keeps old links working. -->
+  <header class="site-header" id="siteHeader">
     <div class="site-header__inner"></div>
   </header>
 
-  <main class="home-desktop">
-    <section class="home-folders" aria-label="Browse poda">
-      <!-- Five folders. Static so every link works without JS; folders.js
-           then fills in the live state (current release, past-folder count,
-           and the red "new material" dot on Shop and Inbox). -->
-      <div class="home-folders__grid" id="homeFolders">
-        <a class="folder-tile" href="shop.html" data-folder="shop" data-name="Shop">
-          <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__label">Shop</span>
-          <span class="folder-tile__state">The current drop</span>
-        </a>
-        <a class="folder-tile" href="market-notes.html" data-folder="inbox" data-name="Inbox">
-          <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__label">Inbox</span>
-          <span class="folder-tile__state">Notes &amp; updates</span>
-        </a>
-        <a class="folder-tile" href="lookbook.html" data-folder="lookbook" data-name="Lookbook">
-          <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__label">Lookbook</span>
-          <span class="folder-tile__state">Visual studies</span>
-        </a>
-        <a class="folder-tile" href="archive.html" data-folder="archive" data-name="Archive">
-          <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__label">Archive</span>
-          <span class="folder-tile__state">Past folders</span>
-        </a>
-        <a class="folder-tile" href="sell.html" data-folder="sell" data-name="Sell with poda">
-          <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__label">Sell with poda</span>
-          <span class="folder-tile__state">Apply to sell</span>
-        </a>
-        <a class="folder-tile" href="source.html" data-folder="source" data-name="Source">
-          <span class="folder-art" aria-hidden="true"><img src="assets/folders/poda-folder.svg" alt="" decoding="async" /></span>
-          <span class="folder-tile__label">Source</span>
-          <span class="folder-tile__state">Find a piece</span>
-        </a>
-      </div>
-      <nav class="home-folders__links" aria-label="More from poda">
-        <a href="about.html">About</a>
-        <a href="seller.html" data-seller-link>Seller login</a>
-        <a href="admin.html">Admin</a>
-      </nav>
-    </section>
+  <main class="portal-shell">
+    <!-- Filled in by folders.js. Products come from the database only. -->
+    <div id="shopPage" aria-live="polite">
+      <p class="status-message">Opening Shop…</p>
+    </div>
   </main>
 
-  <footer class="site-footer" data-variant="minimal"></footer>
+  <footer class="site-footer portal-shell"></footer>
 
   <script src="supabase.min.js"></script>
   <script src="supabase-config.js"></script>
   <script src="db.js"></script>
   <script src="marketplace-db.js"></script>
+  <script src="tz.js"></script>
   <script src="folders.js"></script>
+  <script src="subscribe.js"></script>
   <script src="layout.js"></script>
 </body>
 </html>

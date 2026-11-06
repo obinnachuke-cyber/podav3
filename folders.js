@@ -12,8 +12,8 @@
    returned, and re-asks at the moment a drop is due.
 
    One file, several pages, detected by the element present:
-     • #homeFolders (index.html)   — the six folders on the homepage
-     • #shopPage    (shop.html)    — the release currently in Shop
+     • #homeFolders (retired)       — the old folder-desktop homepage; no page uses it now
+     • #shopPage    (index.html)   — the release currently in Shop; the Shop is the homepage
      • #folderPage  (folder.html)  — one release: notes, imagery, updates, drop
      • #archiveGrid (archive.html) — past releases
    The admin reuses renderFolder() for its private preview.
@@ -492,7 +492,6 @@
       if (!shop) {
         mount.innerHTML = `
           <article class="folder-page shop-page">
-            <a class="folder-page__back" href="index.html">← Home</a>
             <header class="shop-head">
               <p class="folder-head__no">SHOP</p>
               <h1 class="folder-head__title">Shop</h1>
@@ -506,7 +505,6 @@
       const products = content.products;
       mount.innerHTML = `
         <article class="folder-page shop-page">
-          <a class="folder-page__back" href="index.html">← Home</a>
           <header class="shop-head">
             <p class="folder-head__no">SHOP <span class="folder-state folder-state--live">${esc(folderName(shop))}</span></p>
             <h1 class="folder-head__title">${esc(shop.title)}</h1>

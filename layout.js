@@ -12,7 +12,7 @@
 
   // Primary navigation — the one source of truth for the site's structure.
   const PRIMARY = [
-    { href: "shop.html",         label: "Shop" },
+    { href: "index.html",        label: "Shop" },
     { href: "market-notes.html", label: "Inbox" },
     { href: "lookbook.html",     label: "Lookbook" },
     { href: "archive.html",      label: "Archive" },
@@ -36,11 +36,13 @@
 
   // Map detail pages back onto their section so the nav highlights correctly.
   function activeFileFor(file) {
-    if (file === "item.html") return "shop.html";
+    if (file === "item.html") return "index.html";
+    // The Shop is the homepage; old shop.html links redirect there.
+    if (file === "shop.html") return "index.html";
     if (file === "note.html") return "market-notes.html";
     // A study opens from the Lookbook; a release page sits under Shop.
     if (file === "study.html") return "lookbook.html";
-    if (file === "folder.html") return "shop.html";
+    if (file === "folder.html") return "index.html";
     return file;
   }
 

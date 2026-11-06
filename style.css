@@ -3667,62 +3667,59 @@ button.card-link {
 
 
 /* ============================================================
-   Folder nav — the primary links on inner pages are the homepage
-   folders, name in white on top. Reuses .folder-art for the crop.
+   Folder nav — the primary links are small cobalt folders with the
+   name in white. On desktop each is drawn in CSS: flat, compact, a
+   little tab. The artwork (.folder-art) is used only in the phone
+   menu, where the folders are large.
    ============================================================ */
-.site-nav { align-items: center; gap: 6px; padding: 6px 0; }
+.site-nav { align-items: center; gap: 8px; padding: 0; }
 
 .site-nav a.nav-folder {
   position: relative;
-  display: block;
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
-  width: 96px;
-  padding: 0;
+  height: 30px;
+  min-height: 0;                 /* links have a global 44px minimum */
+  margin-top: 6px;               /* room for the tab */
+  padding: 0 13px;
   border-left: 0;
-  background: none;
+  border-radius: 0 4px 4px 4px;
+  background: #2845ff;
   color: #fff;
   text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.15s ease;
 }
-.site-nav a.nav-folder:hover,
-.site-nav a.nav-folder:focus-visible,
-.site-nav a.nav-folder.is-active { color: #fff; background: none; outline: none; }
-
-.nav-folder .folder-art { width: 100%; max-width: none; }
-.nav-folder .folder-art img { transition: transform 0.2s ease; }
-.nav-folder:hover .folder-art img,
-.nav-folder:focus-visible .folder-art img { transform: translateY(-2px); }
-
-/* White name, centered on the lower, flat part of the folder */
-.nav-folder__label {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 19%;
-  text-align: center;
-  font-family: var(--font);
-  font-size: 9.5px;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-shadow: 0 1px 2px rgba(10, 20, 90, 0.45);
-  pointer-events: none;
-}
-
-/* Current page: a short ink bar under its folder */
-.nav-folder.is-active::after {
+/* The folder tab */
+.site-nav a.nav-folder::before {
   content: "";
   position: absolute;
-  left: 22%;
-  right: 22%;
-  bottom: -5px;
-  height: 2px;
-  background: var(--text);
+  left: 0;
+  top: -6px;
+  width: 38%;
+  max-width: 34px;
+  height: 7px;
+  background: inherit;
+  border-radius: 4px 0 0 0;
+  clip-path: polygon(0 0, 72% 0, 100% 100%, 0 100%);
+}
+.site-nav a.nav-folder:hover,
+.site-nav a.nav-folder:focus-visible { background: #3b57ff; color: #fff; outline: none; transform: translateY(-1px); }
+/* Current page: the deep blue of the folder's back */
+.site-nav a.nav-folder.is-active { background: #162a9e; color: #fff; }
+
+.nav-folder .folder-art { display: none; }
+.nav-folder__label {
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
-@media (min-width: 768px) { :root { --header-h: 72px; } }
-
-/* Phone menu: folders in a two-column grid instead of text rows */
+/* Phone menu: the large artwork folders in a two-column grid */
 @media (max-width: 767px) {
   .site-header.is-open .site-nav {
     display: grid;
@@ -3731,15 +3728,44 @@ button.card-link {
     align-content: start;
   }
   .site-header.is-open .site-nav a.nav-folder {
-    width: 100%;
+    display: block;
+    height: auto;
+    margin-top: 0;
     padding: 0;
+    border-radius: 0;
+    background: none;
     border-bottom: 0;
+    transform: none;
   }
-  .site-header.is-open .nav-folder__label { font-size: 11px; bottom: 20%; }
-  .site-header.is-open .nav-folder.is-active::after { bottom: -6px; }
+  .site-header.is-open .site-nav a.nav-folder::before { display: none; }
+  .site-header.is-open .nav-folder .folder-art { display: block; width: 100%; max-width: none; }
+  .site-header.is-open .nav-folder .folder-art img { transition: transform 0.2s ease; }
+  .site-header.is-open .nav-folder:hover .folder-art img { transform: translateY(-2px); }
+  .site-header.is-open .nav-folder__label {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 20%;
+    text-align: center;
+    font-size: 11px;
+    line-height: 1.15;
+    text-shadow: 0 1px 2px rgba(10, 20, 90, 0.45);
+    pointer-events: none;
+  }
+  /* Current page: a short ink bar under its folder */
+  .site-header.is-open .nav-folder.is-active::after {
+    content: "";
+    position: absolute;
+    left: 22%;
+    right: 22%;
+    bottom: -6px;
+    height: 2px;
+    background: var(--text);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-folder .folder-art img,
-  .nav-folder:hover .folder-art img { transition: none; transform: none; }
+  .site-nav a.nav-folder,
+  .site-nav a.nav-folder:hover { transition: none; transform: none; }
+  .nav-folder .folder-art img { transition: none; }
 }
