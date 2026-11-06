@@ -19,6 +19,11 @@
     { href: "source.html",       label: "Source" },
     { href: "sell.html",         label: "Sell with poda" }
   ];
+  // The 3D folder homepage. index.html shows the Shop while a release is live,
+  // so the folders need their own way in: ?view=home always shows them. On
+  // desktop the link sits with About and Admin; on phones it is in the menu.
+  const FOLDERS_HREF = "index.html?view=home";
+
   const SECONDARY = [
     { href: "about.html", label: "About" },
     { href: "admin.html", label: "Admin" }
@@ -70,8 +75,10 @@
       <a class="site-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
       <nav class="site-nav" aria-label="Primary">
         ${PRIMARY.map(i => linkHTML(i, active)).join("")}
+        <a class="site-nav__folders" href="${FOLDERS_HREF}">Folders</a>
       </nav>
       <div class="site-header__utility">
+        <a class="site-header__folders" href="${FOLDERS_HREF}">Folders</a>
         ${SECONDARY.map(i => linkHTML(i, active)).join("")}
         <button type="button" class="site-header__menu" id="navToggle" aria-label="Open menu" aria-expanded="false">Menu</button>
       </div>
