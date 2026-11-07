@@ -430,6 +430,16 @@
     // A newer render, or another view, took over while this loaded.
     if (token !== nyToken || state.view !== view || P.activeBoardOpen()) return;
 
+    // Keep only the newest unused invite per supplier and email: repeat
+    // clicks on + Invite leave older rows behind, and they are the same ask.
+    const newest = new Map();
+    invites.forEach(i => {
+      const key = `${i.supplier_id}|${String(i.email).toLowerCase()}`;
+      const seen = newest.get(key);
+      if (!seen || Date.parse(i.created_at) > Date.parse(seen.created_at)) newest.set(key, i);
+    });
+    invites = [...newest.values()].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+
     const review = products.filter(p => p.state === "submitted").length;
     const holds = products.filter(p => p.state === "accepted" && p.is_available === false && !p.is_hidden).length;
     const prices = products.filter(p => p.proposed_price_cents !== null && p.proposed_price_cents !== undefined).length;
@@ -451,7 +461,7 @@
     if (!chips.length) return;
 
     const detail = [
-      ...invites.map(i => `${esc(i.email)} for ${esc(name(i.supplier_id))}, invited ${esc(daysAgo(i.created_at))}`),
+      ...invites.map(i => `${esc(i.email)} for ${esc(name(i.supplier_id))}, invited ${esc(daysAgo(i.created_at))} <button type="button" class="ny-revoke" data-revoke-supplier="${esc(i.supplier_id)}" data-revoke-email="${esc(i.email)}">Revoke</button>`),
       ...quiet.map(s => `${esc(s.name)} has joined and has not uploaded anything`)
     ];
 
@@ -464,7 +474,22 @@
         ${detail.length ? `<ul class="ny-detail">${detail.map(d => `<li>${d}</li>`).join("")}</ul>` : ""}
       </section>`);
 
-    document.getElementById("needsYou").addEventListener("click", e => {
+    document.getElementById("needsYou").addEventListener("click", async e => {
+      const revoke = e.target.closest("[data-revoke-email]");
+      if (revoke) {
+        const email = revoke.dataset.revokeEmail;
+        if (!confirm(`Revoke the invite for ${email}? Their link will stop working.`)) return;
+        revoke.disabled = true;
+        try {
+          await A().revokeInvites(revoke.dataset.revokeSupplier, email);
+        } catch (err) {
+          revoke.disabled = false;
+          alert(err && err.message ? err.message : "Could not revoke the invite.");
+          return;
+        }
+        mountNeedsYou();
+        return;
+      }
       const btn = e.target.closest("[data-ny]");
       if (!btn) return;
       window.PodaRelease.showSupply(btn.dataset.ny);

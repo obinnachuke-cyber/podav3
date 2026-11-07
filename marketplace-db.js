@@ -82,7 +82,32 @@
       .select()
       .single();
     if (error) throw error;
+    // A fresh invite replaces any older unused one for the same person, so
+    // re-inviting never piles up duplicates. Best effort: the new invite
+    // already exists, so a failed cleanup must not fail the call.
+    await client()
+      .from("supplier_invites")
+      .delete()
+      .eq("supplier_id", supplierId)
+      .ilike("email", escapeLike(email))
+      .is("used_at", null)
+      .neq("token", data.token);
     return data; // includes .token — build the link as seller.html?invite=<token>
+  }
+
+  // ilike treats % and _ as wildcards; emails can contain _, so escape them.
+  function escapeLike(s) { return String(s).replace(/[\\%_]/g, "\\$&"); }
+
+  // Withdraws every unused invite for one person at one supplier.
+  // Accepted invites (used_at set) are never touched.
+  async function revokeInvites(supplierId, email) {
+    const { error } = await client()
+      .from("supplier_invites")
+      .delete()
+      .eq("supplier_id", supplierId)
+      .ilike("email", escapeLike(email))
+      .is("used_at", null);
+    if (error) throw error;
   }
 
   async function getSupplierInvites(supplierId) {
@@ -860,6 +885,7 @@
     getProductSummaries,
     getSupplierMembers,
     getOpenInvites,
+    revokeInvites,
     addPlacement,
     updatePlacement,
     removePlacement,

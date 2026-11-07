@@ -2423,6 +2423,8 @@ article.form-card > div:nth-child(2) { padding: 14px 18px 16px 0; }
 .ny-chip--hot { border-color: var(--accent); color: var(--accent); }
 .ny-chip:hover, .ny-chip:focus-visible { background: var(--text); border-color: var(--text); color: var(--bg); outline: none; }
 .ny-detail { margin: 12px 0 0; padding: 0; list-style: none; font-size: 12px; line-height: 1.6; color: var(--text-dim); }
+.ny-revoke { appearance: none; margin-left: 8px; padding: 0; border: 0; border-bottom: 1px solid currentColor; background: none; font: inherit; font-size: 11px; color: var(--danger); cursor: pointer; }
+.ny-revoke:disabled { opacity: 0.5; cursor: default; }
 .ny-detail li::before { content: "·"; margin-right: 8px; color: var(--text-faint); }
 
 /* —— Pick board —— */
