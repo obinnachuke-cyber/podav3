@@ -144,15 +144,22 @@
       `<img src="${unread ? ART.unread : ART.base}" alt="" decoding="async" /></span>`;
   }
 
+  // Release date for the Archive: the drop day, with the year.
+  function fmtReleaseDate(folder) {
+    const t = dropMoment(folder);
+    if (!Number.isFinite(t)) return "";
+    return new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }
+
   function folderTile(folder) {
     const name = folderName(folder);
-    const state = stateInfo(folder);
+    const released = fmtReleaseDate(folder);
     return `
       <a class="folder-tile" href="folder.html?id=${encodeURIComponent(folder.id)}" aria-label="${esc(`${name}, ${folder.title}`)}">
         ${folderArt(false)}
         <span class="folder-tile__no">${esc(name)}</span>
         <span class="folder-tile__label">${esc(folder.title)}</span>
-        <span class="folder-tile__state folder-tile__state--${state.mod}">${esc(state.label)}</span>
+        ${released ? `<span class="folder-tile__date">${esc(released)}</span>` : ""}
       </a>`;
   }
 
