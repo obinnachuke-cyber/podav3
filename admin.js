@@ -2947,6 +2947,9 @@ async function renderApplications() {
         </p>
         ${a.offering ? `<p class="app-card__offering">${escapeHTML(a.offering)}</p>` : ""}
         <div class="app-card__photos">${photos || `<span class="admin-empty">No photos.</span>`}</div>
+        ${decided ? (a.notified_status === a.status
+          ? `<p class="app-card__notice">Email sent to ${escapeHTML(a.email)}</p>`
+          : `<p class="app-card__notice app-card__notice--warn">Email not sent yet <button type="button" class="pb-link" data-app-email>Send now</button></p>`) : ""}
         <div class="app-card__actions">
           ${decided
             ? `<button type="button" class="btn" data-app-status="new">Undo</button>`
@@ -2994,13 +2997,30 @@ async function renderApplications() {
     const app = apps.find(a => a.id === el.dataset.app);
     const statusBtn = e.target.closest("[data-app-status]");
     const delBtn = e.target.closest("[data-app-delete]");
-    if (!app || (!statusBtn && !delBtn)) return;
+    const emailBtn = e.target.closest("[data-app-email]");
+    if (!app || (!statusBtn && !delBtn && !emailBtn)) return;
+
+    // Sends the result email and records it on the card. Never throws:
+    // a failed email leaves the decision in place with a "Send now" link.
+    const sendResult = async () => {
+      const r = await emailApplicationDecision(app.id);
+      if (r.ok) app.notified_status = app.status;
+      else alert(`Saved, but the email to ${app.email} did not send: ${r.error}`);
+    };
 
     try {
-      if (statusBtn) {
+      if (emailBtn) {
+        emailBtn.disabled = true;
+        await sendResult();
+        draw();
+      } else if (statusBtn) {
+        const next = statusBtn.dataset.appStatus;
+        const emails = next === "accepted" || next === "declined";
+        if (emails && !confirm(`${next === "accepted" ? "Accept" : "Decline"} ${app.name} and email ${app.email}?`)) return;
         el.querySelectorAll("button").forEach(b => { b.disabled = true; });
-        await M.setApplicationStatus(app.id, statusBtn.dataset.appStatus);
-        app.status = statusBtn.dataset.appStatus;   // update in place: no reload, the list just redraws
+        await M.setApplicationStatus(app.id, next);
+        app.status = next;   // update in place: no reload, the list just redraws
+        if (emails) await sendResult();
         draw();
       } else {
         if (!confirm(`Delete ${app.name}'s application and photos? This cannot be undone.`)) return;
@@ -3108,6 +3128,28 @@ async function saveSupplier(existingId) {
 
 // Ask the worker to email the invite. The worker reads the recipient from the
 // database itself; the browser only sends the token.
+// Emails the applicant their accept / decline result. The Worker reads the
+// recipient and decision from the database; only the id is sent.
+async function emailApplicationDecision(id) {
+  try {
+    const session = await window.PodaDB.getSession();
+    const res = await fetch("/api/application-decision", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${session ? session.access_token : ""}`
+      },
+      body: JSON.stringify({ id })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok && body.ok) return { ok: true, to: body.to };
+    const detail = typeof body.detail === "string" ? ` (${body.detail})` : "";
+    return { ok: false, error: (body.error || `The email service returned ${res.status}.`) + detail };
+  } catch (e) {
+    return { ok: false, error: "Could not reach the email service." };
+  }
+}
+
 async function emailInvite(token) {
   try {
     const session = await window.PodaDB.getSession();

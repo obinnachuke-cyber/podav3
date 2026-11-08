@@ -488,7 +488,8 @@ async function handleSubmitRequest(request, env) {
   lines.push("");
   if (isApplication) {
     if (message) lines.push("Selling:", message, "");
-    lines.push(`Photos: ${photoCount} (private: Admin > Supply > Applications)`);
+    lines.push(`Photos: ${photoCount} (private)`);
+    lines.push(`Review and decide: ${String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "")}/admin.html (Supply > Applications)`);
   } else {
     lines.push(`${prompt}:`, message);
   }
@@ -634,6 +635,133 @@ async function handleSendInvite(request, env) {
   return json(200, { ok: true, to: invite.email });
 }
 
+
+/* ============================================================
+   /api/application-decision — emails an applicant that they were
+   accepted or declined. Admin only. The browser sends just the
+   application id: the recipient, name and decision are all read from
+   the database with the admin's own session, so this cannot be used
+   to mail arbitrary addresses or to send a decision that was never
+   made. Once sent, `notified_status` records which decision was
+   emailed, so a repeat call does not email the person twice.
+   ============================================================ */
+
+function buildDecisionEmail(name, decision, siteUrl) {
+  const who = escapeHTML(name || "there");
+  const accepted = decision === "accepted";
+  const subject = "Your poda application";
+  const headline = accepted ? "We’d like to work with you." : "Thank you for applying.";
+  const body = accepted
+    ? "Thanks for applying to sell with poda. We liked what you sent and would like to work with you. We’ll be in touch with next steps."
+    : "Thanks for applying to sell with poda. We’re not able to take this one on right now. We appreciate you sharing it with us.";
+
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f2f1ed;font-family:Georgia,'Times New Roman',serif;color:#15151a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f1ed;padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #dcdbd6;">
+            <tr>
+              <td style="padding:32px 32px 8px;"><img src="${siteUrl}/logo-blue.png" alt="poda" height="30" style="display:block;height:30px;width:auto;" /></td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 20px;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#8a8882;">Selective retail / market intelligence</td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 14px;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.15;color:#15151a;">${headline}</td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 30px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#4a4a47;">
+                Hi ${who},<br /><br />${body}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 32px;border-top:1px solid #dcdbd6;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.06em;line-height:1.6;color:#8a8882;">
+                Reply to this email if you have a question.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `Hi ${name || "there"},\n\n${body}\n\nReply to this email if you have a question.\n\npoda`;
+  return { subject, html, text };
+}
+
+async function handleApplicationDecision(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (e) {
+    return json(400, { error: "Invalid request body." });
+  }
+
+  const id = String((payload && payload.id) || "").trim();
+  if (!UUID_RE.test(id)) return json(400, { error: "A valid application id is required." });
+
+  const auth = await verifyAdmin(request, env, "email applicants");
+  if (!auth.ok) return json(auth.status, { error: auth.error, detail: auth.detail });
+
+  let rows;
+  try {
+    rows = await supabaseSelect(
+      env, auth.token, "seller_applications",
+      `id=eq.${encodeURIComponent(id)}&select=name,email,status,notified_status`
+    );
+  } catch (e) {
+    return json(502, { error: "Could not load the application." });
+  }
+  const app = rows && rows[0];
+  if (!app) return json(404, { error: "Application not found." });
+  if (app.status !== "accepted" && app.status !== "declined") {
+    return json(409, { error: "Accept or decline the application first." });
+  }
+  if (app.notified_status === app.status) {
+    return json(200, { ok: true, already: true, to: app.email });
+  }
+
+  const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
+  const { subject, html, text } = buildDecisionEmail(app.name, app.status, siteUrl);
+
+  let result;
+  try {
+    result = await sendViaResend(env, {
+      from: FROM_ADDRESS,
+      to: [app.email],
+      reply_to: REPLY_TO,
+      subject,
+      html,
+      text
+    });
+  } catch (e) {
+    return json(502, { error: "Could not reach Resend." });
+  }
+  if (!result.ok) {
+    return json(502, { error: "Resend rejected the email.", detail: result.body });
+  }
+
+  // Remember which decision was emailed. The email is already out, so a
+  // failure here is reported but does not undo it.
+  const mark = await fetch(`${env.SUPABASE_URL}/rest/v1/seller_applications?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: {
+      apikey: env.SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${auth.token}`,
+      "content-type": "application/json",
+      Prefer: "return=minimal"
+    },
+    body: JSON.stringify({ notified_status: app.status })
+  }).catch(() => null);
+
+  return json(200, { ok: true, to: app.email, recorded: !!(mark && mark.ok) });
+}
+
 /* ============================================================
    Router — API routes handled here; everything else falls through
    to the static assets binding (the existing dist/ site, unchanged).
@@ -646,6 +774,7 @@ export default {
     if (url.pathname === "/api/unsubscribe") return handleUnsubscribe(request, env);
     if (url.pathname === "/api/submit-request") return handleSubmitRequest(request, env);
     if (url.pathname === "/api/send-invite") return handleSendInvite(request, env);
+    if (url.pathname === "/api/application-decision") return handleApplicationDecision(request, env);
 
     return env.ASSETS.fetch(request);
   }

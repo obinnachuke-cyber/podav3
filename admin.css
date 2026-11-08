@@ -2638,3 +2638,5 @@ body.admin-body { overflow-x: clip; }
 .app-card--declined { opacity: 0.6; }
 .app-card__actions .btn { flex: 1 1 auto; }
 .app-decline:hover, .app-decline:focus-visible, .app-delete:hover, .app-delete:focus-visible { border-color: var(--danger); color: var(--danger); }
+.app-card__notice { margin: 12px 0 0; font-family: var(--font); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+.app-card__notice--warn { color: var(--danger); }

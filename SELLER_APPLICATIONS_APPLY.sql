@@ -27,6 +27,7 @@ create table if not exists public.seller_applications (
   photo_paths  text[] not null check (cardinality(photo_paths) between 1 and 12),
   offering     text check (offering is null or char_length(offering) <= 1000),
   seller_type  text check (seller_type is null or seller_type in ('closet', 'store', 'brand')),
+  notified_status text,
   status       text not null default 'new'
                check (status in ('new', 'accepted', 'declined', 'reviewed', 'archived')),
   created_at   timestamptz not null default now()
@@ -37,6 +38,9 @@ alter table public.seller_applications add column if not exists offering text
   check (offering is null or char_length(offering) <= 1000);
 alter table public.seller_applications add column if not exists seller_type text
   check (seller_type is null or seller_type in ('closet', 'store', 'brand'));
+
+-- Which decision was last emailed to the applicant (stops double emails).
+alter table public.seller_applications add column if not exists notified_status text;
 
 -- Accept / decline: widen the status list if the table came from an earlier version.
 alter table public.seller_applications drop constraint if exists seller_applications_status_check;
