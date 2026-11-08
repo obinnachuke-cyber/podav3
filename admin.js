@@ -3216,7 +3216,10 @@ async function createInvite(supplierId) {
     return;
   }
 
-  const link = `${window.location.origin}/seller.html?invite=${invite.token}`;
+  // Short link when the invite has a code; the old uuid link otherwise.
+  const link = invite.code
+    ? `${window.location.origin}/join/${invite.code}`
+    : `${window.location.origin}/seller.html?invite=${invite.token}`;
   if (box) {
     box.innerHTML = `<span class="invite-link__status">Sending the invite email…</span>`;
   }

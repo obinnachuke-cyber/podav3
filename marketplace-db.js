@@ -110,6 +110,14 @@
     if (error) throw error;
   }
 
+  // Turns a short join code (ada-k7m2x9q) into the invite's token, or null.
+  // Needs resolve_invite_code() from SELLER_INVITE_LINKS_APPLY.sql.
+  async function resolveInviteCode(code) {
+    const { data, error } = await client().rpc("resolve_invite_code", { invite_code: code });
+    if (error) throw error;
+    return data || null;
+  }
+
   async function getSupplierInvites(supplierId) {
     const { data, error } = await client()
       .from("supplier_invites")
@@ -917,6 +925,7 @@
     getProductSummaries,
     getSupplierMembers,
     getOpenInvites,
+    resolveInviteCode,
     revokeInvites,
     getApplications,
     getApplicationPhotoUrls,

@@ -14,8 +14,27 @@ function showOnly(el) {
   [sellerLoading, inviteGate, loginGate, sellerApp].forEach(e => { e.hidden = e !== el; });
 }
 
+// The invite can arrive three ways: /join/ada-k7m2x9q (short code),
+// ?invite=ada-k7m2x9q, or the older ?invite=<uuid>. Whatever the form,
+// this resolves to the invite's uuid token. Cached, so it runs once.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+let inviteTokenPromise = null;
+
 function inviteTokenFromUrl() {
-  return new URLSearchParams(window.location.search).get("invite");
+  if (!inviteTokenPromise) {
+    const path = window.location.pathname.match(/^\/join\/([^/?#]+)/);
+    const raw = (path && decodeURIComponent(path[1])) || new URLSearchParams(window.location.search).get("invite");
+    if (!raw) inviteTokenPromise = Promise.resolve(null);
+    else if (UUID_RE.test(raw)) inviteTokenPromise = Promise.resolve(raw);
+    else inviteTokenPromise = window.PodaMarketplace.resolveInviteCode(raw.trim()).catch(() => null);
+  }
+  return inviteTokenPromise;
+}
+
+// True on a join link even when the code no longer resolves, so the person
+// sees "invalid or already used" instead of a bare login form.
+function hasInviteInUrl() {
+  return /^\/join\//.test(window.location.pathname) || new URLSearchParams(window.location.search).has("invite");
 }
 
 let mySupplier = null;
@@ -45,11 +64,11 @@ async function init() {
     return;
   }
 
-  const token = inviteTokenFromUrl();
+  const token = await inviteTokenFromUrl();
 
-  if (token) {
+  if (token || hasInviteInUrl()) {
     let invite = null;
-    try { invite = await window.PodaMarketplace.getInviteByToken(token); } catch (e) { /* treated as invalid below */ }
+    try { invite = token ? await window.PodaMarketplace.getInviteByToken(token) : null; } catch (e) { /* treated as invalid below */ }
 
     if (!invite) {
       showOnly(loginGate);
@@ -90,7 +109,7 @@ document.getElementById("inviteForm").addEventListener("submit", async event => 
   errorBox.hidden = true;
   const email = document.getElementById("inviteEmail").value;
   const password = document.getElementById("invitePassword").value;
-  const token = inviteTokenFromUrl();
+  const token = await inviteTokenFromUrl();
 
   try {
     let session = await window.PodaDB.signUp(email, password);

@@ -602,7 +602,7 @@ async function handleSendInvite(request, env) {
   try {
     rows = await supabaseSelect(
       env, auth.token, "supplier_invites",
-      `token=eq.${encodeURIComponent(token)}&select=email,used_at,suppliers(name)`
+      `token=eq.${encodeURIComponent(token)}&select=email,used_at,code,suppliers(name)`
     );
   } catch (e) {
     return json(502, { error: "Could not load the invite." });
@@ -612,7 +612,9 @@ async function handleSendInvite(request, env) {
   if (invite.used_at) return json(409, { error: "This invite has already been used." });
 
   const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
-  const joinUrl = `${siteUrl}/seller.html?invite=${encodeURIComponent(token)}`;
+  const joinUrl = invite.code
+    ? `${siteUrl}/join/${encodeURIComponent(invite.code)}`
+    : `${siteUrl}/seller.html?invite=${encodeURIComponent(token)}`;
   const supplierName = invite.suppliers && invite.suppliers.name;
   const { subject, html, text } = buildInviteEmail(supplierName, joinUrl, siteUrl);
 
@@ -766,6 +768,16 @@ async function handleApplicationDecision(request, env) {
    Router — API routes handled here; everything else falls through
    to the static assets binding (the existing dist/ site, unchanged).
    ============================================================ */
+async function serveSellerPage(request, env, url) {
+  if (request.method !== "GET" && request.method !== "HEAD") return json(405, { error: "Method not allowed." });
+  let res = await env.ASSETS.fetch(new Request(new URL("/seller.html", url.origin), request));
+  // The assets binding may answer seller.html with a redirect to /seller.
+  if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+    res = await env.ASSETS.fetch(new Request(new URL(res.headers.get("location"), url.origin), request));
+  }
+  return res;
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -775,6 +787,10 @@ export default {
     if (url.pathname === "/api/submit-request") return handleSubmitRequest(request, env);
     if (url.pathname === "/api/send-invite") return handleSendInvite(request, env);
     if (url.pathname === "/api/application-decision") return handleApplicationDecision(request, env);
+
+    // /join/<code> is the short invite link. The URL stays as typed; the
+    // seller page reads the code from the path.
+    if (url.pathname.startsWith("/join/")) return serveSellerPage(request, env, url);
 
     return env.ASSETS.fetch(request);
   }
