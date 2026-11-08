@@ -422,11 +422,14 @@
     const view = state.view;
 
     let products, members, invites, suppliers;
+    let newApps = 0;
     try {
       [products, members, invites, suppliers] = await Promise.all([
         A().getProductSummaries(), A().getSupplierMembers(), A().getOpenInvites(), A().getSuppliers()
       ]);
     } catch (e) { return; }
+    // Applications need SELLER_APPLICATIONS_APPLY.sql; before it runs, count none.
+    try { newApps = (await A().getApplications()).filter(a => a.status === "new").length; } catch (e) { newApps = 0; }
     // A newer render, or another view, took over while this loaded.
     if (token !== nyToken || state.view !== view || P.activeBoardOpen()) return;
 
@@ -450,6 +453,7 @@
     const quiet = suppliers.filter(s => s.type !== "poda" && memberIds.has(s.id) && !withProducts.has(s.id));
 
     const chips = [];
+    if (newApps) chips.push({ go: "applications", label: `${plural(newApps, "new application", "new applications")}`, hot: true });
     if (review) chips.push({ go: "review", label: `${plural(review, "piece", "pieces")} awaiting review`, hot: true });
     if (holds) chips.push({ go: "inventory", label: `${plural(holds, "piece", "pieces")} on hold after a seller edit`, hot: true });
     if (prices) chips.push({ go: "inventory", label: `${plural(prices, "price change", "price changes")} to approve`, hot: true });

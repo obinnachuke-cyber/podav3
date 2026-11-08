@@ -529,6 +529,38 @@
     return data || [];
   }
 
+  /* —— Seller applications (SELLER_APPLICATIONS_APPLY.sql). Admin session only:
+     RLS gives everyone else no read access to the table or the bucket. —— */
+  async function getApplications() {
+    const { data, error } = await client()
+      .from("seller_applications")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Short-lived signed links (1 hour) to the private photos.
+  async function getApplicationPhotoUrls(paths) {
+    if (!paths || !paths.length) return [];
+    const { data, error } = await client().storage.from("applications").createSignedUrls(paths, 3600);
+    if (error) throw error;
+    return (data || []).map(d => d.signedUrl || "");
+  }
+
+  async function setApplicationStatus(id, status) {
+    const { error } = await client().from("seller_applications").update({ status }).eq("id", id);
+    if (error) throw error;
+  }
+
+  // Deletes the row and its photos.
+  async function deleteApplication(app) {
+    const { error: storageError } = await client().storage.from("applications").remove(app.photo_paths || []);
+    if (storageError) throw storageError;
+    const { error } = await client().from("seller_applications").delete().eq("id", app.id);
+    if (error) throw error;
+  }
+
   async function getOpenInvites() {
     const { data, error } = await client()
       .from("supplier_invites")
@@ -886,6 +918,10 @@
     getSupplierMembers,
     getOpenInvites,
     revokeInvites,
+    getApplications,
+    getApplicationPhotoUrls,
+    setApplicationStatus,
+    deleteApplication,
     addPlacement,
     updatePlacement,
     removePlacement,

@@ -60,6 +60,7 @@ const INCLUDE = [
   "lookbook.js",
   "study.js",
   "submit.js",
+  "apply.js",
   "subscribe.js",
   "admin.js",
   "seller.js",

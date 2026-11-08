@@ -2886,6 +2886,104 @@ function renderSuppliers() {
   `;
 }
 
+/* ============================================================
+   View: Applications (Sell with poda)
+   Rows and photos are private: the table and the `applications`
+   bucket only answer to the admin session. Photos are shown through
+   one-hour signed links.
+   ============================================================ */
+async function renderApplications() {
+  const M = window.PodaMarketplace;
+  if (!M || !M.getApplications) {
+    adminMain.innerHTML = `<p class="admin-empty">marketplace-db.js isn't loaded.</p>`;
+    return;
+  }
+  adminMain.innerHTML = `<p class="admin-empty">Loading…</p>`;
+
+  let apps;
+  try {
+    apps = await M.getApplications();
+  } catch (e) {
+    const missing = /seller_applications|relation|schema cache/i.test((e && e.message) || "");
+    adminMain.innerHTML = `<p class="admin-empty">${missing
+      ? "Applications aren't set up yet. Run SELLER_APPLICATIONS_APPLY.sql in the Supabase SQL editor."
+      : "Could not load applications."}</p>`;
+    return;
+  }
+
+  // New first, then reviewed, then archived; newest first inside each.
+  const order = { new: 0, reviewed: 1, archived: 2 };
+  apps.sort((a, b) => (order[a.status] - order[b.status]) || (Date.parse(b.created_at) - Date.parse(a.created_at)));
+
+  // One signed-link request for every photo on the page.
+  const allPaths = apps.flatMap(a => a.photo_paths || []);
+  let urlByPath = new Map();
+  try {
+    const urls = await M.getApplicationPhotoUrls(allPaths);
+    allPaths.forEach((p, i) => urlByPath.set(p, urls[i]));
+  } catch (e) { /* cards still show, without photos */ }
+
+  const card = a => {
+    const ig = a.instagram
+      ? `<a href="https://instagram.com/${encodeURIComponent(a.instagram.replace(/^@/, ""))}" target="_blank" rel="noopener">${escapeHTML(a.instagram)}</a>`
+      : "—";
+    const photos = (a.photo_paths || []).map((p, i) => {
+      const u = urlByPath.get(p);
+      return u ? `<a href="${escapeHTML(u)}" target="_blank" rel="noopener"><img src="${escapeHTML(u)}" alt="${escapeHTML(a.name)} photo ${i + 1}" loading="lazy" /></a>` : "";
+    }).join("");
+    return `
+      <article class="app-card app-card--${escapeHTML(a.status)}" data-app="${escapeHTML(a.id)}">
+        <div class="app-card__head">
+          <h3 class="app-card__name">${escapeHTML(a.name)}</h3>
+          <span class="badge">${escapeHTML(a.status)}</span>
+        </div>
+        <p class="app-card__meta">
+          <a href="mailto:${escapeHTML(a.email)}">${escapeHTML(a.email)}</a> · ${ig} · ${escapeHTML(new Date(a.created_at).toLocaleDateString())}
+        </p>
+        <div class="app-card__photos">${photos || `<span class="admin-empty">No photos.</span>`}</div>
+        <div class="app-card__actions">
+          ${a.status === "new" ? `<button type="button" class="btn" data-app-status="reviewed">Mark reviewed</button>` : ""}
+          ${a.status !== "archived" ? `<button type="button" class="btn" data-app-status="archived">Archive</button>` : `<button type="button" class="btn" data-app-status="new">Restore</button>`}
+          <button type="button" class="btn" data-app-delete>Delete</button>
+        </div>
+      </article>`;
+  };
+
+  adminMain.innerHTML = `
+    <div class="section-bar section-bar--admin">
+      <span class="section-bar__label">Supply</span>
+      <span class="section-bar__title">Applications</span>
+    </div>
+    ${apps.length ? `<div class="app-list" id="appList">${apps.map(card).join("")}</div>`
+      : `<p class="admin-empty">No applications yet.</p>`}
+  `;
+
+  const list = document.getElementById("appList");
+  if (!list) return;
+  list.addEventListener("click", async e => {
+    const el = e.target.closest("article[data-app]");
+    if (!el) return;
+    const app = apps.find(a => a.id === el.dataset.app);
+    const statusBtn = e.target.closest("[data-app-status]");
+    const delBtn = e.target.closest("[data-app-delete]");
+    try {
+      if (statusBtn) {
+        statusBtn.disabled = true;
+        await M.setApplicationStatus(app.id, statusBtn.dataset.appStatus);
+        window.PodaRelease.renderSupply("applications");
+      } else if (delBtn) {
+        if (!confirm(`Delete ${app.name}'s application and photos? This cannot be undone.`)) return;
+        delBtn.disabled = true;
+        await M.deleteApplication(app);
+        window.PodaRelease.renderSupply("applications");
+      }
+    } catch (err) {
+      alert(err && err.message ? err.message : "That didn't work.");
+      window.PodaRelease.renderSupply("applications");
+    }
+  });
+}
+
 function blankSupplier() {
   return { name: "", type: "consignor", commission_bps: SUPPLIER_DEFAULT_BPS.consignor, contact_email: "", notes: "" };
 }

@@ -53,6 +53,17 @@ changes, invites not accepted and sellers who joined but uploaded nothing. In
 the Review Queue, tick several pieces (or all from one seller) and accept them
 in one go. Accepting never publishes; the drop time does.
 
+**Seller applications** (`sell.html`, `apply.js`). Sell with poda is a four-question
+click-through (name, email, Instagram, closet photos), a review card and a sent
+screen. Photos go to a **private** `applications` bucket and the answers to the
+`seller_applications` table. The public can add photos and call the
+`submit_seller_application()` function, and nothing else; only the admin can read.
+Applications appear in **Admin → Supply → Applications** (photos through one-hour
+signed links, with Mark reviewed, Archive and Delete), and a heads-up email still
+goes to the contact address with no photo links. Applying creates no seller
+account, profile or product. Run **`SELLER_APPLICATIONS_APPLY.sql`** once. The
+Sourcing Desk form still uses `submit.js` and the public `submissions` bucket.
+
 **The drop is decided by the database clock, not the browser.** A release's
 products are returned by the `public_products` view only once
 `edits.publish_at <= now()` (or after a manual launch, `launched_at`). No cron

@@ -463,7 +463,12 @@ async function handleSubmitRequest(request, env) {
   const message = String(payload.message || "").trim().slice(0, 5000);
   const photos = Array.isArray(payload.photos) ? payload.photos.slice(0, 10).map(u => String(u).trim()) : [];
 
-  if (!name || !email || !message) {
+  // The seller application has no free-text message: its photos stay in
+  // private storage, so this email only announces it and carries a count.
+  const isApplication = payload.kind === "application";
+  const photoCount = Math.max(0, Math.min(12, parseInt(payload.photoCount, 10) || 0));
+
+  if (!name || !email || (!message && !isApplication)) {
     return json(400, { error: "Name, email, and message are required." });
   }
 
@@ -476,11 +481,14 @@ async function handleSubmitRequest(request, env) {
     `${subjectPrefix}:`, "",
     `Name: ${name}`,
     `Email: ${email}`,
-    `Instagram: ${instagram}`, "",
-    `${prompt}:`,
-    message
+    `Instagram: ${instagram}`, ""
   ];
-  if (photos.length) {
+  if (isApplication) {
+    lines.push(`Photos: ${photoCount} (private: Admin > Supply > Applications)`);
+  } else {
+    lines.push(`${prompt}:`, message);
+  }
+  if (!isApplication && photos.length) {
     lines.push("", "Photos:");
     photos.forEach(u => lines.push(u));
   }
