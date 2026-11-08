@@ -2612,3 +2612,29 @@ body.admin-body { overflow-x: clip; }
 .app-card__photos img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; background: var(--image-bg); }
 .app-card__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .app-card__offering { margin: 0 0 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* —— Applications dashboard —— */
+.app-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.app-filter {
+  appearance: none;
+  min-height: 38px;
+  padding: 0 14px;
+  background: var(--bg);
+  border: 1px solid var(--border-light);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.app-filter b { margin-right: 4px; font-size: 13px; color: var(--text); }
+.app-filter:hover, .app-filter:focus-visible { border-color: var(--text); outline: none; }
+.app-filter.is-active { background: var(--text); border-color: var(--text); color: var(--bg); }
+.app-filter.is-active b { color: var(--bg); }
+.app-list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start; }
+.app-card--accepted { border-left: 3px solid var(--text); }
+.app-card--declined { opacity: 0.6; }
+.app-card__actions .btn { flex: 1 1 auto; }
+.app-decline:hover, .app-decline:focus-visible, .app-delete:hover, .app-delete:focus-visible { border-color: var(--danger); color: var(--danger); }

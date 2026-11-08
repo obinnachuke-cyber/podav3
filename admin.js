@@ -2892,6 +2892,8 @@ function renderSuppliers() {
    bucket only answer to the admin session. Photos are shown through
    one-hour signed links.
    ============================================================ */
+let applicationsFilter = "new";   // new | accepted | declined | all
+
 async function renderApplications() {
   const M = window.PodaMarketplace;
   if (!M || !M.getApplications) {
@@ -2911,79 +2913,107 @@ async function renderApplications() {
     return;
   }
 
-  // New first, then reviewed, then archived; newest first inside each.
-  const order = { new: 0, reviewed: 1, archived: 2 };
-  apps.sort((a, b) => (order[a.status] - order[b.status]) || (Date.parse(b.created_at) - Date.parse(a.created_at)));
+  // Anything that is not accepted or declined is still waiting on a decision.
+  const bucket = a => (a.status === "accepted" || a.status === "declined") ? a.status : "new";
+  const TYPE_LABEL = { closet: "Personal closet", store: "Store / vintage seller", brand: "Brand" };
 
-  // One signed-link request for every photo on the page.
+  // One signed-link request covers every photo on the page.
   const allPaths = apps.flatMap(a => a.photo_paths || []);
-  let urlByPath = new Map();
+  const urlByPath = new Map();
   try {
     const urls = await M.getApplicationPhotoUrls(allPaths);
     allPaths.forEach((p, i) => urlByPath.set(p, urls[i]));
   } catch (e) { /* cards still show, without photos */ }
 
   const card = a => {
+    const b = bucket(a);
     const ig = a.instagram
       ? `<a href="https://instagram.com/${encodeURIComponent(a.instagram.replace(/^@/, ""))}" target="_blank" rel="noopener">${escapeHTML(a.instagram)}</a>`
-      : "—";
+      : "";
     const photos = (a.photo_paths || []).map((p, i) => {
       const u = urlByPath.get(p);
       return u ? `<a href="${escapeHTML(u)}" target="_blank" rel="noopener"><img src="${escapeHTML(u)}" alt="${escapeHTML(a.name)} photo ${i + 1}" loading="lazy" /></a>` : "";
     }).join("");
+    const decided = b !== "new";
     return `
-      <article class="app-card app-card--${escapeHTML(a.status)}" data-app="${escapeHTML(a.id)}">
+      <article class="app-card app-card--${b}" data-app="${escapeHTML(a.id)}">
         <div class="app-card__head">
           <h3 class="app-card__name">${escapeHTML(a.name)}</h3>
-          <span class="badge">${escapeHTML(a.status)}</span>
+          <span class="badge">${decided ? escapeHTML(b) : escapeHTML(TYPE_LABEL[a.seller_type] || "application")}</span>
         </div>
-        ${a.seller_type ? `<p class="app-card__meta">${escapeHTML({ closet: "Personal closet", store: "Store / vintage seller", brand: "Brand" }[a.seller_type] || a.seller_type)}</p>` : ""}
+        ${decided && a.seller_type ? `<p class="app-card__meta">${escapeHTML(TYPE_LABEL[a.seller_type] || a.seller_type)}</p>` : ""}
         <p class="app-card__meta">
-          <a href="mailto:${escapeHTML(a.email)}">${escapeHTML(a.email)}</a> · ${ig} · ${escapeHTML(new Date(a.created_at).toLocaleDateString())}
+          <a href="mailto:${escapeHTML(a.email)}">${escapeHTML(a.email)}</a>${ig ? ` · ${ig}` : ""} · ${escapeHTML(new Date(a.created_at).toLocaleDateString())}
         </p>
         ${a.offering ? `<p class="app-card__offering">${escapeHTML(a.offering)}</p>` : ""}
         <div class="app-card__photos">${photos || `<span class="admin-empty">No photos.</span>`}</div>
         <div class="app-card__actions">
-          ${a.status === "new" ? `<button type="button" class="btn" data-app-status="reviewed">Mark reviewed</button>` : ""}
-          ${a.status !== "archived" ? `<button type="button" class="btn" data-app-status="archived">Archive</button>` : `<button type="button" class="btn" data-app-status="new">Restore</button>`}
-          <button type="button" class="btn" data-app-delete>Delete</button>
+          ${decided
+            ? `<button type="button" class="btn" data-app-status="new">Undo</button>`
+            : `<button type="button" class="btn btn--primary" data-app-status="accepted">Accept</button>
+               <button type="button" class="btn app-decline" data-app-status="declined">Decline</button>`}
+          <button type="button" class="btn app-delete" data-app-delete>Delete</button>
         </div>
       </article>`;
   };
 
-  adminMain.innerHTML = `
-    <div class="section-bar section-bar--admin">
-      <span class="section-bar__label">Supply</span>
-      <span class="section-bar__title">Applications</span>
-    </div>
-    ${apps.length ? `<div class="app-list" id="appList">${apps.map(card).join("")}</div>`
-      : `<p class="admin-empty">No applications yet.</p>`}
-  `;
+  const counts = () => ({
+    new: apps.filter(a => bucket(a) === "new").length,
+    accepted: apps.filter(a => bucket(a) === "accepted").length,
+    declined: apps.filter(a => bucket(a) === "declined").length,
+    all: apps.length
+  });
 
-  const list = document.getElementById("appList");
-  if (!list) return;
-  list.addEventListener("click", async e => {
+  function draw() {
+    const c = counts();
+    const shown = apps
+      .filter(a => applicationsFilter === "all" || bucket(a) === applicationsFilter)
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+    const tab = (key, label) =>
+      `<button type="button" class="app-filter${applicationsFilter === key ? " is-active" : ""}" data-app-filter="${key}" aria-pressed="${applicationsFilter === key}"><b>${c[key]}</b> ${label}</button>`;
+    adminMain.innerHTML = `
+      <div class="section-bar section-bar--admin">
+        <span class="section-bar__label">Supply</span>
+        <span class="section-bar__title">Applications</span>
+      </div>
+      <div class="app-filters" role="group" aria-label="Filter applications">
+        ${tab("new", "To review")}${tab("accepted", "Accepted")}${tab("declined", "Declined")}${tab("all", "All")}
+      </div>
+      ${shown.length ? `<div class="app-list" id="appList">${shown.map(card).join("")}</div>`
+        : `<p class="admin-empty">${apps.length ? "Nothing here." : "No applications yet."}</p>`}`;
+  }
+  draw();
+
+  // One listener on the page area; draw() replaces the markup but not this.
+  adminMain.onclick = async e => {
+    const filter = e.target.closest("[data-app-filter]");
+    if (filter) { applicationsFilter = filter.dataset.appFilter; draw(); return; }
+
     const el = e.target.closest("article[data-app]");
     if (!el) return;
     const app = apps.find(a => a.id === el.dataset.app);
     const statusBtn = e.target.closest("[data-app-status]");
     const delBtn = e.target.closest("[data-app-delete]");
+    if (!app || (!statusBtn && !delBtn)) return;
+
     try {
       if (statusBtn) {
-        statusBtn.disabled = true;
+        el.querySelectorAll("button").forEach(b => { b.disabled = true; });
         await M.setApplicationStatus(app.id, statusBtn.dataset.appStatus);
-        window.PodaRelease.renderSupply("applications");
-      } else if (delBtn) {
+        app.status = statusBtn.dataset.appStatus;   // update in place: no reload, the list just redraws
+        draw();
+      } else {
         if (!confirm(`Delete ${app.name}'s application and photos? This cannot be undone.`)) return;
-        delBtn.disabled = true;
+        el.querySelectorAll("button").forEach(b => { b.disabled = true; });
         await M.deleteApplication(app);
-        window.PodaRelease.renderSupply("applications");
+        apps.splice(apps.indexOf(app), 1);
+        draw();
       }
     } catch (err) {
       alert(err && err.message ? err.message : "That didn't work.");
-      window.PodaRelease.renderSupply("applications");
+      draw();
     }
-  });
+  };
 }
 
 function blankSupplier() {

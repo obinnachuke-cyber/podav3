@@ -27,7 +27,8 @@ create table if not exists public.seller_applications (
   photo_paths  text[] not null check (cardinality(photo_paths) between 1 and 12),
   offering     text check (offering is null or char_length(offering) <= 1000),
   seller_type  text check (seller_type is null or seller_type in ('closet', 'store', 'brand')),
-  status       text not null default 'new' check (status in ('new', 'reviewed', 'archived')),
+  status       text not null default 'new'
+               check (status in ('new', 'accepted', 'declined', 'reviewed', 'archived')),
   created_at   timestamptz not null default now()
 );
 
@@ -36,6 +37,11 @@ alter table public.seller_applications add column if not exists offering text
   check (offering is null or char_length(offering) <= 1000);
 alter table public.seller_applications add column if not exists seller_type text
   check (seller_type is null or seller_type in ('closet', 'store', 'brand'));
+
+-- Accept / decline: widen the status list if the table came from an earlier version.
+alter table public.seller_applications drop constraint if exists seller_applications_status_check;
+alter table public.seller_applications add constraint seller_applications_status_check
+  check (status in ('new', 'accepted', 'declined', 'reviewed', 'archived'));
 
 create index if not exists seller_applications_created_idx
   on public.seller_applications (created_at desc);
