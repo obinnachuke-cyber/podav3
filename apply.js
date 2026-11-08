@@ -43,6 +43,7 @@
     id: crypto.randomUUID(),   // same id on every retry, so a retry cannot double-submit
     name: "",
     email: "",
+    type: "",
     instagram: "",
     offering: "",
     draft: {},                 // unsent typing, kept so Back never loses it
@@ -53,7 +54,13 @@
 
   let pendingPhotos = Promise.resolve();   // photos still being shrunk
 
-  const STEPS = ["name", "email", "instagram", "photos"];
+  const STEPS = ["type", "name", "email", "instagram", "photos"];
+  const TYPES = [
+    { key: "closet", label: "Personal closet" },
+    { key: "store", label: "Store / vintage seller" },
+    { key: "brand", label: "Brand" }
+  ];
+  const typeLabel = key => (TYPES.find(t => t.key === key) || {}).label || "";
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -160,6 +167,7 @@
       app_email: state.email,
       app_instagram: state.instagram || null,
       app_offering: state.offering,
+      app_seller_type: state.type,
       app_photo_paths: state.photos.map(p => `${state.id}/${p.key}.jpg`)
     });
     if (error) throw error;
@@ -179,6 +187,7 @@
           email: state.email,
           instagram: state.instagram,
           message: state.offering,
+          sellerType: typeLabel(state.type),
           photoCount: state.photos.length
         })
       }).catch(() => {});
@@ -189,8 +198,8 @@
   function progress(step) {
     const n = STEPS.indexOf(step) + 1;
     const segs = STEPS.map((_, i) => `<i class="${i < n ? "is-done" : ""}"></i>`).join("");
-    return `<div class="apply-progress" role="img" aria-label="Step ${n} of 4">
-      <span class="apply-progress__no" aria-hidden="true">0${n} / 04</span>
+    return `<div class="apply-progress" role="img" aria-label="Step ${n} of ${STEPS.length}">
+      <span class="apply-progress__no" aria-hidden="true">0${n} / 0${STEPS.length}</span>
       <span class="apply-progress__bar" aria-hidden="true">${segs}</span>
     </div>`;
   }
@@ -230,6 +239,18 @@
         </div>
       </div>`;
     },
+    type() {
+      return shell(`<div data-form="type">
+        ${progress("type")}
+        <h1 class="visually-hidden-input">What are you selling as?</h1>
+        <div class="apply-choices" role="group" aria-label="What are you selling as?">
+          ${TYPES.map(t => `<button type="button" class="apply-choice${state.type === t.key ? " is-selected" : ""}" data-type="${t.key}" aria-pressed="${state.type === t.key}">
+            <span>${esc(t.label)}</span><span aria-hidden="true">→</span>
+          </button>`).join("")}
+        </div>
+        <div class="apply-nav"><button type="button" class="btn" data-act="back">Back</button><span></span></div>
+      </div>`);
+    },
     name() {
       return shell(`<form novalidate data-form="name">
         ${progress("name")}
@@ -257,16 +278,16 @@
     photos() {
       return shell(`<form novalidate data-form="photos">
         ${progress("photos")}
-        <h1 class="apply-q" tabindex="-1">Show us your closet.</h1>
-        <label class="upload-dropzone apply-drop" for="applyFiles" id="applyDrop">
-          <span>＋ Add photos</span>
-          <input type="file" id="applyFiles" accept="image/*" multiple class="visually-hidden-input" />
-        </label>
-        <div class="upload-strip apply-strip" id="applyStrip">${thumbsHTML()}</div>
+        <h1 class="visually-hidden-input">Show us your closet.</h1>
         <div class="field apply-offering">
           <label for="offering">What are you trying to sell?</label>
           <textarea id="offering" name="offering" maxlength="1000" rows="4" required aria-describedby="applyError">${esc(state.draft.offering !== undefined ? state.draft.offering : state.offering)}</textarea>
         </div>
+        <label class="upload-dropzone apply-drop" for="applyFiles" id="applyDrop">
+          <span>＋ Attach relevant images</span>
+          <input type="file" id="applyFiles" accept="image/*" multiple class="visually-hidden-input" />
+        </label>
+        <div class="upload-strip apply-strip" id="applyStrip">${thumbsHTML()}</div>
         <p class="apply-error" id="applyError" role="alert" hidden></p>
         ${nav()}
       </form>`);
@@ -278,6 +299,10 @@
         <div class="apply-profile">
           <span class="apply-tab" aria-hidden="true">Sell</span>
           <div class="apply-card__body">
+            <div class="apply-row apply-row--type">
+              <span class="apply-profile__type">${esc(typeLabel(state.type))}</span>
+              <button type="button" class="apply-edit" data-edit="type" aria-label="Edit seller type">Edit</button>
+            </div>
             <div class="apply-row">
               <h2 class="apply-profile__name">${esc(state.name)}</h2>
               <button type="button" class="apply-edit" data-edit="name" aria-label="Edit name">Edit</button>
@@ -329,7 +354,7 @@
     if (!reduceMotion) { void root.offsetWidth; root.classList.add("is-in"); }
     wire();
     if (focus) {
-      const target = root.querySelector("input[type=text],input[type=email]") || root.querySelector(".apply-q,.apply-title");
+      const target = root.querySelector("input[type=text],input[type=email],textarea,.apply-choice") || root.querySelector(".apply-q,.apply-title");
       if (target) target.focus({ preventScroll: false });
     }
   }
@@ -431,6 +456,9 @@
     const act = e.target.closest("[data-act]");
     const edit = e.target.closest("[data-edit]");
 
+    const choice = e.target.closest("[data-type]");
+    if (choice) { state.type = choice.dataset.type; goNext("type"); return; }
+
     if (edit) { state.fromReview = true; show(edit.dataset.edit); return; }
     if (!act) return;
 
@@ -438,7 +466,7 @@
     const form = root.querySelector("form[data-form]");
     const step = form ? form.dataset.form : state.screen;
 
-    if (a === "start") { show("name"); return; }
+    if (a === "start") { show("type"); return; }
     if (a === "back") { goBack(step); return; }
     if (a === "skip") { state.instagram = ""; goNext("instagram"); return; }
 

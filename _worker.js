@@ -466,6 +466,7 @@ async function handleSubmitRequest(request, env) {
   // The seller application has no free-text message: its photos stay in
   // private storage, so this email only announces it and carries a count.
   const isApplication = payload.kind === "application";
+  const sellerType = clean(payload.sellerType, 60);
   const photoCount = Math.max(0, Math.min(12, parseInt(payload.photoCount, 10) || 0));
 
   if (!name || !email || (!message && !isApplication)) {
@@ -481,8 +482,10 @@ async function handleSubmitRequest(request, env) {
     `${subjectPrefix}:`, "",
     `Name: ${name}`,
     `Email: ${email}`,
-    `Instagram: ${instagram}`, ""
+    `Instagram: ${instagram}`
   ];
+  if (isApplication && sellerType) lines.push(`Type: ${sellerType}`);
+  lines.push("");
   if (isApplication) {
     if (message) lines.push("Selling:", message, "");
     lines.push(`Photos: ${photoCount} (private: Admin > Supply > Applications)`);

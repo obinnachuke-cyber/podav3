@@ -26,6 +26,7 @@ create table if not exists public.seller_applications (
   instagram    text check (instagram is null or char_length(instagram) <= 200),
   photo_paths  text[] not null check (cardinality(photo_paths) between 1 and 12),
   offering     text check (offering is null or char_length(offering) <= 1000),
+  seller_type  text check (seller_type is null or seller_type in ('closet', 'store', 'brand')),
   status       text not null default 'new' check (status in ('new', 'reviewed', 'archived')),
   created_at   timestamptz not null default now()
 );
@@ -33,6 +34,8 @@ create table if not exists public.seller_applications (
 -- Added after the first version of this file; harmless if it already exists.
 alter table public.seller_applications add column if not exists offering text
   check (offering is null or char_length(offering) <= 1000);
+alter table public.seller_applications add column if not exists seller_type text
+  check (seller_type is null or seller_type in ('closet', 'store', 'brand'));
 
 create index if not exists seller_applications_created_idx
   on public.seller_applications (created_at desc);
@@ -78,8 +81,9 @@ create policy "Admin deletes application photos"
 --          'photos'    a listed photo is not in storage yet
 --          'duplicate' this email already applied in the last 24 hours
 --          'busy'      too many applications in the last hour
--- The first version took five arguments; replace it with the six-argument one.
+-- Earlier versions took five and six arguments; replace them with the seven-argument one.
 drop function if exists public.submit_seller_application(uuid, text, text, text, text[]);
+drop function if exists public.submit_seller_application(uuid, text, text, text, text[], text);
 
 create or replace function public.submit_seller_application(
   app_id          uuid,
@@ -87,7 +91,8 @@ create or replace function public.submit_seller_application(
   app_email       text,
   app_instagram   text,
   app_photo_paths text[],
-  app_offering    text
+  app_offering    text,
+  app_seller_type text
 )
 returns text
 language plpgsql
@@ -112,6 +117,7 @@ begin
      or char_length(clean_email) > 200
      or (clean_ig is not null and char_length(clean_ig) > 200)
      or char_length(clean_what) not between 1 and 1000
+     or app_seller_type is null or app_seller_type not in ('closet', 'store', 'brand')
      or app_photo_paths is null
      or cardinality(app_photo_paths) not between 1 and 12 then
     return 'invalid';
@@ -137,12 +143,12 @@ begin
     return 'busy';
   end if;
 
-  insert into public.seller_applications (id, name, email, instagram, photo_paths, offering)
-  values (app_id, clean_name, clean_email, clean_ig, app_photo_paths, clean_what);
+  insert into public.seller_applications (id, name, email, instagram, photo_paths, offering, seller_type)
+  values (app_id, clean_name, clean_email, clean_ig, app_photo_paths, clean_what, app_seller_type);
 
   return 'ok';
 end;
 $$;
 
-revoke all on function public.submit_seller_application(uuid, text, text, text, text[], text) from public;
-grant execute on function public.submit_seller_application(uuid, text, text, text, text[], text) to anon, authenticated;
+revoke all on function public.submit_seller_application(uuid, text, text, text, text[], text, text) from public;
+grant execute on function public.submit_seller_application(uuid, text, text, text, text[], text, text) to anon, authenticated;

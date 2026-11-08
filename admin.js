@@ -2937,6 +2937,7 @@ async function renderApplications() {
           <h3 class="app-card__name">${escapeHTML(a.name)}</h3>
           <span class="badge">${escapeHTML(a.status)}</span>
         </div>
+        ${a.seller_type ? `<p class="app-card__meta">${escapeHTML({ closet: "Personal closet", store: "Store / vintage seller", brand: "Brand" }[a.seller_type] || a.seller_type)}</p>` : ""}
         <p class="app-card__meta">
           <a href="mailto:${escapeHTML(a.email)}">${escapeHTML(a.email)}</a> · ${ig} · ${escapeHTML(new Date(a.created_at).toLocaleDateString())}
         </p>
