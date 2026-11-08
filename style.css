@@ -4060,13 +4060,13 @@ button.card-link {
 .apply-sent + .apply-intro__actions { margin-top: 16px; }
 .apply-btn--sm { min-height: 34px; padding: 0 16px; font-size: 10px; letter-spacing: 0.14em; }
 
-/* Archive tiles: the release date, in the same face as the folder tab names */
+/* Archive tiles: the release date, in the same face as the "Folder 001" line */
 .folder-tile__date {
-  font-family: "Anton", Impact, "Haettenschweiler", "Arial Narrow Bold", sans-serif;
-  font-style: italic;
-  font-size: 15px;
-  letter-spacing: 0.04em;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   text-align: center;
-  color: var(--text);
+  color: var(--text-dim);
 }
