@@ -4070,3 +4070,8 @@ button.card-link {
   text-align: center;
   color: var(--text-dim);
 }
+
+/* Source folder: kept on the homepage, but not a link while the page is off the site */
+.fstack--off { cursor: default; }
+.findex__item--off { opacity: 0.5; cursor: default; }
+.findex__item--off:hover, .findex__item--off:focus { background: none; }

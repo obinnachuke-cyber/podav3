@@ -16,7 +16,6 @@
     { href: "market-notes.html", label: "Inbox" },
     { href: "lookbook.html",     label: "Lookbook" },
     { href: "archive.html",      label: "Archive" },
-    { href: "source.html",       label: "Source" },
     { href: "sell.html",         label: "Sell with poda" }
   ];
   // The 3D folder homepage. index.html shows the Shop while a release is live,
