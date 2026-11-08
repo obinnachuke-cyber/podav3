@@ -4045,3 +4045,17 @@ button.card-link {
 .apply-choice.is-selected { background: #fff; }
 .apply-row--type { margin-bottom: 6px; }
 .apply-profile__type { font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+
+/* Sent screen: same type as the header nav, with a smaller button */
+.apply-sent {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text);
+  outline: none;
+}
+.apply-sent + .apply-intro__actions { margin-top: 16px; }
+.apply-btn--sm { min-height: 34px; padding: 0 16px; font-size: 10px; letter-spacing: 0.14em; }

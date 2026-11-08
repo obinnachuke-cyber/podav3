@@ -331,9 +331,9 @@
     },
     sent() {
       return `<div class="apply-intro">
-        <h1 class="apply-title" tabindex="-1">Application sent</h1>
+        <h1 class="apply-sent" tabindex="-1">Application sent</h1>
         <div class="apply-intro__actions">
-          <a class="btn btn--primary apply-link-btn" href="index.html">Back to poda</a>
+          <a class="btn btn--primary apply-link-btn apply-btn--sm" href="index.html">Back to poda</a>
         </div>
       </div>`;
     }
