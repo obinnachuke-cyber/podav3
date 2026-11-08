@@ -212,7 +212,7 @@
   }
 
   /* ============================================================
-     Homepage — six fixed folders (markup lives in index.html so the links
+     Homepage — five fixed folders (markup lives in index.html so the links
      work with no JS). This only adds live state: what is in Shop, the
      past-release count, and the red dot on Shop and Inbox.
      ============================================================ */

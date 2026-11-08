@@ -27,10 +27,13 @@ Each biweekly edition is a **release** (a folder) — an `edits` row. The
 homepage (`index.html`) shows one of two views, chosen by `folders.js`:
 **when a release is in Shop, the homepage is the Shop** (the release plus a
 quiet "next drop" notice). **When nothing is in Shop, it is the folder
-homepage**: a 3D row of six tabbed folders, each named on its tab, that lift and fan
+homepage**: a 3D row of five tabbed folders, each named on its tab, that lift and fan
 out on hover, with a red card stack behind a folder that has new material.
 The folders are **Shop**, **Inbox** (Market Notes and release updates),
-**Lookbook**, **Archive** (past releases), **Sell with poda** and **Source**.
+**Lookbook**, **Archive** (past releases) and **Sell with poda**. The Source page is
+off the site for now: `source.html` stays in the repo, and to bring it back add it to
+the `INCLUDE` list in `build.js`, restore its link in `layout.js`, and add its folder
+back to the scene and index in `index.html`.
 An index row under the scene is the real navigation (keyboard, screen
 readers, phones); hovering either one highlights both. The scene is CSS 3D
 (`.fscene` in `style.css`), with no images. The folder homepage reloads itself at a scheduled drop time, so a

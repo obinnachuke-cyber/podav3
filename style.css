@@ -3709,11 +3709,11 @@ button.card-link {
   width: var(--fw);
   height: var(--fh);
   transform-style: preserve-3d;
-  transform: translate(172px, 22px) rotateX(-17deg) rotateY(38deg);
+  transform: translate(148px, 22px) rotateX(-17deg) rotateY(38deg);
 }
 
 .fstack {
-  --z: calc((var(--i) - 5) * var(--fp));
+  --z: calc((var(--i) - 4) * var(--fp));   /* the front folder is the last one, i = 4 */
   --lift: 0px;
   --spread: 5px;
   position: absolute;
@@ -3808,7 +3808,7 @@ button.card-link {
 /* —— Index: the real navigation under the scene —— */
 .findex {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
   width: min(960px, 100%);
   margin: 0 auto;
@@ -3861,7 +3861,7 @@ button.card-link {
 @media (max-width: 640px) {
   .fscene { --fw: 160px; --fh: 120px; --fp: 70px; height: 280px; }
   /* More side-on than desktop so each folder shows its whole name */
-  .frow { transform: translate(136px, 16px) rotateX(-17deg) rotateY(50deg) scale(0.82); }
+  .frow { transform: translate(118px, 16px) rotateX(-17deg) rotateY(50deg) scale(0.82); }
   .ftab { font-size: 12px; top: -16px; height: 17px; padding: 2px 12px 0 7px; }
   .findex { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -4070,8 +4070,3 @@ button.card-link {
   text-align: center;
   color: var(--text-dim);
 }
-
-/* Source folder: kept on the homepage, but not a link while the page is off the site */
-.fstack--off { cursor: default; }
-.findex__item--off { opacity: 0.5; cursor: default; }
-.findex__item--off:hover, .findex__item--off:focus { background: none; }
