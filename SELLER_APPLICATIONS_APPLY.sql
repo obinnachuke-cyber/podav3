@@ -25,9 +25,14 @@ create table if not exists public.seller_applications (
   email        text not null check (char_length(email) between 3 and 200),
   instagram    text check (instagram is null or char_length(instagram) <= 200),
   photo_paths  text[] not null check (cardinality(photo_paths) between 1 and 12),
+  offering     text check (offering is null or char_length(offering) <= 1000),
   status       text not null default 'new' check (status in ('new', 'reviewed', 'archived')),
   created_at   timestamptz not null default now()
 );
+
+-- Added after the first version of this file; harmless if it already exists.
+alter table public.seller_applications add column if not exists offering text
+  check (offering is null or char_length(offering) <= 1000);
 
 create index if not exists seller_applications_created_idx
   on public.seller_applications (created_at desc);
@@ -73,12 +78,16 @@ create policy "Admin deletes application photos"
 --          'photos'    a listed photo is not in storage yet
 --          'duplicate' this email already applied in the last 24 hours
 --          'busy'      too many applications in the last hour
+-- The first version took five arguments; replace it with the six-argument one.
+drop function if exists public.submit_seller_application(uuid, text, text, text, text[]);
+
 create or replace function public.submit_seller_application(
   app_id          uuid,
   app_name        text,
   app_email       text,
   app_instagram   text,
-  app_photo_paths text[]
+  app_photo_paths text[],
+  app_offering    text
 )
 returns text
 language plpgsql
@@ -89,6 +98,7 @@ declare
   clean_name  text := btrim(coalesce(app_name, ''));
   clean_email text := lower(btrim(coalesce(app_email, '')));
   clean_ig    text := nullif(btrim(coalesce(app_instagram, '')), '');
+  clean_what  text := btrim(coalesce(app_offering, ''));
   p           text;
 begin
   -- Same application sent twice (retry, double tap): already saved.
@@ -101,6 +111,7 @@ begin
      or clean_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'
      or char_length(clean_email) > 200
      or (clean_ig is not null and char_length(clean_ig) > 200)
+     or char_length(clean_what) not between 1 and 1000
      or app_photo_paths is null
      or cardinality(app_photo_paths) not between 1 and 12 then
     return 'invalid';
@@ -126,12 +137,12 @@ begin
     return 'busy';
   end if;
 
-  insert into public.seller_applications (id, name, email, instagram, photo_paths)
-  values (app_id, clean_name, clean_email, clean_ig, app_photo_paths);
+  insert into public.seller_applications (id, name, email, instagram, photo_paths, offering)
+  values (app_id, clean_name, clean_email, clean_ig, app_photo_paths, clean_what);
 
   return 'ok';
 end;
 $$;
 
-revoke all on function public.submit_seller_application(uuid, text, text, text, text[]) from public;
-grant execute on function public.submit_seller_application(uuid, text, text, text, text[]) to anon, authenticated;
+revoke all on function public.submit_seller_application(uuid, text, text, text, text[], text) from public;
+grant execute on function public.submit_seller_application(uuid, text, text, text, text[], text) to anon, authenticated;

@@ -484,6 +484,7 @@ async function handleSubmitRequest(request, env) {
     `Instagram: ${instagram}`, ""
   ];
   if (isApplication) {
+    if (message) lines.push("Selling:", message, "");
     lines.push(`Photos: ${photoCount} (private: Admin > Supply > Applications)`);
   } else {
     lines.push(`${prompt}:`, message);

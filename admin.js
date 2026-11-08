@@ -2940,6 +2940,7 @@ async function renderApplications() {
         <p class="app-card__meta">
           <a href="mailto:${escapeHTML(a.email)}">${escapeHTML(a.email)}</a> · ${ig} · ${escapeHTML(new Date(a.created_at).toLocaleDateString())}
         </p>
+        ${a.offering ? `<p class="app-card__offering">${escapeHTML(a.offering)}</p>` : ""}
         <div class="app-card__photos">${photos || `<span class="admin-empty">No photos.</span>`}</div>
         <div class="app-card__actions">
           ${a.status === "new" ? `<button type="button" class="btn" data-app-status="reviewed">Mark reviewed</button>` : ""}

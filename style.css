@@ -3898,8 +3898,8 @@ button.card-link {
   outline: none;
 }
 .apply-title--sm { font-size: clamp(30px, 8vw, 46px); margin-bottom: 22px; }
-.apply-intro { padding: 56px 0 24px; }
-.apply-intro__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 26px; margin-top: 34px; }
+.apply-intro { padding: 72px 0 40px; }
+.apply-intro__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 26px; }
 .apply-login {
   min-height: 0;
   font-family: var(--font);
@@ -4011,3 +4011,9 @@ button.card-link {
 @media (prefers-reduced-motion: reduce) {
   .apply.is-in > * { animation: none; }
 }
+
+.apply-offering { margin-top: 18px; }
+.apply .field textarea { background: var(--bg); min-height: 110px; resize: vertical; }
+.apply .field textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.apply .field textarea[aria-invalid="true"] { border-color: var(--danger); }
+.apply-profile__offering { margin: 12px 0 10px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }

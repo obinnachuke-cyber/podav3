@@ -44,6 +44,7 @@
     name: "",
     email: "",
     instagram: "",
+    offering: "",
     draft: {},                 // unsent typing, kept so Back never loses it
     photos: [],                // { key, file, blob, url, uploaded }
     nextKey: 0,
@@ -158,6 +159,7 @@
       app_name: state.name,
       app_email: state.email,
       app_instagram: state.instagram || null,
+      app_offering: state.offering,
       app_photo_paths: state.photos.map(p => `${state.id}/${p.key}.jpg`)
     });
     if (error) throw error;
@@ -176,6 +178,7 @@
           name: state.name,
           email: state.email,
           instagram: state.instagram,
+          message: state.offering,
           photoCount: state.photos.length
         })
       }).catch(() => {});
@@ -220,7 +223,7 @@
   const screens = {
     intro() {
       return `<div class="apply-intro">
-        <h1 class="apply-title" tabindex="-1">Sell with poda</h1>
+        <h1 class="visually-hidden-input">Sell with poda</h1>
         <div class="apply-intro__actions">
           <button type="button" class="btn btn--primary" data-act="start">Apply to sell</button>
           <a class="apply-login" href="seller.html">Seller login →</a>
@@ -230,7 +233,7 @@
     name() {
       return shell(`<form novalidate data-form="name">
         ${progress("name")}
-        <h1 class="apply-q" tabindex="-1">What should we call you?</h1>
+        <h1 class="visually-hidden-input">What should we call you?</h1>
         ${fieldHTML("name", "Name or nickname", "text", state.name, 'autocomplete="nickname" maxlength="120" required')}
         ${nav()}
       </form>`);
@@ -238,7 +241,7 @@
     email() {
       return shell(`<form novalidate data-form="email">
         ${progress("email")}
-        <h1 class="apply-q" tabindex="-1">What’s your email?</h1>
+        <h1 class="visually-hidden-input">What’s your email?</h1>
         ${fieldHTML("email", "Email", "email", state.email, 'autocomplete="email" inputmode="email" maxlength="200" required')}
         ${nav()}
       </form>`);
@@ -246,7 +249,7 @@
     instagram() {
       return shell(`<form novalidate data-form="instagram">
         ${progress("instagram")}
-        <h1 class="apply-q" tabindex="-1">What’s your Instagram?</h1>
+        <h1 class="visually-hidden-input">What’s your Instagram?</h1>
         ${fieldHTML("instagram", "Instagram handle or profile URL", "text", state.instagram, 'autocomplete="off" autocapitalize="off" maxlength="200"')}
         ${nav({ skip: true })}
       </form>`);
@@ -260,6 +263,10 @@
           <input type="file" id="applyFiles" accept="image/*" multiple class="visually-hidden-input" />
         </label>
         <div class="upload-strip apply-strip" id="applyStrip">${thumbsHTML()}</div>
+        <div class="field apply-offering">
+          <label for="offering">What are you trying to sell?</label>
+          <textarea id="offering" name="offering" maxlength="1000" rows="4" required aria-describedby="applyError">${esc(state.draft.offering !== undefined ? state.draft.offering : state.offering)}</textarea>
+        </div>
         <p class="apply-error" id="applyError" role="alert" hidden></p>
         ${nav()}
       </form>`);
@@ -280,7 +287,8 @@
               <button type="button" class="apply-edit" data-edit="instagram" aria-label="${state.instagram ? "Edit Instagram" : "Add Instagram"}">${state.instagram ? "Edit" : "Add"}</button>
             </div>
             <div class="apply-profile__photos">${photos}</div>
-            <button type="button" class="apply-edit" data-edit="photos" aria-label="Edit photos">Edit photos</button>
+            <p class="apply-profile__offering">${esc(state.offering)}</p>
+            <button type="button" class="apply-edit" data-edit="photos" aria-label="Edit photos and description">Edit</button>
           </div>
         </div>
         <div class="apply-private">
@@ -356,7 +364,7 @@
     if (form) {
       const step = form.dataset.form;
       form.addEventListener("submit", e => { e.preventDefault(); onContinue(step, form); });
-      const input = form.querySelector("input[type=text],input[type=email]");
+      const input = form.querySelector("input[type=text],input[type=email],textarea");
       if (input) input.addEventListener("input", () => { state.draft[input.id] = input.value; err(""); input.removeAttribute("aria-invalid"); });
       if (step === "photos") wirePhotos();
     }
@@ -379,8 +387,12 @@
     } else if (step === "photos") {
       await pendingPhotos;   // never leave while a photo is still being read
       if (!state.photos.length) return err("Add at least one photo.");
+      const what = form.elements.offering.value.trim();
+      if (!what) return err("Tell us what you’re trying to sell.");
+      state.offering = what;
     }
     delete state.draft[step];
+    if (step === "photos") delete state.draft.offering;
     goNext(step);
   }
 
