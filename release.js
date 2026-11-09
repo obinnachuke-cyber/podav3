@@ -909,7 +909,42 @@
           <button type="button" class="btn btn--danger" data-rel="launch-now" ${requiredOk && r.status !== "archived" ? "" : "disabled"}>Launch now (manual)</button>
         </div>
         ${canSchedule ? "" : `<p class="rel-note">Complete the required items above to schedule or launch.</p>`}`}
+      </section>
+
+      <section class="rel-block">
+        <div class="section-bar"><span class="section-bar__title">Delete release</span></div>
+        ${A().canDeleteRelease(r)
+          ? `<p class="rel-note">This release has never been public, so it can be deleted. Its notes and lookbook sets are kept and detached. Products stay in inventory. Its updates and activity log are removed.</p>
+             <div class="rel-actions" style="margin-top:10px;"><button type="button" class="btn btn--danger" data-rel="delete-release">Delete release</button></div>`
+          : `<p class="rel-note">Only a draft that was never opened to the public, scheduled or launched can be deleted. Use <strong>Archive release</strong> for this one. Nothing is lost.</p>`}
       </section>`;
+  }
+
+  // Delete a never-public draft. Notes and sets are detached (kept) by the
+  // database trigger; update images are tidied here, best effort.
+  async function deleteCurrentRelease() {
+    const d = R.data;
+    const r = d.release;
+    if (!A().canDeleteRelease(r)) { setNotice("Only a never-public draft can be deleted. Archive it instead.", true); return; }
+    const parts = [];
+    if (d.notes.length) parts.push(`${d.notes.length} note${d.notes.length === 1 ? "" : "s"} (kept, detached)`);
+    if (d.studies.length) parts.push(`${d.studies.length} lookbook set${d.studies.length === 1 ? "" : "s"} (kept, detached)`);
+    if (d.placements.length) parts.push(`${d.placements.length} product${d.placements.length === 1 ? "" : "s"} (stay in inventory)`);
+    if (d.updates.length) parts.push(`${d.updates.length} update${d.updates.length === 1 ? "" : "s"} (deleted)`);
+    const summary = parts.length ? `\n\nIn this release: ${parts.join(", ")}.` : "";
+    if (!confirm(`Delete "${r.title || "Untitled"}" permanently? This cannot be undone.${summary}`)) return;
+    try {
+      await A().deleteRelease(r.id);
+    } catch (e) { setNotice(e.message || "Could not delete the release.", true); return; }
+    // The release is gone; clean up update images and refresh local note/set state.
+    for (const u of d.updates) {
+      if (u.image_path) { try { await D().deleteNoteMedia(A().noteMediaUrl(u.image_path)); } catch (e) { /* best effort */ } }
+    }
+    noteState.notes.forEach(n => { if (n.folderId === r.id) n.folderId = ""; });
+    studyState.studies.forEach(s => { if (s.relatedDropId === r.id) s.relatedDropId = ""; });
+    R.data = null;
+    R.tab = "contents";
+    setView("releases");
   }
 
   async function saveDetails(extra) {
@@ -1318,6 +1353,7 @@
         case "to-draft": await setStatus("draft", "returned_to_draft"); break;
         case "archive": if (confirm("Archive this release? It leaves Shop and moves to the Archive. Nothing is deleted.")) await setStatus("archived", "archived"); break;
         case "unarchive": await setStatus("scheduled", "unarchived"); break;
+        case "delete-release": await deleteCurrentRelease(); break;
         case "make-working": await makeWorking(); break;
         case "schedule-drop": await scheduleDrop(); break;
         case "cancel-drop": await cancelDrop(); break;

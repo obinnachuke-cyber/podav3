@@ -824,6 +824,20 @@
     return data;
   }
 
+  // A release can be deleted only while it has never been public. The database
+  // enforces this too (migrations/20261109_release_delete_guard.sql), which
+  // also detaches its notes and lookbook sets and cascades placements, updates
+  // and activity. Zero deleted rows (no permission) is reported, not ignored.
+  function canDeleteRelease(r) {
+    return !!r && r.status === "draft" && !r.publish_at && !r.launched_at;
+  }
+
+  async function deleteRelease(id) {
+    const { data, error } = await client().from("edits").delete().eq("id", id).select("id");
+    if (error) throw error;
+    if (!data || !data.length) throw new Error("Nothing was deleted. Check that you are signed in as the admin.");
+  }
+
   // Activity log. Best effort: a failed log write never blocks the action.
   async function addReleaseEvent(editId, event, detail) {
     try {
@@ -878,6 +892,8 @@
     getWorkingRelease,
     setWorkingRelease,
     updateRelease,
+    canDeleteRelease,
+    deleteRelease,
     addReleaseEvent,
     getReleaseEvents,
     getPlacementsFull,
