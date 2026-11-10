@@ -443,12 +443,41 @@ async function handleUnsubscribe(request, env) {
    own email client.
    ============================================================ */
 
+// Abuse guards for the public submit endpoint. Each one costs a real person
+// nothing and stops the cheapest kinds of spam from using up Resend quota.
+const SUBMIT_MAX_BODY_BYTES = 20000;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+// Browsers always send Origin on a POST. Requiring it to match this site's own
+// host blocks other websites and naive scripts. It does not stop someone who
+// forges the header, so the optional rate limiter below is the real brake.
+function isSameOrigin(request) {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).host === new URL(request.url).host;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function handleSubmitRequest(request, env) {
   if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+  if (!isSameOrigin(request)) return json(403, { error: "Forbidden." });
+
+  // Optional Cloudflare rate-limit binding (see wrangler.toml note). If it is
+  // not configured the endpoint still works, just without this layer.
+  if (env.SUBMIT_LIMITER) {
+    const ip = request.headers.get("cf-connecting-ip") || "unknown";
+    const { success } = await env.SUBMIT_LIMITER.limit({ key: ip });
+    if (!success) return json(429, { error: "Too many submissions. Please try again in a minute." });
+  }
 
   let payload;
   try {
-    payload = await request.json();
+    const raw = await request.text();
+    if (raw.length > SUBMIT_MAX_BODY_BYTES) return json(413, { error: "Request too large." });
+    payload = JSON.parse(raw);
   } catch (e) {
     return json(400, { error: "Invalid request body." });
   }
@@ -471,6 +500,9 @@ async function handleSubmitRequest(request, env) {
 
   if (!name || !email || (!message && !isApplication)) {
     return json(400, { error: "Name, email, and message are required." });
+  }
+  if (!EMAIL_RE.test(email)) {
+    return json(400, { error: "Enter a valid email address." });
   }
 
   const contactEmail = env.CONTACT_EMAIL;
