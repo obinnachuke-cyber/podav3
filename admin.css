@@ -1823,6 +1823,23 @@
 .seller-header__out:hover,
 .seller-header__out:focus-visible { color: var(--accent); outline: none; }
 
+/* Plain "back to the poda site" link: the same label voice as Log out,
+   used in the header and under each sign-in card. */
+.seller-back {
+  display: inline-block;
+  padding: 8px 0;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--text-dim);
+}
+.seller-back:hover,
+.seller-back:focus-visible { color: var(--accent); outline: none; }
+.login-card .seller-back { align-self: flex-start; margin-top: 2px; }
+
 /* —— Page shell: one full-width column (the admin shell reserves a
    150px sidebar column at desktop widths, which squeezed the seller's
    content into it) —— */
