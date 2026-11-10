@@ -2862,7 +2862,9 @@ function renderSuppliers() {
       <td><span class="badge">${escapeHTML(s.type)}</span></td>
       <td class="cell-mono">${formatBps(s.commission_bps)}</td>
       <td><span class="badge">${escapeHTML(s.status)}</span></td>
-      <td>${escapeHTML(s.contact_email || "—")}</td>
+      <td>${escapeHTML(s.contact_email || "—")}${s.instagram
+        ? `<br /><a data-no-edit href="https://instagram.com/${encodeURIComponent(s.instagram)}" target="_blank" rel="noopener noreferrer">@${escapeHTML(s.instagram)}</a>`
+        : ""}</td>
       <td>
         <button type="button" class="btn" data-no-edit data-supplier-invite="${escapeHTML(s.id)}">
           + Invite

@@ -241,6 +241,17 @@ async function renderInventoryList() {
       <span class="section-bar__title">My Inventory</span>
     </div>
 
+    <form class="form-card" id="instagramForm" novalidate style="margin-bottom:16px;">
+      <label class="field field--full" for="instagramInput">
+        <span>Your Instagram</span>
+        <input type="text" id="instagramInput" value="${escHTML(mySupplier.instagram ? "@" + mySupplier.instagram : "")}"
+               placeholder="@yourname" autocomplete="off" autocapitalize="none" spellcheck="false" />
+      </label>
+      <p class="login-error" id="instagramError" hidden></p>
+      <p class="rel-note" id="instagramNote" hidden></p>
+      <button type="submit" class="btn" id="instagramSaveBtn">Save Instagram</button>
+    </form>
+
     <label class="card-drop" id="cardDrop" for="cardFileInput">
       <span class="card-drop__title">Drop photos here</span>
       <span class="card-drop__sub">Each photo becomes a card. Add brand, size, price and quantity, then submit.</span>
@@ -252,9 +263,41 @@ async function renderInventoryList() {
     <div class="card-grid" id="cardGrid"></div>
   `;
 
+  bindInstagramForm();
   bindInventoryEvents();
   renderToolbar();
   renderGrid();
+}
+
+// Saves the handle through the database function, which validates it and can
+// change nothing else. The form is rebuilt on every render, so binding here
+// never stacks listeners.
+function bindInstagramForm() {
+  const form = document.getElementById("instagramForm");
+  if (!form) return;
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    const input = document.getElementById("instagramInput");
+    const errorBox = document.getElementById("instagramError");
+    const note = document.getElementById("instagramNote");
+    const btn = document.getElementById("instagramSaveBtn");
+    errorBox.hidden = true;
+    note.hidden = true;
+    btn.disabled = true;
+    try {
+      const saved = await window.PodaMarketplace.setMyInstagram(input.value);
+      mySupplier.instagram = saved;
+      input.value = saved ? "@" + saved : "";
+      note.textContent = saved ? "Saved." : "Instagram removed.";
+      note.hidden = false;
+    } catch (e) {
+      errorBox.textContent = /schema cache|function .*set_my_instagram/i.test((e && e.message) || "")
+        ? "Almost ready: poda is finishing a database update. Try again soon."
+        : ((e && e.message) || "Could not save. Try again.");
+      errorBox.hidden = false;
+    }
+    btn.disabled = false;
+  });
 }
 
 function renderToolbar() {

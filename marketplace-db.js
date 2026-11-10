@@ -180,6 +180,15 @@
     return data ? data.suppliers : null;
   }
 
+  // Saves the seller's own Instagram handle. The database function validates
+  // and normalizes it (accepts @name, name or an instagram.com URL) and can
+  // touch nothing else on the supplier. Returns the stored handle or null.
+  async function setMyInstagram(handle) {
+    const { data, error } = await client().rpc("set_my_instagram", { p_handle: handle || "" });
+    if (error) throw error;
+    return data || null;
+  }
+
   /* —— Products (a supplier's own, or admin's view of all) —— */
   async function getMyProducts(supplierId) {
     const { data, error } = await client()
@@ -892,6 +901,7 @@
     getWorkingRelease,
     setWorkingRelease,
     updateRelease,
+    setMyInstagram,
     canDeleteRelease,
     deleteRelease,
     addReleaseEvent,
