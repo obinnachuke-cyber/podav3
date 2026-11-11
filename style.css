@@ -4112,6 +4112,8 @@ button.card-link {
 .ff-state--live::before { background: #E6533D; }
 .ff-state--building { color: var(--accent); }
 .ff-state--building::before { border: 1.5px solid var(--accent); }
+.ff-state--past { color: var(--text-dim); }
+.ff-state--past::before { border: 1.5px solid var(--text-dim); }
 .ff-title {
   max-width: 16ch;
   margin: 12px 0 8px;

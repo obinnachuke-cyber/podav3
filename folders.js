@@ -14,7 +14,7 @@
    One file, several pages, detected by the element present:
      • #homeFolders (retired)       — the old folder-desktop homepage; no page uses it now
      • #shopPage    (index.html)   — the release currently in Shop; the Shop is the homepage
-     • #folderPage  (folder.html)  — one release: notes, imagery, updates, drop
+     • #folderPage  (folder.html)  — one release: the drop with its Feed, or the countdown and Feed
      • #archiveGrid (archive.html) — past releases
    The admin reuses renderFolder() for its private preview.
 
@@ -564,13 +564,25 @@
     if (!folder) { notFound("This release isn't available."); return; }
 
     document.title = `${folderName(folder)} — ${folder.title} — poda`;
-    const content = await market().getPublicFolderContent(folder.id);
-    renderFolder(mount, folder, content);
-    markSeen(folder.id);
-    // Deep links such as folder.html?id=…#updates (from the Inbox) are
-    // resolved before the content exists, so scroll once it's rendered.
-    const target = window.location.hash && document.getElementById(window.location.hash.slice(1));
-    if (target) target.scrollIntoView();
+    let content = { notes: [], studies: [], updates: [], products: [] };
+    try { content = await market().getPublicFolderContent(folder.id); }
+    catch (error) { console.error("Could not load the folder content:", error); }
+
+    // The same layouts as the homepage: a folder with an open drop shows the
+    // drop and a Feed (live if it is in Shop, past if not); a folder whose drop
+    // has not opened shows the countdown and the feed.
+    const isPastFolder = folder.status === "archived" || (folder.drop_open && !folder.is_shop);
+    const back = isPastFolder
+      ? `<a class="folder-page__back" href="archive.html">← Archive</a>`
+      : `<a class="folder-page__back" href="index.html">← Home</a>`;
+    bindFeedUI(mount);
+    if (folder.drop_open) {
+      mount.innerHTML = liveFolderHTML(folder, content, { kind: folder.is_shop ? "live" : "past", back });
+      markSeen(folder.id);
+    } else {
+      mountBuilding(mount, folder, content, clockSkew([folder]), { back });
+    }
+    applyFeedHash(mount);
   }
 
   /* ============================================================
@@ -955,15 +967,146 @@
     return clean.length > 44 ? clean.slice(0, 44).replace(/\s+\S*$/, "") + "…" : clean;
   }
 
+  const STATE_LABELS = { live: "Live", building: "Building", past: "Past" };
+
   function folderHeadHTML(folder, kind, extra) {
     const num = folder.number == null ? "FOLDER" : `FOLDER ${pad(folder.number, 3)}`;
     return `
       <header class="ff-head">
         <span class="ff-tab">${esc(num)}</span>
-        <span class="ff-state ff-state--${kind}">${kind === "live" ? "Live" : "Building"}</span>
+        <span class="ff-state ff-state--${kind}">${STATE_LABELS[kind] || "Live"}</span>
         <h1 class="ff-title">${esc(folder.title)}</h1>
         ${extra || ""}
       </header>`;
+  }
+
+  // A folder whose drop is open: the header, the Feed bar, the drop grid and
+  // the Feed sheet or panel. Used by the Shop (kind "live") and by folder.html
+  // for the current drop and for past drops (kind "past").
+  // opts: kind, back (HTML above the header), afterDrop and footer (HTML below).
+  function liveFolderHTML(folder, content, opts) {
+    const o = opts || {};
+    const kind = o.kind || "live";
+    const products = content.products || [];
+    const entries = buildFeed(content, feedSeenMs(folder));
+    const newCount = entries.filter(e => e.isNew).length;
+    const availOf = p => p.availability || (p.is_available ? "available" : "unavailable");
+    const left = products.filter(p => availOf(p) === "available").length;
+    const sold = products.filter(p => availOf(p) === "sold").length;
+    const opened = fmtOpened(folder);
+    const meta = [
+      opened ? `Opened ${opened}` : "",
+      products.length ? `${products.length} piece${products.length === 1 ? "" : "s"}` : ""
+    ].filter(Boolean).join(" · ");
+    const countText = newCount > 9 ? "9+" : String(newCount);
+    return `
+      <div class="ff-root" data-ff-root>
+        <article class="folder-page shop-page ff-page">
+          ${o.back || ""}
+          ${folderHeadHTML(folder, kind, meta ? `<p class="ff-meta">${esc(meta)}</p>` : "")}
+          <button type="button" class="ff-bar" data-feed-open aria-expanded="false" aria-controls="ffPanel">
+            <b>FEED</b>
+            <span class="ff-bar__lt">${esc(entries[0] ? `${entries[0].name} · ${entrySnippet(entries[0])}` : "Updates, notes and lookbook")}</span>
+            ${newCount ? `<span class="ff-count">${countText} NEW</span>` : ""}
+            <i aria-hidden="true">▾</i>
+          </button>
+          <section class="ff-drop">
+            <div class="section-bar">
+              <span class="section-bar__label">01</span>
+              <span class="section-bar__title">The Drop</span>
+              ${products.length ? `<span class="ff-left">${left} of ${products.length} left</span>` : ""}
+            </div>
+            ${products.length ? `
+            <div class="ff-dflt" role="group" aria-label="Filter the drop">
+              <button type="button" data-df="all" aria-pressed="true" class="on">All ${products.length}</button>
+              <button type="button" data-df="available" aria-pressed="false">Available ${left}</button>
+              <button type="button" data-df="sold" aria-pressed="false">Sold ${sold}</button>
+            </div>
+            <div class="items-grid">${products.map(p => productCard(folder, p)).join("")}</div>`
+              : `<p class="status-message">The drop is live — pieces are being placed.</p>`}
+          </section>
+          ${o.afterDrop || ""}
+          ${o.footer || ""}
+        </article>
+        <button type="button" class="ff-edge" data-feed-open aria-expanded="false" aria-controls="ffPanel">
+          <span>FEED</span>${newCount ? `<b class="ff-count">${countText}</b>` : ""}
+        </button>
+        <div class="ff-dim" hidden></div>
+        <aside class="ff-panel" id="ffPanel" role="dialog" aria-label="Feed" data-seen-key="${esc("feed:" + folder.id)}" hidden>
+          <div class="ff-ph">
+            <span class="ff-ph__t">Feed<small>${esc(folderName(folder))}</small></span>
+            <button type="button" class="ff-close" data-feed-close aria-label="Close the feed">✕</button>
+          </div>
+          ${feedHTML(entries)}
+        </aside>
+      </div>`;
+  }
+
+  // A folder whose drop has not opened: the countdown and sealed tiles beside
+  // the feed. A folder that was archived without ever opening shows a closed
+  // notice in place of the countdown. opts.back is HTML above the header.
+  function buildingFolderHTML(folder, content, opts) {
+    const o = opts || {};
+    const closed = folder.status === "archived";
+    const entries = buildFeed(content, feedSeenMs(folder));
+    const rail = closed
+      ? `<div class="ff-cd">
+           <span class="ff-cd__lb">CLOSED</span>
+           <p class="ff-cd__dt">This release is closed. Its drop never opened.</p>
+         </div>`
+      : `${countdownHTML(folder)}
+         <div class="section-bar ff-brail__bar">
+           <span class="section-bar__label">01</span>
+           <span class="section-bar__title">The Drop</span>
+           <span class="ff-left">Locked</span>
+         </div>
+         <div class="ff-seals" aria-hidden="true"><div>poda</div><div>poda</div><div>poda</div><div>poda</div></div>`;
+    return `
+      <div class="ff-root" data-ff-root>
+        <article class="folder-page ff-page ff-page--building">
+          ${o.back || ""}
+          ${folderHeadHTML(folder, closed ? "past" : "building", folder.standfirst ? `<p class="ff-stand">${esc(folder.standfirst)}</p>` : "")}
+          <div class="ff-bgrid">
+            <aside class="ff-brail">${rail}</aside>
+            <section class="ff-bmain">
+              <div class="section-bar"><span class="section-bar__title">Feed</span></div>
+              ${feedHTML(entries)}
+            </section>
+          </div>
+        </article>
+      </div>`;
+  }
+
+  function mountBuilding(mount, folder, content, skew, opts) {
+    mount.innerHTML = buildingFolderHTML(folder, content, opts);
+    bindFeedUI(mount);
+    startCountdown(mount, skew);
+    markSeen(folder.id);
+    markSeen("feed:" + folder.id);
+  }
+
+  // Old links such as folder.html?id=…#updates (from the Inbox) now open the
+  // Feed on that kind of post. #drop scrolls to the drop.
+  const HASH_FILTER = { updates: "updates", notes: "notes", imagery: "lookbook", lookbook: "lookbook", feed: "all" };
+
+  function applyFeedHash(mount) {
+    const name = (window.location.hash || "").replace("#", "");
+    const root = mount.querySelector("[data-ff-root]");
+    if (!name || !root) return;
+    if (name === "drop") {
+      const drop = root.querySelector(".ff-drop, .ff-brail");
+      if (drop) drop.scrollIntoView();
+      return;
+    }
+    const key = HASH_FILTER[name];
+    if (!key) return;
+    const feed = root.querySelector("[data-feed]");
+    if (feed) applyFeedFilter(feed, key);
+    if (root.querySelector(".ff-panel")) openFeed(root, null);      // the drop layouts
+    else {
+      const main = root.querySelector(".ff-bmain");                  // the building layout
+      if (main) main.scrollIntoView();
+    }
   }
 
   /* ============================================================
@@ -1003,60 +1146,13 @@
         return;
       }
       // The live page is the drop and nothing else. The updates, notes and
-      // image sets sit behind a Feed bar (a sheet on a phone, a side tab and
+      // lookbook sit behind a Feed bar (a sheet on a phone, a side tab and
       // panel on desktop).
-      const products = content.products;
-      const entries = buildFeed(content, feedSeenMs(shop));
-      const newCount = entries.filter(e => e.isNew).length;
-      const availOf = p => p.availability || (p.is_available ? "available" : "unavailable");
-      const left = products.filter(p => availOf(p) === "available").length;
-      const sold = products.filter(p => availOf(p) === "sold").length;
-      const opened = fmtOpened(shop);
-      const meta = [
-        opened ? `Opened ${opened}` : "",
-        products.length ? `${products.length} piece${products.length === 1 ? "" : "s"}` : ""
-      ].filter(Boolean).join(" · ");
-      const countText = newCount > 9 ? "9+" : String(newCount);
-      mount.innerHTML = `
-        <div class="ff-root" data-ff-root>
-          <article class="folder-page shop-page ff-page">
-            ${folderHeadHTML(shop, "live", meta ? `<p class="ff-meta">${esc(meta)}</p>` : "")}
-            <button type="button" class="ff-bar" data-feed-open aria-expanded="false" aria-controls="ffPanel">
-              <b>FEED</b>
-              <span class="ff-bar__lt">${esc(entries[0] ? `${entries[0].name} · ${entrySnippet(entries[0])}` : "Updates, notes and images")}</span>
-              ${newCount ? `<span class="ff-count">${countText} NEW</span>` : ""}
-              <i aria-hidden="true">▾</i>
-            </button>
-            <section class="ff-drop">
-              <div class="section-bar">
-                <span class="section-bar__label">01</span>
-                <span class="section-bar__title">The Drop</span>
-                ${products.length ? `<span class="ff-left">${left} of ${products.length} left</span>` : ""}
-              </div>
-              ${products.length ? `
-              <div class="ff-dflt" role="group" aria-label="Filter the drop">
-                <button type="button" data-df="all" aria-pressed="true" class="on">All ${products.length}</button>
-                <button type="button" data-df="available" aria-pressed="false">Available ${left}</button>
-                <button type="button" data-df="sold" aria-pressed="false">Sold ${sold}</button>
-              </div>
-              <div class="items-grid">${products.map(p => productCard(shop, p)).join("")}</div>`
-                : `<p class="status-message">The drop is live — pieces are being placed.</p>`}
-            </section>
-            ${upcomingNotice(upcoming)}
-            <p class="shop-footer"><a class="product-link" href="archive.html">Past releases →</a></p>
-          </article>
-          <button type="button" class="ff-edge" data-feed-open aria-expanded="false" aria-controls="ffPanel">
-            <span>FEED</span>${newCount ? `<b class="ff-count">${countText}</b>` : ""}
-          </button>
-          <div class="ff-dim" hidden></div>
-          <aside class="ff-panel" id="ffPanel" role="dialog" aria-label="Feed" data-seen-key="${esc("feed:" + shop.id)}" hidden>
-            <div class="ff-ph">
-              <span class="ff-ph__t">Feed<small>${esc(folderName(shop))}</small></span>
-              <button type="button" class="ff-close" data-feed-close aria-label="Close the feed">✕</button>
-            </div>
-            ${feedHTML(entries)}
-          </aside>
-        </div>`;
+      mount.innerHTML = liveFolderHTML(shop, content, {
+        kind: "live",
+        afterDrop: upcomingNotice(upcoming),
+        footer: `<p class="shop-footer"><a class="product-link" href="archive.html">Past releases →</a></p>`
+      });
     }
 
     function schedule(upcoming, skew) {
@@ -1128,33 +1224,7 @@
     try { content = await market().getPublicFolderContent(folder.id); }
     catch (error) { console.error("Could not load the building folder:", error); }
 
-    const skew = clockSkew(folders);
-    const entries = buildFeed(content, feedSeenMs(folder));
-    mount.innerHTML = `
-      <div class="ff-root" data-ff-root>
-        <article class="folder-page ff-page ff-page--building">
-          ${folderHeadHTML(folder, "building", folder.standfirst ? `<p class="ff-stand">${esc(folder.standfirst)}</p>` : "")}
-          <div class="ff-bgrid">
-            <aside class="ff-brail">
-              ${countdownHTML(folder)}
-              <div class="section-bar ff-brail__bar">
-                <span class="section-bar__label">01</span>
-                <span class="section-bar__title">The Drop</span>
-                <span class="ff-left">Locked</span>
-              </div>
-              <div class="ff-seals" aria-hidden="true"><div>poda</div><div>poda</div><div>poda</div><div>poda</div></div>
-            </aside>
-            <section class="ff-bmain">
-              <div class="section-bar"><span class="section-bar__title">Feed</span></div>
-              ${feedHTML(entries)}
-            </section>
-          </div>
-        </article>
-      </div>`;
-    bindFeedUI(mount);
-    startCountdown(mount, skew);
-    markSeen(folder.id);
-    markSeen("feed:" + folder.id);
+    mountBuilding(mount, folder, content, clockSkew(folders));
   }
 
   /* ============================================================
