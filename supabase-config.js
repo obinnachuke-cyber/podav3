@@ -22,3 +22,8 @@ window.PODA_ADMIN_EMAIL = "obinnachuke@gmail.com";
 // enquiries and closet applications to land.
 window.PODA_CONTACT_EMAIL = "twopoda@gmail.com";
 window.PODA_INSTAGRAM = "podacapital";
+
+// —— Checkout switch. While false, product cards show "Inquire →" as before.
+// Set it to true only after CHECKOUT_SETUP.md is done: the database migration,
+// the Stripe secrets, and the webhook. Buy buttons then replace Inquire.
+window.PODA_CHECKOUT_ENABLED = false;

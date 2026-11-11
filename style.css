@@ -4240,6 +4240,36 @@ button.card-link {
 .ff-dflt button.on, .ff-filters button.on { color: var(--text); border-bottom-color: var(--accent); }
 .items-grid .catalog-card[hidden] { display: none; }
 
+/* Buy button and checkout messages on product cards */
+.catalog-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 6px; }
+.folder-buy {
+  appearance: none;
+  padding: 8px 12px;
+  border: 0;
+  background: var(--text);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.folder-buy:hover, .folder-buy:focus-visible { background: var(--accent); outline: none; }
+.folder-buy:disabled { opacity: 0.6; cursor: wait; }
+.folder-buy[hidden] { display: none; }
+.rel-preview .folder-buy { opacity: 0.4; pointer-events: none; }
+.folder-buy__msg { margin: 6px 0 0; font-family: var(--font); font-size: 9.5px; letter-spacing: 0.04em; line-height: 1.4; color: #E6533D; }
+.checkout-note {
+  margin: 0;
+  padding: 12px var(--pad);
+  background: var(--bg-box);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
 /* Panel: a sheet over the page on a phone, a side panel on desktop */
 .ff-dim { position: fixed; inset: 0; z-index: 190; background: rgba(21, 21, 26, 0.4); }
 .ff-panel {

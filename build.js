@@ -45,6 +45,7 @@ const INCLUDE = [
   "sell.html",
   // "source.html" is kept in the repo but off the site for now: add it back here to publish it.
   "study.html",
+  "thanks.html",
   "unsubscribe.html",
 
   "style.css",

@@ -1229,11 +1229,13 @@
       { key: "review", label: "Review Queue" },
       { key: "inventory", label: "Inventory" },
       { key: "suppliers", label: "Suppliers" },
-      { key: "applications", label: "Applications" }
+      { key: "applications", label: "Applications" },
+      { key: "orders", label: "Orders" }
     ], R.supplyTab, renderSupply);
     const drawn = R.supplyTab === "inventory" ? renderMarketplaceInventory()
       : R.supplyTab === "suppliers" ? renderSuppliers()
       : R.supplyTab === "applications" ? renderApplications()
+      : R.supplyTab === "orders" ? renderOrders()
       : renderReviewQueue();
     // The tabs fill the page asynchronously, so add the strip once they are done.
     Promise.resolve(drawn).then(() => { if (window.PodaPickBoard) window.PodaPickBoard.mountNeedsYou(); });

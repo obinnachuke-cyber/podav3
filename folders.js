@@ -411,12 +411,17 @@
     return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
+  // Buy buttons are off until PODA_CHECKOUT_ENABLED is true in supabase-config.js.
+  function checkoutOn() {
+    return window.PODA_CHECKOUT_ENABLED === true;
+  }
+
   // One product card, used identically in Shop, on a release page and in the
   // admin preview, so available / sold / unavailable look the same everywhere.
   function productCard(folder, product, opts) {
     const availability = product.availability || (product.is_available ? "available" : "unavailable");
     const available = availability === "available";
-    const labels = { available: "Available", sold: "Sold", unavailable: "Unavailable" };
+    const labels = { available: "Available", held: "Held", sold: "Sold", unavailable: "Unavailable" };
     const path = Array.isArray(product.image_paths) ? product.image_paths[0] : "";
     const img = path
       ? `<img src="${esc(market().productImageUrl(path))}" alt="${esc(product.title || "")}" loading="lazy" decoding="async" />`
@@ -437,7 +442,11 @@
           </div>
           <h3 class="catalog-card__name">${esc(product.title || "Untitled")}</h3>
           ${details ? `<p class="catalog-card__details">${esc(details)}</p>` : ""}
-          ${available && !preview ? `<a class="product-link folder-inquire" href="${esc(inquiryHref(folder, product))}">Inquire →</a>` : ""}
+          ${available && !preview ? (checkoutOn() && product.product_id ? `
+          <div class="catalog-card__actions">
+            <button type="button" class="folder-buy" data-buy="${esc(product.product_id)}">Buy →</button>
+            <a class="product-link folder-inquire" href="${esc(inquiryHref(folder, product))}">Ask a question</a>
+          </div>` : `<a class="product-link folder-inquire" href="${esc(inquiryHref(folder, product))}">Inquire →</a>`) : ""}
         </div>
       </article>`;
   }
@@ -1305,7 +1314,95 @@
   // renders the private preview with the same markup the public sees).
   window.PodaFolders = { markSeen, renderFolder, stateInfo, folderName };
 
+  /* ============================================================
+     Buy. One click takes a 30-minute hold on the piece and opens Stripe's
+     payment page (POST /api/checkout, handled in _worker.js). The Worker
+     decides whether the piece can be bought; this only shows the result.
+     ============================================================ */
+  const BUY_MESSAGES = {
+    held: "Someone is checking out with this piece right now. Try again in a few minutes.",
+    sold: "This piece just sold.",
+    unavailable: "This piece is no longer available.",
+    slow_down: "Too many tries. Wait a moment and try again.",
+    fallback: "Could not start checkout. Try again, or message poda on Instagram."
+  };
+
+  function showBuyMessage(btn, text) {
+    const actions = btn.closest(".catalog-card__actions") || btn.parentElement;
+    let msg = actions.parentElement.querySelector(".folder-buy__msg");
+    if (!msg) {
+      msg = document.createElement("p");
+      msg.className = "folder-buy__msg";
+      msg.setAttribute("role", "status");
+      actions.insertAdjacentElement("afterend", msg);
+    }
+    msg.textContent = text;
+  }
+
+  function bindBuy() {
+    document.addEventListener("click", async event => {
+      const btn = event.target.closest("[data-buy]");
+      if (!btn || btn.disabled) return;
+      // The admin's "What's public now" preview reuses these cards. A click
+      // there must never start a real checkout.
+      if (btn.closest(".rel-preview")) return;
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Opening checkout…";
+      let outcome = "fallback";
+      try {
+        const res = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ product_id: btn.dataset.buy })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.url) {
+          window.location.assign(data.url);   // leave the button as it is while the page changes
+          return;
+        }
+        outcome = data.error || "fallback";
+      } catch (error) {
+        console.error("Checkout request failed:", error);
+      }
+      showBuyMessage(btn, BUY_MESSAGES[outcome] || BUY_MESSAGES.fallback);
+      if (outcome === "sold" || outcome === "unavailable") { btn.hidden = true; return; }
+      btn.disabled = false;
+      btn.textContent = label;
+    });
+    // The Back button restores this page frozen mid-click. Reload it so the
+    // pieces and the Buy buttons are current.
+    window.addEventListener("pageshow", event => { if (event.persisted) window.location.reload(); });
+  }
+
+  // Stripe sends a buyer who backs out to ?checkout=cancelled&order=…
+  // Free the piece now instead of making everyone wait for the hold to run out.
+  function handleCheckoutReturn() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") !== "cancelled") return;
+    const order = params.get("order") || "";
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order)) {
+      fetch("/api/checkout-cancel", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ order_id: order })
+      }).catch(() => { /* the hold runs out by itself */ });
+    }
+    params.delete("checkout");
+    params.delete("order");
+    const query = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (query ? "?" + query : "") + window.location.hash);
+
+    const note = document.createElement("p");
+    note.className = "checkout-note";
+    note.setAttribute("role", "status");
+    note.textContent = "Checkout cancelled. The piece has been released.";
+    const main = document.querySelector("main");
+    if (main) main.parentNode.insertBefore(note, main);
+  }
+
   function start() {
+    handleCheckoutReturn();
     // index.html carries both the folder homepage and the Shop.
     if (document.getElementById("landingHome") && document.getElementById("landingShop")) {
       bootLanding().catch(error => {
@@ -1335,6 +1432,8 @@
     if (page) bootFolder(page);
     if (shop) bootShop(shop);
   }
+
+  bindBuy();
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", start);

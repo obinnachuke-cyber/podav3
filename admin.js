@@ -3038,6 +3038,148 @@ async function renderApplications() {
   };
 }
 
+/* ============================================================
+   View: Orders (Supply > Orders)
+   Every sale made through Stripe checkout. The money is frozen on the order
+   when the buyer clicks Buy: the price, poda's commission and the seller's
+   share. Here the admin sees who to ship to, marks an order shipped, marks
+   the seller paid (poda pays sellers by hand), and records a refund when a
+   payment arrived for a piece that was already gone.
+   ============================================================ */
+let ordersFilter = "action";   // action | paid | checkout
+
+async function renderOrders() {
+  const M = window.PodaMarketplace;
+  if (!M || !M.getOrders) {
+    adminMain.innerHTML = `<p class="admin-empty">marketplace-db.js isn't loaded.</p>`;
+    return;
+  }
+  adminMain.innerHTML = `<p class="admin-empty">Loading…</p>`;
+
+  let orders;
+  try {
+    orders = await M.getOrders();
+  } catch (e) {
+    const missing = /orders|relation|schema cache/i.test((e && e.message) || "");
+    adminMain.innerHTML = `<p class="admin-empty">${missing
+      ? "Orders aren't set up yet. Run migrations/20261111_checkout.sql in the Supabase SQL editor."
+      : "Could not load orders."}</p>`;
+    return;
+  }
+
+  const money = (cents, currency) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format((cents || 0) / 100);
+  const inCheckout = o => o.status === "pending" && Date.parse(o.hold_expires_at) > Date.now();
+  const needsAction = o => o.status === "paid" && (o.conflict || !o.shipped_at || o.payout_status === "unpaid");
+  const matches = {
+    action: needsAction,
+    paid: o => o.status === "paid" || o.status === "refunded",
+    checkout: inCheckout
+  };
+  const statusLabel = o =>
+    o.status === "paid" ? "Paid"
+      : o.status === "refunded" ? "Refunded"
+      : o.status === "pending" ? (inCheckout(o) ? "In checkout" : "Abandoned")
+      : "Expired";
+  const addressText = a => {
+    if (!a) return "";
+    const region = [a.state, a.postal_code].filter(Boolean).join(" ");
+    return [a.line1, a.line2, [a.city, region].filter(Boolean).join(", "), a.country].filter(Boolean).join(", ");
+  };
+
+  const card = o => {
+    const sellerLine = o.payout_status === "none"
+      ? "poda's own piece, no seller share"
+      : `Seller share ${money(o.seller_payout_cents, o.currency)} · poda keeps ${money(o.commission_cents, o.currency)}`;
+    const seller = (o.suppliers && o.suppliers.name) || "Unknown seller";
+    const paid = o.status === "paid";
+    // A payment that arrived for a piece already gone is refunded, never
+    // shipped or paid out, so it offers no other actions.
+    const normal = paid && !o.conflict;
+    const buyer = [o.buyer_name, o.buyer_email].filter(Boolean).join(" · ");
+    const addr = addressText(o.shipping_address);
+    return `
+      <article class="app-card${o.conflict && paid ? " app-card--declined" : ""}" data-order="${escapeHTML(o.id)}">
+        <div class="app-card__head">
+          <h3 class="app-card__name">${escapeHTML([o.brand, o.title].filter(Boolean).join(" — "))}</h3>
+          <span class="badge">${escapeHTML(statusLabel(o))}</span>
+        </div>
+        ${o.conflict && paid ? `<p class="app-card__notice app-card__notice--warn">Refund needed. This payment arrived after the hold ran out and the piece was already sold. Refund the buyer in Stripe, then mark it refunded here.</p>` : ""}
+        <p class="app-card__meta">
+          ${money(o.price_cents, o.currency)}${paid ? ` + ${money(o.shipping_cents, o.currency)} shipping` : ""} · ${escapeHTML(seller)} · ${escapeHTML(new Date(o.paid_at || o.created_at).toLocaleString())}
+        </p>
+        <p class="app-card__meta">${escapeHTML(sellerLine)}</p>
+        ${paid ? `<p class="app-card__offering">${buyer ? escapeHTML(buyer) : "No buyer details"}<br>${addr ? escapeHTML(addr) : "No address collected"}</p>` : ""}
+        ${paid || o.status === "refunded" ? `
+        <div class="app-card__actions">
+          ${normal ? (o.shipped_at
+            ? `<button type="button" class="btn" data-order-act="unship">Shipped ${escapeHTML(new Date(o.shipped_at).toLocaleDateString())} · Undo</button>`
+            : `<button type="button" class="btn btn--primary" data-order-act="ship">Mark shipped</button>`) : ""}
+          ${normal && o.payout_status === "unpaid" ? `<button type="button" class="btn btn--primary" data-order-act="pay">Mark seller paid</button>` : ""}
+          ${normal && o.payout_status === "paid" ? `<button type="button" class="btn" data-order-act="unpay">Seller paid · Undo</button>` : ""}
+          ${paid && o.conflict ? `<button type="button" class="btn app-decline" data-order-act="refund">Mark refunded</button>` : ""}
+        </div>` : ""}
+      </article>`;
+  };
+
+  const counts = () => ({
+    action: orders.filter(matches.action).length,
+    paid: orders.filter(matches.paid).length,
+    checkout: orders.filter(matches.checkout).length
+  });
+
+  function draw() {
+    const c = counts();
+    const shown = orders.filter(matches[ordersFilter]);
+    const tab = (key, label) =>
+      `<button type="button" class="app-filter${ordersFilter === key ? " is-active" : ""}" data-order-filter="${key}" aria-pressed="${ordersFilter === key}"><b>${c[key]}</b> ${label}</button>`;
+    adminMain.innerHTML = `
+      <div class="section-bar section-bar--admin">
+        <span class="section-bar__label">Supply</span>
+        <span class="section-bar__title">Orders</span>
+      </div>
+      <div class="app-filters" role="group" aria-label="Filter orders">
+        ${tab("action", "Needs action")}${tab("paid", "All sales")}${tab("checkout", "In checkout")}
+      </div>
+      ${shown.length ? `<div class="app-list">${shown.map(card).join("")}</div>`
+        : `<p class="admin-empty">${orders.length ? "Nothing here." : "No orders yet."}</p>`}`;
+  }
+  draw();
+
+  // One listener on the page area; draw() replaces the markup but not this.
+  adminMain.onclick = async e => {
+    const filter = e.target.closest("[data-order-filter]");
+    if (filter) { ordersFilter = filter.dataset.orderFilter; draw(); return; }
+
+    const btn = e.target.closest("[data-order-act]");
+    const el = btn && btn.closest("article[data-order]");
+    const order = el && orders.find(o => o.id === el.dataset.order);
+    if (!btn || !order) return;
+
+    const act = btn.dataset.orderAct;
+    const now = new Date().toISOString();
+    const patches = {
+      ship: { shipped_at: now },
+      unship: { shipped_at: null },
+      pay: { payout_status: "paid", payout_paid_at: now },
+      unpay: { payout_status: "unpaid", payout_paid_at: null },
+      refund: { status: "refunded" }
+    };
+    const patch = patches[act];
+    if (!patch) return;
+    if (act === "pay" && !confirm(`Mark ${order.suppliers ? order.suppliers.name : "the seller"} paid ${money(order.seller_payout_cents, order.currency)}? Only do this after you have sent the money.`)) return;
+    if (act === "refund" && !confirm("Mark this order refunded? Only do this after you have refunded the buyer in Stripe.")) return;
+
+    el.querySelectorAll("button").forEach(b => { b.disabled = true; });
+    try {
+      Object.assign(order, await M.updateOrder(order.id, patch));
+    } catch (err) {
+      alert(err && err.message ? err.message : "That didn't work.");
+    }
+    draw();
+  };
+}
+
 function blankSupplier() {
   return { name: "", type: "consignor", commission_bps: SUPPLIER_DEFAULT_BPS.consignor, contact_email: "", notes: "" };
 }

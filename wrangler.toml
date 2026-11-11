@@ -21,7 +21,18 @@ SITE_URL = "https://podapodapoda.co"
 # Same value as PODA_CONTACT_EMAIL in supabase-config.js — keep both in sync.
 CONTACT_EMAIL = "twopoda@gmail.com"
 
+# The flat US shipping fee added at checkout, in cents: "1500" is $15.00.
+# CHANGE THIS to your real shipping cost. Set it to "0" for free shipping.
+SHIPPING_FLAT_CENTS = "1500"
+
 # RESEND_API_KEY and ADMIN_EMAIL are NOT declared here — they are secrets.
 # Set them via the Cloudflare dashboard (Workers & Pages → this project →
 # Settings → Variables and Secrets → "Secret" type) or `wrangler secret put`.
 # Never add them to this file.
+#
+# Checkout needs three more secrets, set the same way (see CHECKOUT_SETUP.md):
+#   STRIPE_SECRET_KEY            sk_test_… while testing, sk_live_… when live
+#   STRIPE_WEBHOOK_SECRET        whsec_… from the Stripe webhook endpoint
+#   SUPABASE_SERVICE_ROLE_KEY    Supabase → Project Settings → API → service_role
+# The service_role key bypasses all database security. It lives only in the
+# Worker. Never put it in a file in this repo or in browser code.

@@ -37,6 +37,14 @@ declare
   false_change  boolean;
   price_change  boolean;
 begin
+  -- Set only by complete_order() in migrations/20261111_checkout.sql, for
+  -- the length of one sale. Kept here so re-running this file never breaks
+  -- recording a payment.
+  if current_setting('poda.checkout', true) = 'on' then
+    new.updated_at := now();
+    return new;
+  end if;
+
   false_change :=
        new.condition      is distinct from old.condition
     or new.condition_notes is distinct from old.condition_notes

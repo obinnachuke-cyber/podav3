@@ -797,6 +797,359 @@ async function handleApplicationDecision(request, env) {
 }
 
 /* ============================================================
+   Checkout — Stripe Checkout, one piece at a time.
+
+   /api/checkout          POST { product_id }  -> { url }  (the Stripe page)
+   /api/checkout-cancel   POST { order_id }    releases the hold early
+   /api/stripe-webhook    POST from Stripe     marks the sale, frees expired holds
+
+   The Worker talks to Supabase with the service role key, so only this file
+   can take a hold or record a sale (see migrations/20261111_checkout.sql).
+   Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SUPABASE_SERVICE_ROLE_KEY.
+   Var: SHIPPING_FLAT_CENTS. Nothing here is ever sent to the browser.
+   ============================================================ */
+
+// Stripe will not create a session shorter than 30 minutes. The database hold
+// (32 minutes) is a little longer, so the piece is never free while a
+// Stripe page can still take payment.
+const STRIPE_SESSION_SECONDS = 31 * 60;
+
+function checkoutConfigured(env) {
+  return !!(env.STRIPE_SECRET_KEY && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY && env.SITE_URL);
+}
+
+// Stripe takes form bodies with bracket keys: a[b][0][c]=value.
+function stripeForm(obj, prefix, out) {
+  const pairs = out || [];
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined || value === null) continue;
+    const name = prefix ? `${prefix}[${key}]` : key;
+    if (Array.isArray(value)) {
+      value.forEach((item, i) => {
+        if (item !== null && typeof item === "object") stripeForm(item, `${name}[${i}]`, pairs);
+        else pairs.push([`${name}[${i}]`, String(item)]);
+      });
+    } else if (typeof value === "object") {
+      stripeForm(value, name, pairs);
+    } else {
+      pairs.push([name, String(value)]);
+    }
+  }
+  return pairs;
+}
+
+async function stripeApi(env, path, params, idempotencyKey) {
+  const headers = {
+    Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+    "content-type": "application/x-www-form-urlencoded"
+  };
+  if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  const res = await fetch(`https://api.stripe.com${path}`, {
+    method: "POST",
+    headers,
+    body: new URLSearchParams(stripeForm(params || {})).toString()
+  });
+  const body = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, body };
+}
+
+async function sbRpc(env, fn, args) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(args || {})
+  });
+  const body = await res.json().catch(() => null);
+  return { ok: res.ok, status: res.status, body };
+}
+
+// The buyer clicked Buy. Take a hold on the piece, open a Stripe page for it.
+async function handleCheckout(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+  if (!isSameOrigin(request)) return json(403, { error: "Forbidden." });
+  if (!checkoutConfigured(env)) return json(503, { error: "not_ready" });
+
+  if (env.CHECKOUT_LIMITER) {
+    const ip = request.headers.get("cf-connecting-ip") || "unknown";
+    const { success } = await env.CHECKOUT_LIMITER.limit({ key: ip });
+    if (!success) return json(429, { error: "slow_down" });
+  }
+
+  let payload;
+  try {
+    const raw = await request.text();
+    if (raw.length > 2000) return json(413, { error: "bad_request" });
+    payload = JSON.parse(raw);
+  } catch (e) {
+    return json(400, { error: "bad_request" });
+  }
+  const productId = String((payload && payload.product_id) || "");
+  if (!UUID_RE.test(productId)) return json(400, { error: "bad_request" });
+
+  const hold = await sbRpc(env, "create_order_hold", { p_product: productId });
+  if (!hold.ok) {
+    const msg = String((hold.body && hold.body.message) || "");
+    if (msg.includes("poda_held")) return json(409, { error: "held" });
+    if (msg.includes("poda_sold")) return json(409, { error: "sold" });
+    if (msg.includes("poda_unavailable")) return json(409, { error: "unavailable" });
+    console.error("create_order_hold failed:", hold.status, msg);
+    return json(502, { error: "checkout_failed" });
+  }
+  const order = hold.body;
+
+  const site = String(env.SITE_URL).replace(/\/$/, "");
+  const currency = String(order.currency || "USD").toLowerCase();
+  const shipping = parseInt(env.SHIPPING_FLAT_CENTS, 10);
+  const params = {
+    mode: "payment",
+    client_reference_id: order.order_id,
+    success_url: `${site}/thanks.html`,
+    cancel_url: `${site}/index.html?checkout=cancelled&order=${order.order_id}`,
+    expires_at: Math.floor(Date.now() / 1000) + STRIPE_SESSION_SECONDS,
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency,
+        unit_amount: order.price_cents,
+        product_data: { name: [order.brand, order.title].filter(Boolean).join(" — ").slice(0, 240) }
+      }
+    }],
+    shipping_address_collection: { allowed_countries: ["US"] },
+    metadata: { order_id: order.order_id },
+    payment_intent_data: { metadata: { order_id: order.order_id } }
+  };
+  // One flat rate. Left out (free shipping) if no valid amount is set.
+  if (Number.isInteger(shipping) && shipping > 0) {
+    params.shipping_options = [{
+      shipping_rate_data: {
+        type: "fixed_amount",
+        display_name: "Shipping",
+        fixed_amount: { amount: shipping, currency }
+      }
+    }];
+  }
+
+  let session;
+  try {
+    session = await stripeApi(env, "/v1/checkout/sessions", params, `checkout-${order.order_id}`);
+  } catch (e) {
+    session = { ok: false, status: 0, body: {} };
+  }
+  if (!session.ok || !session.body.url) {
+    // No payment page, so no hold: free the piece straight away.
+    try { await sbRpc(env, "release_order", { p_order: order.order_id }); } catch (e) { /* the hold lapses by itself */ }
+    const why = session.body && session.body.error && session.body.error.message;
+    console.error("Stripe session failed:", session.status, why || "");
+    return json(502, { error: "payment_unavailable" });
+  }
+
+  // Remember the session so a cancel can expire it. Not fatal if it fails.
+  try { await sbRpc(env, "attach_order_session", { p_order: order.order_id, p_session: session.body.id }); } catch (e) { /* ignore */ }
+  return json(200, { url: session.body.url, order_id: order.order_id });
+}
+
+// The buyer came back from Stripe without paying: free the piece now instead
+// of making everyone wait for the hold to run out.
+async function handleCheckoutCancel(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+  if (!isSameOrigin(request)) return json(403, { error: "Forbidden." });
+  if (!checkoutConfigured(env)) return json(503, { error: "not_ready" });
+
+  let payload;
+  try {
+    const raw = await request.text();
+    if (raw.length > 2000) return json(413, { error: "bad_request" });
+    payload = JSON.parse(raw);
+  } catch (e) {
+    return json(400, { error: "bad_request" });
+  }
+  const orderId = String((payload && payload.order_id) || "");
+  if (!UUID_RE.test(orderId)) return json(400, { error: "bad_request" });
+
+  // Only a still-pending order has a session to expire. A paid order, an
+  // expired one and an unknown one all answer null, and nothing happens.
+  const found = await sbRpc(env, "order_session", { p_order: orderId });
+  const sessionId = found.ok && typeof found.body === "string" ? found.body : null;
+  if (sessionId) {
+    const expired = await stripeApi(env, `/v1/checkout/sessions/${encodeURIComponent(sessionId)}/expire`, {});
+    if (expired.ok) await sbRpc(env, "release_order", { p_order: orderId });
+  }
+  return json(200, { ok: true });
+}
+
+function timingSafeEqualHex(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+// Stripe signs each webhook: header "t=<time>,v1=<hmac of 't.body'>". Nothing is
+// trusted until this passes, and a signature older than five minutes is refused.
+async function verifyStripeSignature(rawBody, header, secret, toleranceSeconds = 300) {
+  let timestamp = null;
+  const signatures = [];
+  for (const part of String(header || "").split(",")) {
+    const i = part.indexOf("=");
+    if (i < 0) continue;
+    const key = part.slice(0, i).trim();
+    const value = part.slice(i + 1).trim();
+    if (key === "t") timestamp = value;
+    else if (key === "v1") signatures.push(value);
+  }
+  if (!timestamp || !signatures.length) return false;
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > toleranceSeconds) return false;
+
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${timestamp}.${rawBody}`));
+  const expected = Array.from(new Uint8Array(mac)).map(b => b.toString(16).padStart(2, "0")).join("");
+  return signatures.some(s => timingSafeEqualHex(s, expected));
+}
+
+function addressLine(address) {
+  if (!address) return "No address collected";
+  const cityLine = [address.city, [address.state, address.postal_code].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+  return [address.line1, address.line2, cityLine, address.country].filter(Boolean).join(", ") || "No address collected";
+}
+
+// A plain email to the admin for something that needs a human right now.
+async function alertAdmin(env, subject, lines) {
+  if (!env.RESEND_API_KEY || !env.ADMIN_EMAIL) return;
+  const text = lines.join("\n");
+  try {
+    await sendViaResend(env, {
+      from: FROM_ADDRESS,
+      to: [env.ADMIN_EMAIL],
+      subject,
+      html: `<pre style="font-family:inherit;white-space:pre-wrap;word-wrap:break-word;">${escapeHTML(text)}</pre>`,
+      text
+    });
+  } catch (e) {
+    console.error("Alert email failed:", e && e.message);
+  }
+}
+
+// Tells the admin a piece sold, with who to ship to and what the seller is owed.
+async function notifyAdminOfSale(env, sale, buyer) {
+  if (!env.RESEND_API_KEY || !env.ADMIN_EMAIL) return;
+  const money = cents => new Intl.NumberFormat("en-US", {
+    style: "currency", currency: sale.currency || "USD"
+  }).format((cents || 0) / 100);
+  const subject = sale.conflict
+    ? `Refund needed: ${sale.title}`
+    : `Sold: ${sale.title}, ${money(sale.price_cents)}`;
+  const lines = [
+    sale.conflict
+      ? "This payment arrived after the hold ran out and the piece was already sold. Refund the buyer in Stripe."
+      : "A piece just sold.",
+    "",
+    `Piece: ${[sale.brand, sale.title].filter(Boolean).join(" ")}`,
+    `Price: ${money(sale.price_cents)}`,
+    `Shipping paid: ${money(sale.shipping_cents)}`,
+    `Seller: ${sale.supplier_name || "unknown"}`,
+    sale.payout_status === "none"
+      ? "Seller share: none, this is a poda piece"
+      : `Seller share: ${money(sale.seller_payout_cents)} (poda keeps ${money(sale.commission_cents)})`,
+    "",
+    `Buyer: ${buyer.name || "no name"} <${buyer.email || "no email"}>`,
+    `Ship to: ${addressLine(buyer.address)}`,
+    "",
+    `Record it and mark the seller paid: ${String(env.SITE_URL || "").replace(/\/$/, "")}/admin.html (Supply, Orders)`
+  ];
+  const text = lines.join("\n");
+  try {
+    await sendViaResend(env, {
+      from: FROM_ADDRESS,
+      to: [env.ADMIN_EMAIL],
+      subject,
+      html: `<pre style="font-family:inherit;white-space:pre-wrap;word-wrap:break-word;">${escapeHTML(text)}</pre>`,
+      text
+    });
+  } catch (e) {
+    console.error("Sale email failed:", e && e.message);
+  }
+}
+
+// Stripe tells us what happened. Returning 500 makes Stripe try again, so a
+// failure to record a payment is never silent.
+async function handleStripeWebhook(request, env, ctx) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+  if (!env.STRIPE_WEBHOOK_SECRET || !checkoutConfigured(env)) return json(503, { error: "not_ready" });
+
+  const raw = await request.text();
+  const valid = await verifyStripeSignature(raw, request.headers.get("stripe-signature"), env.STRIPE_WEBHOOK_SECRET);
+  if (!valid) return json(400, { error: "bad_signature" });
+
+  let event;
+  try { event = JSON.parse(raw); } catch (e) { return json(400, { error: "bad_body" }); }
+  const session = event && event.data && event.data.object;
+  const orderId = session && session.metadata && session.metadata.order_id;
+  // Not a checkout this site started: acknowledge and ignore.
+  if (!orderId || !UUID_RE.test(orderId)) return json(200, { received: true });
+
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+    // A payment method that settles later completes the session unpaid first.
+    if (session.payment_status !== "paid" && session.payment_status !== "no_payment_required") {
+      return json(200, { received: true });
+    }
+    const customer = session.customer_details || {};
+    const ship = (session.collected_information && session.collected_information.shipping_details)
+      || session.shipping_details || session.shipping || null;
+    const buyer = {
+      email: customer.email || session.customer_email || null,
+      name: (ship && ship.name) || customer.name || null,
+      address: (ship && ship.address) || customer.address || null
+    };
+    const done = await sbRpc(env, "complete_order", {
+      p_order: orderId,
+      p_session: session.id,
+      p_email: buyer.email,
+      p_name: buyer.name,
+      p_address: buyer.address,
+      p_shipping_cents: (session.total_details && session.total_details.amount_shipping) || 0,
+      p_amount_total: session.amount_total ?? null
+    });
+    if (!done.ok) {
+      const why = (done.body && done.body.message) || "no detail";
+      console.error("complete_order failed:", done.status, why);
+      // The money is taken but the sale is not recorded. Say so loudly. Stripe
+      // keeps retrying this webhook, so it also fixes itself once the cause does.
+      await alertAdmin(env, "Payment received but NOT recorded", [
+        "Stripe took a payment, but the site could not record the sale. Stripe will keep retrying.",
+        "",
+        `Stripe session: ${session.id}`,
+        `Order id: ${orderId}`,
+        `Amount: ${((session.amount_total || 0) / 100).toFixed(2)} ${String(session.currency || "").toUpperCase()}`,
+        `Buyer: ${buyer.email || "unknown"}`,
+        "",
+        `The database said: ${done.status} ${why}`,
+        "",
+        "Run migrations/20261111_checkout_selftest.sql in Supabase to see what is wrong. A common cause is re-running SELLER_CARDS_APPLY.sql without running migrations/20261111_checkout.sql after it."
+      ]);
+      return json(500, { error: "complete_failed" });
+    }
+    // Tell the admin once. Stripe may send the same event twice.
+    if (done.body && done.body.newly_paid) {
+      const task = notifyAdminOfSale(env, done.body, buyer);
+      if (ctx && ctx.waitUntil) ctx.waitUntil(task); else await task;
+    }
+    return json(200, { received: true });
+  }
+
+  if (event.type === "checkout.session.expired") {
+    const released = await sbRpc(env, "release_order", { p_order: orderId });
+    if (!released.ok) return json(500, { error: "release_failed" });
+  }
+  return json(200, { received: true });
+}
+
+/* ============================================================
    Router — API routes handled here; everything else falls through
    to the static assets binding (the existing dist/ site, unchanged).
    ============================================================ */
@@ -819,6 +1172,9 @@ export default {
     if (url.pathname === "/api/submit-request") return handleSubmitRequest(request, env);
     if (url.pathname === "/api/send-invite") return handleSendInvite(request, env);
     if (url.pathname === "/api/application-decision") return handleApplicationDecision(request, env);
+    if (url.pathname === "/api/checkout") return handleCheckout(request, env);
+    if (url.pathname === "/api/checkout-cancel") return handleCheckoutCancel(request, env);
+    if (url.pathname === "/api/stripe-webhook") return handleStripeWebhook(request, env, ctx);
 
     // /join/<code> is the short invite link. The URL stays as typed; the
     // seller page reads the code from the path.

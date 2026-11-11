@@ -38,6 +38,9 @@ If a column reads `false`, run that step. `admin_rows` must be at least 1.
 | 7 | `SELLER_CARDS_APPLY.sql` | Seller cards. Run after step 4, and again if you ever re-run steps 2 or 4 |
 | 8 | `SELLER_APPLICATIONS_APPLY.sql` | Sell-with-poda applications and the private photo bucket |
 | 9 | `migrations/20261109_release_delete_guard.sql` | Archive-safe delete (below) |
+| 10 | `migrations/20261110_supplier_instagram.sql` | Seller Instagram handle |
+| 11 | `migrations/20261111_checkout.sql` | Real checkout: orders, the 30-minute hold, the sale. Run after steps 4 and 7. It replaces the public product view and the product guard, so run it again after any re-run of step 7. Setup: `CHECKOUT_SETUP.md` |
+| 12 | `migrations/20261111_checkout_selftest.sql` | Checks step 11 and rolls itself back. Ends in a red error box on purpose. The last line should say 26 passed, 0 failed |
 
 Steps 1 to 3 are first-time setup. If Step 0 shows `base_marketplace` true and
 `admin_rows` at least 1, skip them.

@@ -890,6 +890,29 @@
     }
   }
 
+  /* —— Orders (admin only; row security keeps everyone else out) —— */
+  async function getOrders() {
+    const { data, error } = await client()
+      .from("orders")
+      .select("*, suppliers(name, type)")
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Only the bookkeeping can change from the admin. The money and the piece
+  // are frozen when the order is made.
+  async function updateOrder(id, patch) {
+    const row = {};
+    ["shipped_at", "payout_status", "payout_paid_at", "status"].forEach(k => {
+      if (patch[k] !== undefined) row[k] = patch[k];
+    });
+    const { data, error } = await client().from("orders").update(row).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
   window.PodaMarketplace = {
     getPublicFolders,
     getPublicFolder,
@@ -902,6 +925,8 @@
     setWorkingRelease,
     updateRelease,
     setMyInstagram,
+    getOrders,
+    updateOrder,
     canDeleteRelease,
     deleteRelease,
     addReleaseEvent,
