@@ -637,6 +637,43 @@
     return { thesis, excerpt, minutes: words ? Math.max(1, Math.round(words / 220)) : 0 };
   }
 
+  /* —— Lookbook grid with gaps. The images fill a grid in order, but now and
+     then a cell is skipped so white space opens up. The pattern comes from a
+     seed (the set's id), so a set always looks the same, on every visit and
+     every device. At most cols - 1 cells are skipped at a time, so a whole row
+     is never left blank. —— */
+  const LOOKBOOK_MAX = 9;
+
+  function seededRandom(seed) {
+    let h = 2166136261;
+    const str = String(seed);
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return function () {
+      h += 0x6D2B79F5;
+      let t = h;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Where each of `count` images sits: { col, row }, both starting at 1.
+  function lookbookCells(count, cols, seed) {
+    const rand = seededRandom(seed);
+    const cells = [];
+    let pos = 0;
+    for (let i = 0; i < count; i++) {
+      // After the first image, sometimes leave one cell (less often two) empty.
+      if (i > 0 && rand() < 0.3) pos += Math.min(cols - 1, rand() < 0.2 ? 2 : 1);
+      cells.push({ col: (pos % cols) + 1, row: Math.floor(pos / cols) + 1 });
+      pos++;
+    }
+    return cells;
+  }
+
   // One list from three kinds of post. seenMs is null when this browser cannot
   // store anything, in which case nothing is marked new.
   function buildFeed(content, seenMs) {
@@ -657,8 +694,8 @@
     (content.studies || []).forEach(s => {
       const iso = s.date || s.createdAt;
       entries.push({
-        type: "images", ext: "jpg", iso, date: ts(iso), study: s,
-        name: `set${s.studyNumber ? pad(s.studyNumber, 2) : ""}_${fileSlug(s.title, 30) || "untitled"}.jpg`
+        type: "lookbook", ext: "jpg", iso, date: ts(iso), study: s,
+        name: `lookbook${s.studyNumber ? "_" + pad(s.studyNumber, 2) : ""}_${fileSlug(s.title, 30) || "untitled"}.jpg`
       });
     });
     entries.sort((a, b) => b.date - a.date);
@@ -721,22 +758,36 @@
         </article>`;
     }
 
+    // A lookbook post: its images laid out on a grid, with some cells left
+    // empty on purpose. One image (or none) is shown as a single wide picture.
     const s = e.study;
-    const images = Array.isArray(s.images) ? s.images : [];
-    const url = s.coverImage || images[0] || "";
+    const images = (Array.isArray(s.images) ? s.images : []).filter(Boolean);
+    const shown = images.slice(0, LOOKBOOK_MAX);
     const href = `study.html?id=${encodeURIComponent(s.id)}`;
+    let visual;
+    if (shown.length <= 1) {
+      const url = shown[0] || s.coverImage || "";
+      visual = `<a class="ff-im" href="${href}">${url
+        ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" />`
+        : `<span class="ff-im__empty">poda</span>`}</a>`;
+    } else {
+      const cols = shown.length >= 4 ? 3 : 2;
+      const cells = lookbookCells(shown.length, cols, s.id || s.title);
+      visual = `<div class="ff-lb" style="--cols:${cols}">${shown.map((url, i) =>
+        `<a class="ff-lb__i" href="${href}" style="grid-column:${cells[i].col};grid-row:${cells[i].row}">` +
+        `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" /></a>`).join("")}</div>`;
+    }
+    const more = images.length > shown.length ? ` · ${images.length - shown.length} more` : "";
     return `
-      <article class="${cls}" data-type="images">${head}
-        <a class="ff-im" href="${href}">${url
-          ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" />`
-          : `<span class="ff-im__empty">poda</span>`}</a>
+      <article class="${cls}" data-type="lookbook">${head}
+        ${visual}
         <p class="ff-cap">${esc(s.title || "Untitled")}${s.framing ? ` · ${esc(s.framing)}` : ""}</p>
-        <div class="ff-ef"><span>${images.length} image${images.length === 1 ? "" : "s"}</span><a href="${href}">Open set →</a></div>
+        <div class="ff-ef"><span>${images.length} image${images.length === 1 ? "" : "s"}${more}</span><a href="${href}">Open set →</a></div>
       </article>`;
   }
 
   function feedHTML(entries) {
-    const filters = [["all", "All"], ["notes", "Notes"], ["images", "Images"], ["updates", "Updates"]];
+    const filters = [["all", "All"], ["notes", "Notes"], ["lookbook", "Lookbook"], ["updates", "Updates"]];
     return `
       <div class="ff-feed" data-feed>
         <div class="ff-filters" role="group" aria-label="Filter the feed">

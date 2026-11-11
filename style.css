@@ -4380,6 +4380,23 @@ button.card-link {
 }
 .ff-im img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .ff-im__empty { display: grid; place-items: center; height: 100%; font-family: var(--font-serif); font-weight: 600; color: var(--text-faint); }
+/* Lookbook grid: images are placed on explicit cells (set in folders.js), so
+   skipped cells show as white space. */
+.ff-lb { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 6px; }
+.ff-lb__i { position: relative; display: block; aspect-ratio: 3 / 4; overflow: hidden; background: var(--image-bg); border: 1px solid var(--border); }
+.ff-lb__i::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(21, 21, 26, 0.75) 0.5px, transparent 0.6px);
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+.ff-lb__i img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ff-lb__i:hover, .ff-lb__i:focus-visible { border-color: var(--text); outline: none; }
 .ff-cap { margin: 6px 0 0; font-family: var(--font-serif); font-size: 0.85rem; line-height: 1.3; color: var(--text-dim); }
 .ff-empty { margin: 0; font-family: var(--font); font-size: 10px; letter-spacing: 0.06em; color: var(--text-faint); }
 
