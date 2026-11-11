@@ -411,9 +411,20 @@
     return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
-  // Buy buttons are off until PODA_CHECKOUT_ENABLED is true in supabase-config.js.
+  // Buy buttons are off for visitors until PODA_CHECKOUT_ENABLED is true in
+  // supabase-config.js. For testing, opening any page with ?checkout_test=1
+  // turns Buy on in that one browser tab and ?checkout_test=0 turns it off.
+  // This only shows or hides the button. The server decides what can be bought.
   function checkoutOn() {
-    return window.PODA_CHECKOUT_ENABLED === true;
+    if (window.PODA_CHECKOUT_ENABLED === true) return true;
+    try {
+      const flag = new URLSearchParams(window.location.search).get("checkout_test");
+      if (flag === "1") sessionStorage.setItem("poda:checkoutTest", "1");
+      if (flag === "0") sessionStorage.removeItem("poda:checkoutTest");
+      return sessionStorage.getItem("poda:checkoutTest") === "1";
+    } catch (e) {
+      return false;   // storage blocked: stay on Inquire
+    }
   }
 
   // One product card, used identically in Shop, on a release page and in the

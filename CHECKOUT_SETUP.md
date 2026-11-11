@@ -63,14 +63,20 @@ The webhook is how Stripe tells the site a payment went through.
    with `whsec_`. Add it to Cloudflare as `STRIPE_WEBHOOK_SECRET`.
 5. Deploy the site again so the new secrets are picked up.
 
-## 6. Turn checkout on, then test a purchase
+## 6. Test a purchase, then turn checkout on for everyone
 
-Buy buttons ship switched off, so the site keeps showing "Inquire" until you
-are ready. In `supabase-config.js`, change `window.PODA_CHECKOUT_ENABLED` from
-`false` to `true`, then deploy. To go back to Inquire at any time, set it to
-`false` and deploy again.
+Buy buttons ship switched off, so visitors keep seeing "Inquire". To test
+privately, open the site with `?checkout_test=1` on the end of the address,
+for example `https://podapodapoda.co/?checkout_test=1`. Buy buttons then show
+in that browser tab only, and stay on as you move between pages and come back
+from Stripe. Add `?checkout_test=0` to turn them off again.
 
-1. On the live Shop, click **Buy** on a piece. You should land on Stripe's page
+When the test works and Stripe is in live mode, show Buy to everyone: in
+`supabase-config.js`, change `window.PODA_CHECKOUT_ENABLED` from `false` to
+`true` and deploy. To go back to Inquire at any time, set it to `false` and
+deploy again.
+
+1. Open the Shop with `?checkout_test=1` and click **Buy** on a piece. You should land on Stripe's page
    showing the piece, the shipping line and a US address form.
 2. Pay with the test card `4242 4242 4242 4242`, any future date, any CVC,
    any US address.
