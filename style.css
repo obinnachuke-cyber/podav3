@@ -4270,6 +4270,118 @@ button.card-link {
   letter-spacing: 0.06em;
 }
 
+/* Policies page */
+.policies { max-width: 760px; padding: 24px 0 64px; }
+.policies__index { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 8px; font-family: var(--font); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.policies__index a { color: var(--text-dim); text-decoration: underline; text-decoration-color: var(--border-light); text-underline-offset: 4px; }
+.policies__index a:hover, .policies__index a:focus-visible { color: var(--accent); text-decoration-color: var(--accent); outline: none; }
+.policies .page-section { scroll-margin-top: calc(var(--header-h) + 16px); }
+.policies .about__text { max-width: 62ch; }
+.policies .about__text + .about__text { margin-top: 14px; }
+
+/* Piece detail: opens from a card's photo or name. A full-screen sheet with
+   swipeable photos on a phone, a two-column window on desktop. */
+.catalog-card__image[data-open], .catalog-card__name[data-open] { cursor: pointer; }
+.catalog-card__image[data-open]:focus-visible, .catalog-card__name[data-open]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.catalog-card__name[data-open]:hover { text-decoration: underline; text-underline-offset: 3px; }
+html.pd-lock { overflow: hidden; }
+.pd-root { position: fixed; inset: 0; z-index: 210; display: flex; justify-content: center; align-items: stretch; }
+.pd-root[hidden] { display: none; }
+.pd-dim { position: absolute; inset: 0; background: rgba(21, 21, 26, 0.5); }
+.pd {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #fff;
+}
+.pd-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--text);
+  background: #fff;
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+.pd-close:hover, .pd-close:focus-visible { background: var(--text); color: #fff; outline: none; }
+.pd-gallery { position: relative; flex: 0 0 auto; background: var(--image-bg); }
+.pd-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.pd-track::-webkit-scrollbar { display: none; }
+.pd-track:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pd-slide { position: relative; flex: 0 0 100%; aspect-ratio: 3 / 4; scroll-snap-align: center; background: var(--image-bg); }
+.pd-slide img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pd-slide--empty { display: grid; place-items: center; font-family: var(--font-serif); font-size: 1.6rem; font-weight: 600; color: var(--text-faint); }
+.pd-count {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 4px 8px;
+  background: rgba(11, 11, 12, 0.72);
+  border: 1px solid rgba(239, 237, 231, 0.3);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+.pd-arrow {
+  position: absolute;
+  top: 50%;
+  display: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0 0 3px;
+  transform: translateY(-50%);
+  border: 1px solid var(--text);
+  background: #fff;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pd-arrow--prev { left: 12px; }
+.pd-arrow--next { right: 12px; }
+.pd-arrow:hover, .pd-arrow:focus-visible { background: var(--text); color: #fff; outline: none; }
+.pd-info { padding: 20px var(--pad) 40px; }
+.pd-brand { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 6px; padding-right: 44px; font-family: var(--font); font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-faint); }
+.pd-brand span { font-weight: 400; letter-spacing: 0.08em; }
+.pd-title { margin: 0; font-family: var(--font-serif); font-size: clamp(1.5rem, 5vw, 2.1rem); font-weight: 600; line-height: 1.08; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.pd-price { margin: 10px 0 0; font-family: var(--font); font-size: 1.15rem; letter-spacing: 0.04em; }
+.pd-status { display: inline-block; margin: 12px 0 0; padding: 3px 8px; border: 1px solid var(--text); font-family: var(--font); font-size: 8.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.pd-status--sold, .pd-status--unavailable { color: var(--text-faint); border-color: var(--border-light); }
+.pd-status--held { color: #E6533D; border-color: #E6533D; }
+.pd-note { margin: 8px 0 0; font-family: var(--font); font-size: 10px; line-height: 1.5; letter-spacing: 0.04em; color: var(--text-dim); }
+.pd-actions { margin-top: 16px; }
+.pd-actions .folder-buy { padding: 13px 22px; font-size: 10px; }
+.pd-specs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; margin: 24px 0 0; padding: 18px 0 0; border-top: 1px solid var(--border); }
+.pd-specs div { min-width: 0; }
+.pd-specs dt { margin: 0 0 3px; font-family: var(--font); font-size: 8.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); }
+.pd-specs dd { margin: 0; font-family: var(--font-serif); font-size: 0.95rem; line-height: 1.3; overflow-wrap: anywhere; white-space: pre-line; }
+.pd-text { margin: 20px 0 0; font-family: var(--font-serif); font-size: 0.95rem; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+.pd-text b { display: block; margin-bottom: 4px; font-family: var(--font); font-size: 8.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-faint); }
+.pd-policy { margin: 24px 0 0; padding-top: 16px; border-top: 1px solid var(--border); font-family: var(--font); font-size: 9.5px; line-height: 1.6; letter-spacing: 0.04em; color: var(--text-dim); }
+.pd-policy a { color: var(--accent); }
+@media (min-width: 900px) {
+  .pd-root { align-items: center; padding: 4vh 4vw; }
+  .pd { flex-direction: row; max-width: 1040px; max-height: 92vh; overflow: hidden; }
+  .pd-gallery { flex: 0 0 52%; }
+  .pd-slide { aspect-ratio: auto; height: min(80vh, 720px); }
+  .pd-arrow { display: grid; }
+  .pd-info { flex: 1; min-width: 0; padding: 40px 34px; overflow-y: auto; }
+}
+
 /* Panel: a sheet over the page on a phone, a side panel on desktop */
 .ff-dim { position: fixed; inset: 0; z-index: 190; background: rgba(21, 21, 26, 0.4); }
 .ff-panel {

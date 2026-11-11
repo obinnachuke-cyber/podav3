@@ -411,6 +411,10 @@
     return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
+  // The pieces on the page, by product id, so a click on a card can open its
+  // detail view. Filled in as the cards are drawn.
+  const PIECES = new Map();
+
   // Buy buttons are off for visitors until PODA_CHECKOUT_ENABLED is true in
   // supabase-config.js. For testing, opening any page with ?checkout_test=1
   // turns Buy on in that one browser tab and ?checkout_test=0 turns it off.
@@ -447,9 +451,16 @@
     const details = formatPrice(product);
     const seller = sellerLabel(product);
     const preview = opts && opts.preview;
+    // The photo and the name open the detail view. Not in the admin's private
+    // preview, which has no product ids.
+    const openable = !preview && !!product.product_id;
+    if (openable) PIECES.set(product.product_id, { folder, product });
+    const openAttrs = openable
+      ? ` data-open="${esc(product.product_id)}" role="button" tabindex="0" aria-label="${esc(`View details: ${product.title || "Untitled"}`)}"`
+      : "";
     return `
       <article class="catalog-card${available ? "" : " catalog-card--sold"}" data-availability="${esc(availability)}">
-        <div class="catalog-card__image${path ? "" : " catalog-card__image--empty"}${available ? "" : " catalog-card__image--sold"}">
+        <div class="catalog-card__image${path ? "" : " catalog-card__image--empty"}${available ? "" : " catalog-card__image--sold"}"${openAttrs}>
           ${img}
           <span class="catalog-card__status catalog-card__status--${available ? "available" : "sold"}">${labels[availability]}</span>
         </div>
@@ -458,7 +469,7 @@
             <span class="catalog-card__brand">${esc(product.brand || seller)}</span>
             ${product.brand && seller ? `<span class="catalog-card__id">${esc(seller)}</span>` : ""}
           </div>
-          <h3 class="catalog-card__name">${esc(product.title || "Untitled")}</h3>
+          <h3 class="catalog-card__name"${openAttrs}>${esc(product.title || "Untitled")}</h3>
           ${details ? `<p class="catalog-card__details">${esc(details)}</p>` : ""}
           ${available && !preview ? (checkoutOn() && product.product_id ? `
           <div class="catalog-card__actions">
@@ -606,6 +617,7 @@
     if (folder.drop_open) {
       mount.innerHTML = liveFolderHTML(folder, content, { kind: folder.is_shop ? "live" : "past", back });
       markSeen(folder.id);
+      openPieceFromUrl();
     } else {
       mountBuilding(mount, folder, content, clockSkew([folder]), { back });
     }
@@ -933,6 +945,7 @@
 
     document.addEventListener("keydown", event => {
       if (event.key !== "Escape") return;
+      if (pieceIsOpen()) return;   // Escape closes the piece first, the Feed on the next press
       const root = mount.querySelector("[data-ff-root]");
       if (root) closeFeed(root);
     });
@@ -1180,6 +1193,7 @@
         afterDrop: upcomingNotice(upcoming),
         footer: `<p class="shop-footer"><a class="product-link" href="archive.html">Past releases →</a></p>`
       });
+      openPieceFromUrl();
     }
 
     function schedule(upcoming, skew) {
@@ -1333,6 +1347,189 @@
   window.PodaFolders = { markSeen, renderFolder, stateInfo, folderName };
 
   /* ============================================================
+     Piece detail. A tap on a card opens every photo, the size, condition,
+     measurements and the seller's notes, with Buy inside. It shows only what
+     the public view already returns. ?piece=<id> opens one directly, so a
+     piece can be shared.
+     ============================================================ */
+  // How long poda takes to ship. Keep in step with _worker.js and policies.html.
+  const POLICY_SHIP_DAYS = 5;
+
+  const AVAILABILITY_NOTES = {
+    held: "Someone is checking out with this piece right now. It may be available again in a few minutes.",
+    sold: "This piece has sold.",
+    unavailable: "This piece is not available right now."
+  };
+
+  function detailSpecs(product) {
+    const rows = [
+      ["Size", product.size], ["Condition", product.condition], ["Measurements", product.measurements],
+      ["Material", product.material], ["Color", product.color], ["Category", product.category]
+    ].filter(([, value]) => value && String(value).trim());
+    return rows.length
+      ? `<dl class="pd-specs">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`
+      : "";
+  }
+
+  function pieceDetailHTML(entry, opts) {
+    const { folder, product } = entry;
+    const title = product.title || "Untitled";
+    const availability = product.availability || (product.is_available ? "available" : "unavailable");
+    const available = availability === "available";
+    const labels = { available: "Available", held: "Held", sold: "Sold", unavailable: "Unavailable" };
+    const paths = Array.isArray(product.image_paths) ? product.image_paths : [];
+    const seller = sellerLabel(product);
+    const price = formatPrice(product);
+
+    const slides = paths.length
+      ? paths.map((p, i) => `
+          <div class="pd-slide"><img src="${esc(market().productImageUrl(p))}" alt="${esc(`${title}, photo ${i + 1} of ${paths.length}`)}" loading="${i ? "lazy" : "eager"}" decoding="async" /></div>`).join("")
+      : `<div class="pd-slide pd-slide--empty">poda</div>`;
+    const steppers = paths.length > 1
+      ? `<span class="pd-count" aria-live="polite">1 / ${paths.length}</span>
+         <button type="button" class="pd-arrow pd-arrow--prev" data-pd-step="-1" aria-label="Previous photo">‹</button>
+         <button type="button" class="pd-arrow pd-arrow--next" data-pd-step="1" aria-label="Next photo">›</button>`
+      : "";
+
+    let actions = "";
+    if (available && !opts.noBuy) {
+      actions = checkoutOn() && product.product_id
+        ? `<div class="catalog-card__actions pd-actions">
+             <button type="button" class="folder-buy" data-buy="${esc(product.product_id)}">Buy →</button>
+             <a class="product-link folder-inquire" href="${esc(inquiryHref(folder, product))}">Ask a question</a>
+           </div>`
+        : `<div class="pd-actions"><a class="product-link folder-inquire" href="${esc(inquiryHref(folder, product))}">Inquire →</a></div>`;
+    }
+
+    return `
+      <div class="pd-gallery">
+        <div class="pd-track" tabindex="0" aria-label="Photos of ${esc(title)}">${slides}</div>
+        ${steppers}
+      </div>
+      <div class="pd-info">
+        <p class="pd-brand">${esc(product.brand || seller)}${product.brand && seller ? ` <span>${esc(seller)}</span>` : ""}</p>
+        <h2 class="pd-title" id="pdTitle">${esc(title)}</h2>
+        ${price ? `<p class="pd-price">${esc(price)}</p>` : ""}
+        <p class="pd-status pd-status--${esc(availability)}">${esc(labels[availability] || "")}</p>
+        ${AVAILABILITY_NOTES[availability] ? `<p class="pd-note">${esc(AVAILABILITY_NOTES[availability])}</p>` : ""}
+        ${actions}
+        ${detailSpecs(product)}
+        ${product.condition_notes ? `<p class="pd-text"><b>Condition notes</b>${esc(product.condition_notes)}</p>` : ""}
+        ${product.copy ? `<p class="pd-text"><b>About this piece</b>${esc(product.copy)}</p>` : ""}
+        <p class="pd-policy">Ships within ${POLICY_SHIP_DAYS} business days. Final sale unless a piece is not as described.
+          <a href="policies.html">Shipping and returns</a></p>
+      </div>`;
+  }
+
+  function detailRoot() {
+    let root = document.getElementById("pieceDetail");
+    if (!root) {
+      root = document.createElement("div");
+      root.id = "pieceDetail";
+      root.className = "pd-root";
+      root.hidden = true;
+      root.innerHTML = `
+        <div class="pd-dim" data-pd-close></div>
+        <section class="pd" role="dialog" aria-modal="true" aria-labelledby="pdTitle" tabindex="-1"></section>`;
+      document.body.appendChild(root);
+    }
+    return root;
+  }
+
+  function setPieceParam(id) {
+    try {
+      const url = new URL(window.location.href);
+      if (id) url.searchParams.set("piece", id); else url.searchParams.delete("piece");
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    } catch (e) { /* the address bar is a convenience only */ }
+  }
+
+  let detailOpener = null;
+
+  function openPiece(id, opener) {
+    const entry = PIECES.get(id);
+    if (!entry) return;
+    const root = detailRoot();
+    const panel = root.querySelector(".pd");
+    // A click inside the admin's preview must never offer a real purchase.
+    const noBuy = !!(opener && opener.closest && opener.closest(".rel-preview"));
+    panel.innerHTML = `<button type="button" class="pd-close" data-pd-close aria-label="Close">✕</button>${pieceDetailHTML(entry, { noBuy })}`;
+    detailOpener = opener || null;
+    root.hidden = false;
+    document.documentElement.classList.add("pd-lock");
+    panel.scrollTop = 0;
+    const close = panel.querySelector(".pd-close");
+    if (close) close.focus();
+    setPieceParam(id);
+  }
+
+  function closePiece() {
+    const root = document.getElementById("pieceDetail");
+    if (!root || root.hidden) return;
+    root.hidden = true;
+    document.documentElement.classList.remove("pd-lock");
+    setPieceParam(null);
+    if (detailOpener && detailOpener.focus && document.contains(detailOpener)) detailOpener.focus();
+    detailOpener = null;
+  }
+
+  function pieceIsOpen() {
+    const root = document.getElementById("pieceDetail");
+    return !!root && !root.hidden;
+  }
+
+  // Opens the piece named in ?piece=…, once its card has been drawn.
+  function openPieceFromUrl() {
+    const id = new URLSearchParams(window.location.search).get("piece");
+    if (id && PIECES.has(id) && !pieceIsOpen()) openPiece(id, null);
+  }
+
+  function bindDetail() {
+    document.addEventListener("click", event => {
+      const opener = event.target.closest("[data-open]");
+      if (opener) { openPiece(opener.dataset.open, opener); return; }
+      if (event.target.closest("[data-pd-close]")) { closePiece(); return; }
+      const step = event.target.closest("[data-pd-step]");
+      if (step) {
+        const track = step.closest(".pd-gallery").querySelector(".pd-track");
+        track.scrollBy({ left: Number(step.dataset.pdStep) * track.clientWidth, behavior: "smooth" });
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      const opener = event.target.closest && event.target.closest("[data-open]");
+      if (opener && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        openPiece(opener.dataset.open, opener);
+        return;
+      }
+      if (!pieceIsOpen()) return;
+      if (event.key === "Escape") { closePiece(); return; }
+      if (event.key === "Tab") {
+        // Keep Tab inside the open dialog.
+        const focusable = Array.from(document.querySelectorAll("#pieceDetail .pd button:not([hidden]), #pieceDetail .pd a[href], #pieceDetail .pd [tabindex='0']"))
+          .filter(el => !el.disabled && el.offsetParent !== null);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    });
+
+    // Scroll events do not bubble, so listen in the capture phase.
+    document.addEventListener("scroll", event => {
+      const track = event.target;
+      if (!track || !track.classList || !track.classList.contains("pd-track")) return;
+      const count = track.parentElement.querySelector(".pd-count");
+      if (!count) return;
+      const total = track.children.length;
+      const index = Math.min(total - 1, Math.max(0, Math.round(track.scrollLeft / (track.clientWidth || 1))));
+      count.textContent = `${index + 1} / ${total}`;
+    }, true);
+  }
+
+  /* ============================================================
      Buy. One click takes a 30-minute hold on the piece and opens Stripe's
      payment page (POST /api/checkout, handled in _worker.js). The Worker
      decides whether the piece can be bought; this only shows the result.
@@ -1458,6 +1655,7 @@
   }
 
   bindBuy();
+  bindDetail();
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", start);

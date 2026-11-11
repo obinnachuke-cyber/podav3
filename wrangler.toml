@@ -25,6 +25,11 @@ CONTACT_EMAIL = "twopoda@gmail.com"
 # CHANGE THIS to your real shipping cost. Set it to "0" for free shipping.
 SHIPPING_FLAT_CENTS = "1500"
 
+# Sales tax. "false" adds no tax. Change to "true" only after Stripe Tax is set
+# up in the Stripe dashboard (see CHECKOUT_SETUP.md, Sales tax) and an
+# accountant has told you what to collect.
+STRIPE_TAX_ENABLED = "false"
+
 # RESEND_API_KEY and ADMIN_EMAIL are NOT declared here — they are secrets.
 # Set them via the Cloudflare dashboard (Workers & Pages → this project →
 # Settings → Variables and Secrets → "Secret" type) or `wrangler secret put`.

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#244CFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="poda" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Shipping and returns — poda</title>
+  <meta name="description" content="How poda ships, what happens if a piece is not as described, and how consignment works." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <!-- Policy wording. These pages state what poda promises buyers: read them
+       before launch and change anything that is not true for your business.
+       "5 business days" also lives in _worker.js and folders.js
+       (POLICY_SHIP_DAYS), and "7 days" below is the not-as-described window. -->
+  <main class="portal-shell">
+    <article class="policies">
+      <p class="policies__index" aria-label="On this page">
+        <a href="#shipping">Shipping</a>
+        <a href="#returns">Returns</a>
+        <a href="#authenticity">Authenticity</a>
+        <a href="#consignment">How consignment works</a>
+        <a href="#payments">Payments</a>
+        <a href="#contact">Contact</a>
+      </p>
+
+      <section class="page-section" id="shipping">
+        <div class="section-bar"><span class="section-bar__label">01</span><span class="section-bar__title">Shipping</span></div>
+        <p class="about__text">Orders ship within 5 business days of purchase.</p>
+        <p class="about__text">We ship to addresses in the United States for now. A flat shipping fee is shown at checkout before you pay.</p>
+        <p class="about__text">When your order ships, you get an email with tracking. Delivery times depend on the carrier.</p>
+      </section>
+
+      <section class="page-section" id="returns">
+        <div class="section-bar"><span class="section-bar__label">02</span><span class="section-bar__title">Returns</span></div>
+        <p class="about__text">Every piece is one of a kind, so every sale is final. We do not take returns for fit, change of mind or preference. Please read the size, measurements and condition notes before you buy.</p>
+        <p class="about__text">The exception is a piece that arrives not as described: different from its listing in condition, size, measurements or photos. Email us within 7 days of delivery with your order and photos of the problem. If we agree the piece is not as described, we refund the full price and the original shipping, and we tell you how to send the piece back.</p>
+      </section>
+
+      <section class="page-section" id="authenticity">
+        <div class="section-bar"><span class="section-bar__label">03</span><span class="section-bar__title">Authenticity</span></div>
+        <p class="about__text">Each piece is described by its seller. poda chooses which pieces appear in a folder, but we do not authenticate them. If a piece is not as described, see Returns above.</p>
+      </section>
+
+      <section class="page-section" id="consignment">
+        <div class="section-bar"><span class="section-bar__label">04</span><span class="section-bar__title">How consignment works</span></div>
+        <p class="about__text">Pieces come from private closets, independent brands and boutiques. poda presents them and sells them on the seller's behalf. When a piece sells, poda keeps a commission and the seller receives the rest.</p>
+        <p class="about__text">Have something to sell? <a class="product-link" href="sell.html">Apply to sell with poda →</a></p>
+      </section>
+
+      <section class="page-section" id="payments">
+        <div class="section-bar"><span class="section-bar__label">05</span><span class="section-bar__title">Payments</span></div>
+        <p class="about__text">Prices are in US dollars. Payments are handled by Stripe. poda never sees or stores your card number.</p>
+      </section>
+
+      <section class="page-section" id="contact" style="border-bottom:none;">
+        <div class="section-bar"><span class="section-bar__label">06</span><span class="section-bar__title">Contact</span></div>
+        <p class="about__text">Questions about an order or a piece? <a class="product-link" id="contactLink" href="https://instagram.com/podacapital" target="_blank" rel="noopener">Message poda on Instagram →</a></p>
+      </section>
+    </article>
+  </main>
+
+  <footer class="site-footer portal-shell"></footer>
+
+  <script src="supabase-config.js"></script>
+  <script src="layout.js"></script>
+  <script>
+    // Use the contact email from supabase-config.js when there is one.
+    (function () {
+      const email = window.PODA_CONTACT_EMAIL;
+      const link = document.getElementById("contactLink");
+      if (email && link) {
+        link.href = "mailto:" + email;
+        link.removeAttribute("target");
+        link.textContent = email;
+      }
+    })();
+  </script>
+</body>
+</html>

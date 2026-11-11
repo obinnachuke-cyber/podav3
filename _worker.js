@@ -98,6 +98,23 @@ async function supabaseInsert(env, token, table, row) {
   }
 }
 
+async function supabasePatch(env, token, table, query, row) {
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: "PATCH",
+    headers: {
+      apikey: env.SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      Prefer: "return=minimal"
+    },
+    body: JSON.stringify(row)
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Supabase update failed (${table}): ${res.status} ${detail}`);
+  }
+}
+
 function escapeHTML(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;")
@@ -814,6 +831,10 @@ async function handleApplicationDecision(request, env) {
 // Stripe page can still take payment.
 const STRIPE_SESSION_SECONDS = 31 * 60;
 
+// How long poda takes to ship after a sale. Used in the Stripe page, the
+// confirmation email and policies.html, so change all three together.
+const POLICY_SHIP_DAYS = 5;
+
 // Names only, never values. A 503 reports which setting is missing so a
 // mistake in the Cloudflare dashboard is quick to find.
 function checkoutMissing(env) {
@@ -937,7 +958,13 @@ async function handleCheckout(request, env) {
     }],
     shipping_address_collection: { allowed_countries: ["US"] },
     metadata: { order_id: order.order_id },
-    payment_intent_data: { metadata: { order_id: order.order_id } }
+    payment_intent_data: { metadata: { order_id: order.order_id } },
+    // Shown beside the Pay button, so the terms are in front of the buyer.
+    custom_text: {
+      submit: {
+        message: `Final sale unless a piece is not as described. Ships within ${POLICY_SHIP_DAYS} business days. Full policies: ${site}/policies.html`
+      }
+    }
   };
   // One flat rate. Left out (free shipping) if no valid amount is set.
   if (Number.isInteger(shipping) && shipping > 0) {
@@ -948,6 +975,13 @@ async function handleCheckout(request, env) {
         fixed_amount: { amount: shipping, currency }
       }
     }];
+  }
+  // Sales tax stays off until STRIPE_TAX_ENABLED is "true" and Stripe Tax is set
+  // up in the Stripe dashboard. Tax is added on top of the price and shipping.
+  if (String(env.STRIPE_TAX_ENABLED || "").toLowerCase() === "true") {
+    params.automatic_tax = { enabled: true };
+    params.line_items[0].price_data.tax_behavior = "exclusive";
+    if (params.shipping_options) params.shipping_options[0].shipping_rate_data.tax_behavior = "exclusive";
   }
 
   let session;
@@ -1093,6 +1127,151 @@ async function notifyAdminOfSale(env, sale, buyer) {
   }
 }
 
+/* ---- Emails to the buyer ---- */
+
+function moneyText(cents, currency) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: currency || "USD" }).format((cents || 0) / 100);
+}
+
+// Tracking pages for the carriers poda uses. "Other" has no link: the number
+// is shown as text.
+const CARRIERS = {
+  USPS: n => `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(n)}`,
+  UPS: n => `https://www.ups.com/track?tracknum=${encodeURIComponent(n)}`,
+  FedEx: n => `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(n)}`,
+  DHL: n => `https://www.dhl.com/us-en/home/tracking.html?tracking-id=${encodeURIComponent(n)}`,
+  Other: null
+};
+
+// One look for every email poda sends a buyer. Everything that came from a
+// person or a seller is escaped before it reaches this function's callers.
+function buyerEmailShell(siteUrl, heading, innerHTML) {
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f2f1ed;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f1ed;padding:24px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border:1px solid #d9d8d2;">
+          <tr><td style="padding:22px 28px 0 28px;"><a href="${siteUrl}" style="font-family:Impact,'Arial Narrow Bold',Arial,sans-serif;font-style:italic;font-size:30px;color:#244CFF;text-decoration:none;">poda</a></td></tr>
+          <tr><td style="padding:18px 28px 6px 28px;font-family:Georgia,'Times New Roman',serif;font-size:26px;line-height:1.15;color:#15151A;">${escapeHTML(heading)}</td></tr>
+          <tr><td style="padding:6px 28px 26px 28px;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#15151A;">${innerHTML}</td></tr>
+          <tr><td style="padding:16px 28px;border-top:1px solid #e6e5df;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#8a8882;">poda, selective retail<br>Questions? Reply to this email.<br><a href="${siteUrl}/policies.html" style="color:#8a8882;">Shipping and returns</a></td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function emailRows(rows) {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0;border-top:1px solid #e6e5df;">${
+    rows.map(([label, value, bold]) =>
+      `<tr><td style="padding:8px 0;border-bottom:1px solid #e6e5df;color:#5a5a56;">${escapeHTML(label)}</td>` +
+      `<td align="right" style="padding:8px 0;border-bottom:1px solid #e6e5df;${bold ? "font-weight:bold;" : ""}">${escapeHTML(value)}</td></tr>`
+    ).join("")}</table>`;
+}
+
+function oneLine(text) {
+  return String(text || "").replace(/[\r\n]+/g, " ").trim();
+}
+
+function buildConfirmationEmail(siteUrl, sale, buyer, totalCents) {
+  const piece = oneLine([sale.brand, sale.title].filter(Boolean).join(" "));
+  const first = oneLine(buyer.name).split(/\s+/)[0];
+  const shipping = sale.shipping_cents || 0;
+  const tax = (totalCents || 0) - sale.price_cents - shipping;
+  const rows = [[piece, moneyText(sale.price_cents, sale.currency)]];
+  if (shipping > 0) rows.push(["Shipping", moneyText(shipping, sale.currency)]);
+  if (tax > 0) rows.push(["Tax", moneyText(tax, sale.currency)]);
+  rows.push(["Total", moneyText(totalCents || sale.price_cents + shipping, sale.currency), true]);
+
+  const address = addressLine(buyer.address);
+  const html = buyerEmailShell(siteUrl, "Your order is confirmed", `
+    <p style="margin:0 0 8px 0;">${first ? `Thank you, ${escapeHTML(first)}.` : "Thank you."} Your payment went through and the piece is yours.</p>
+    ${emailRows(rows)}
+    <p style="margin:0 0 6px 0;"><strong>Shipping to</strong><br>${escapeHTML(address)}</p>
+    <p style="margin:14px 0 0 0;"><strong>What happens next</strong><br>
+      We ship within ${POLICY_SHIP_DAYS} business days and email you tracking the moment it goes out.
+      Every piece is final sale unless it arrives not as described. The details are in
+      <a href="${siteUrl}/policies.html" style="color:#244CFF;">Shipping and returns</a>.</p>`);
+
+  const text = [
+    first ? `Thank you, ${first}.` : "Thank you.",
+    "Your payment went through and the piece is yours.",
+    "",
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    "",
+    `Shipping to: ${address}`,
+    "",
+    `We ship within ${POLICY_SHIP_DAYS} business days and email you tracking when it goes out.`,
+    `Every piece is final sale unless it arrives not as described: ${siteUrl}/policies.html`,
+    "",
+    "poda, selective retail. Questions? Reply to this email."
+  ].join("\n");
+
+  return { subject: `Your poda order: ${piece}`, html, text };
+}
+
+function buildShippedEmail(siteUrl, order, carrier, tracking) {
+  const piece = oneLine([order.brand, order.title].filter(Boolean).join(" "));
+  const link = tracking && CARRIERS[carrier] ? CARRIERS[carrier](tracking) : null;
+  const trackingLine = tracking
+    ? `${carrier && carrier !== "Other" ? `${carrier} ` : ""}tracking number ${tracking}`
+    : "";
+  const address = addressLine(order.shipping_address);
+
+  const html = buyerEmailShell(siteUrl, "Your order has shipped", `
+    <p style="margin:0 0 8px 0;">${escapeHTML(piece)} is on its way.</p>
+    ${tracking ? `<p style="margin:14px 0;"><strong>Tracking</strong><br>${escapeHTML(trackingLine)}${
+      link ? `<br><a href="${escapeHTML(link)}" style="color:#244CFF;">Track your package</a>` : ""}</p>` : ""}
+    <p style="margin:14px 0 0 0;"><strong>Shipping to</strong><br>${escapeHTML(address)}</p>
+    <p style="margin:14px 0 0 0;">Delivery times depend on the carrier. If anything looks wrong when it arrives, reply to this email.
+      See <a href="${siteUrl}/policies.html" style="color:#244CFF;">Shipping and returns</a>.</p>`);
+
+  const text = [
+    `${piece} is on its way.`,
+    "",
+    ...(tracking ? [trackingLine, ...(link ? [`Track your package: ${link}`] : []), ""] : []),
+    `Shipping to: ${address}`,
+    "",
+    "Delivery times depend on the carrier. If anything looks wrong when it arrives, reply to this email.",
+    `Shipping and returns: ${siteUrl}/policies.html`
+  ].join("\n");
+
+  return { subject: `Your poda order has shipped: ${piece}`, html, text };
+}
+
+async function emailBuyerConfirmation(env, sale, buyer, totalCents) {
+  if (!env.RESEND_API_KEY) return;
+  const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
+  const piece = [sale.brand, sale.title].filter(Boolean).join(" ");
+  if (!buyer.email) {
+    await alertAdmin(env, "An order has no buyer email", [
+      `Order ${sale.order_id} for ${piece} was paid, but Stripe sent no email address.`,
+      "Contact the buyer from the Stripe payment, and ship to the address in the Orders tab."
+    ]);
+    return;
+  }
+  const { subject, html, text } = buildConfirmationEmail(siteUrl, sale, buyer, totalCents);
+  let result;
+  try {
+    result = await sendViaResend(env, {
+      from: FROM_ADDRESS,
+      to: [buyer.email],
+      reply_to: env.CONTACT_EMAIL || REPLY_TO,
+      subject, html, text
+    });
+  } catch (e) {
+    result = { ok: false, status: 0, body: {} };
+  }
+  if (!result.ok) {
+    await alertAdmin(env, "The buyer's confirmation email did not send", [
+      `Order ${sale.order_id} for ${piece} was recorded, but the confirmation to ${buyer.email} failed (status ${result.status}).`,
+      "Email the buyer yourself so they know the order went through."
+    ]);
+  }
+}
+
 // Stripe tells us what happened. Returning 500 makes Stripe try again, so a
 // failure to record a payment is never silent.
 async function handleStripeWebhook(request, env, ctx) {
@@ -1153,9 +1332,14 @@ async function handleStripeWebhook(request, env, ctx) {
       ]);
       return json(500, { error: "complete_failed" });
     }
-    // Tell the admin once. Stripe may send the same event twice.
+    // Tell the admin and the buyer once. Stripe may send the same event twice.
+    // A conflict payment is going to be refunded, so the buyer is not told
+    // the order is confirmed.
     if (done.body && done.body.newly_paid) {
-      const task = notifyAdminOfSale(env, done.body, buyer);
+      const task = (async () => {
+        await notifyAdminOfSale(env, done.body, buyer);
+        if (!done.body.conflict) await emailBuyerConfirmation(env, done.body, buyer, session.amount_total);
+      })();
       if (ctx && ctx.waitUntil) ctx.waitUntil(task); else await task;
     }
     return json(200, { received: true });
@@ -1166,6 +1350,84 @@ async function handleStripeWebhook(request, env, ctx) {
     if (!released.ok) return json(500, { error: "release_failed" });
   }
   return json(200, { received: true });
+}
+
+/* ============================================================
+   /api/order-shipped — emails the buyer that their order shipped, with
+   tracking, and records it on the order. Admin only. The buyer's address
+   and the piece are read from the database with the admin's own session,
+   never taken from the request, so this cannot be used to email anyone else.
+   ============================================================ */
+const TRACKING_RE = /^[A-Za-z0-9][A-Za-z0-9 \-]{2,59}$/;
+
+async function handleOrderShipped(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+
+  let payload;
+  try {
+    const raw = await request.text();
+    if (raw.length > 2000) return json(413, { error: "Request too large." });
+    payload = JSON.parse(raw);
+  } catch (e) {
+    return json(400, { error: "Invalid request body." });
+  }
+
+  const orderId = String((payload && payload.order_id) || "");
+  if (!UUID_RE.test(orderId)) return json(400, { error: "A valid order is required." });
+  let carrier = String((payload && payload.carrier) || "").trim();
+  const tracking = String((payload && payload.tracking_number) || "").trim();
+  if (carrier && !(carrier in CARRIERS)) return json(400, { error: "Choose USPS, UPS, FedEx, DHL or Other." });
+  if (tracking && !TRACKING_RE.test(tracking)) return json(400, { error: "The tracking number can use letters, numbers, spaces and hyphens only." });
+  if (tracking && !carrier) carrier = "Other";
+
+  const auth = await verifyAdmin(request, env, "send shipping emails");
+  if (!auth.ok) return json(auth.status, { error: auth.error, detail: auth.detail });
+
+  let rows;
+  try {
+    rows = await supabaseSelect(env, auth.token, "orders", `id=eq.${encodeURIComponent(orderId)}&select=*`);
+  } catch (e) {
+    return json(502, { error: "Could not load the order." });
+  }
+  const order = rows && rows[0];
+  if (!order) return json(404, { error: "Order not found." });
+  if (!("tracking_number" in order)) {
+    return json(409, { error: "Run migrations/20261112_order_shipping.sql in Supabase first." });
+  }
+  if (order.status !== "paid" || order.conflict) {
+    return json(409, { error: "Only a paid order that is not waiting for a refund can be shipped." });
+  }
+  if (!order.buyer_email) {
+    return json(422, { error: "This order has no buyer email. Mark it shipped without an email." });
+  }
+
+  const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
+  const { subject, html, text } = buildShippedEmail(siteUrl, order, carrier, tracking);
+  let sent;
+  try {
+    sent = await sendViaResend(env, {
+      from: FROM_ADDRESS,
+      to: [order.buyer_email],
+      reply_to: env.CONTACT_EMAIL || REPLY_TO,
+      subject, html, text
+    });
+  } catch (e) {
+    sent = { ok: false, status: 0, body: {} };
+  }
+  if (!sent.ok) return json(502, { error: "The email did not send, so the order was not changed." });
+
+  const now = new Date().toISOString();
+  try {
+    await supabasePatch(env, auth.token, "orders", `id=eq.${encodeURIComponent(orderId)}`, {
+      shipped_at: order.shipped_at || now,
+      carrier: carrier || null,
+      tracking_number: tracking || null,
+      shipped_email_sent_at: now
+    });
+  } catch (e) {
+    return json(502, { error: "The email was sent, but saving the order failed. Mark it shipped by hand.", emailed: true });
+  }
+  return json(200, { ok: true, emailed: true, shipped_at: order.shipped_at || now });
 }
 
 /* ============================================================
@@ -1194,6 +1456,7 @@ export default {
     if (url.pathname === "/api/checkout") return handleCheckout(request, env);
     if (url.pathname === "/api/checkout-cancel") return handleCheckoutCancel(request, env);
     if (url.pathname === "/api/stripe-webhook") return handleStripeWebhook(request, env, ctx);
+    if (url.pathname === "/api/order-shipped") return handleOrderShipped(request, env);
 
     // /join/<code> is the short invite link. The URL stays as typed; the
     // seller page reads the code from the path.

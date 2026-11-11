@@ -28,6 +28,11 @@
     { href: "admin.html", label: "Admin" }
   ];
 
+  // Footer only, so the header stays short.
+  const FOOTER_EXTRA = [
+    { href: "policies.html", label: "Shipping & returns" }
+  ];
+
   const SOCIAL = [
     { href: "https://instagram.com/podacapital", label: "Instagram" },
     { href: "https://x.com/podacap",             label: "X" }
@@ -139,7 +144,7 @@
           <span class="footer-tag">New York + Washington, DC + Los Angeles</span>
         </div>
         <nav class="footer-nav" aria-label="Footer">
-          ${PRIMARY.concat(SECONDARY).map(i => `<a href="${i.href}">${i.label}</a>`).join("")}
+          ${PRIMARY.concat(SECONDARY, FOOTER_EXTRA).map(i => `<a href="${i.href}">${i.label}</a>`).join("")}
         </nav>
         <nav class="footer-links" aria-label="Social">
           ${SOCIAL.map(s => `<a href="${s.href}" target="_blank" rel="noopener">${s.label} ↗</a>`).join("")}

@@ -15,6 +15,9 @@ Orders tab. Do these steps in order. Test mode first, live mode last.
    `SELF-TEST RESULT: 26 passed, 0 failed.` Nothing is left behind. If any line
    says FAIL, stop and send the whole message.
 
+3. Run `migrations/20261112_order_shipping.sql`. It adds the carrier and
+   tracking columns the shipping email needs. It changes nothing else.
+
 ## 2. Stripe account
 
 1. Create or open your Stripe account at dashboard.stripe.com. Stay in
@@ -85,6 +88,8 @@ deploy again.
    - Admin, Supply, Orders shows the sale, the buyer and address, and the
      seller's share
    - you receive a "Sold:" email
+   - the buyer's email address receives "Your poda order", poda's own
+     confirmation. Use an address you can read when you test.
 4. Test the hold: click Buy on a piece and leave the Stripe page open. In a
    second browser the same piece reads **Held**.
 5. Test cancel: click Buy, then the back arrow on Stripe's page. You land on
@@ -116,8 +121,58 @@ retries it for up to three days.
 - **Late payment.** If someone pays just after their hold ran out and another
   buyer already took the piece, the order shows **Refund needed**. Refund the
   buyer in Stripe, then press **Mark refunded**.
-- **Shipping.** Only US addresses are collected. Use **Mark shipped** when it
-  goes out.
+- **Shipping.** Only US addresses are collected. When an order goes out, open
+  it in Orders, choose **Mark shipped**, pick the carrier, type the tracking
+  number, and press **Mark shipped and email buyer**. The buyer gets an email
+  with a tracking link. **Mark shipped, no email** records it without
+  emailing. If the email fails, nothing is marked shipped and you see why.
+  **Email buyer again** resends it.
+
+## Buyer emails
+
+poda sends the buyer two emails itself, from the same address as the Market
+Notes, with replies going to your contact email:
+
+1. **Order confirmation**, the moment payment is confirmed: the piece, price,
+   shipping, tax if any, the total, where it ships, and when to expect it.
+2. **Shipped**, when you press the button in Orders: the carrier, the tracking
+   number and a tracking link.
+
+If either email cannot be sent, you get an alert email so you can write to the
+buyer yourself. Stripe's own receipt is separate: turn on Settings, Customer
+emails, Successful payments in live mode if you also want that.
+
+## What buyers are told
+
+- **On Stripe's page**, beside the Pay button: final sale unless not as
+  described, and ships within 5 business days.
+- **On each piece**, in the detail view: the same line, with a link.
+- **`policies.html`**, linked in the footer: shipping, returns, authenticity,
+  how consignment works, payments and contact. These pages state what poda
+  promises buyers. **Read them before launch** and change anything that is not
+  true for your business. The 5 business days appears in `_worker.js`,
+  `folders.js` and `policies.html`, and the 7-day window for a piece that is
+  not as described is in `policies.html`. Change each place together.
+
+## Sales tax
+
+Checkout adds no tax today. The switch is `STRIPE_TAX_ENABLED` in
+`wrangler.toml`, `"false"` by default. Whether you must collect tax depends on
+where you are and where you sell, so ask an accountant first. To turn it on:
+
+1. In Stripe, go to Settings, Tax. Add your business address and the places
+   where you are registered to collect.
+2. Change `STRIPE_TAX_ENABLED` to `"true"` in `wrangler.toml` and deploy.
+3. Test with a purchase. The tax shows on Stripe's page, in the buyer's
+   confirmation, and on the order in Orders. It never changes the seller's
+   share, which is based on the price alone.
+
+## Photos and details sellers should fill in
+
+The detail view shows condition, measurements, condition notes, material,
+color and a description, but only what the seller typed on the back of their
+card. Pieces with only a size look thin to a buyer paying hundreds of dollars.
+Ask sellers to fill these in before you accept a piece.
 
 ## Optional: slow down abuse
 

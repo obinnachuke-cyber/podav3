@@ -2657,3 +2657,12 @@ body.admin-body { overflow-x: clip; }
 .app-decline:hover, .app-decline:focus-visible, .app-delete:hover, .app-delete:focus-visible { border-color: var(--danger); color: var(--danger); }
 .app-card__notice { margin: 12px 0 0; font-family: var(--font); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
 .app-card__notice--warn { color: var(--danger); }
+
+/* Orders: the ship form with carrier and tracking */
+.order-ship { flex: 1 1 100%; }
+.order-ship > summary { display: inline-flex; list-style: none; cursor: pointer; }
+.order-ship > summary::-webkit-details-marker { display: none; }
+.order-ship__form { display: grid; gap: 10px; max-width: 420px; margin-top: 10px; padding: 12px; border: 1px solid var(--border); }
+.order-ship__form label { display: grid; gap: 4px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.order-ship__form select, .order-ship__form input { min-height: 38px; padding: 0 10px; font: inherit; font-size: 14px; letter-spacing: normal; text-transform: none; }
+.order-ship__buttons { display: flex; flex-wrap: wrap; gap: 8px; }

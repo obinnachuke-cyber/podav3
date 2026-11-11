@@ -3098,6 +3098,31 @@ async function renderOrders() {
     const normal = paid && !o.conflict;
     const buyer = [o.buyer_name, o.buyer_email].filter(Boolean).join(" · ");
     const addr = addressText(o.shipping_address);
+    // Tax is whatever the total holds beyond the price and shipping.
+    const taxCents = paid && o.amount_total_cents ? o.amount_total_cents - o.price_cents - (o.shipping_cents || 0) : 0;
+    const shipForm = `
+      <details class="order-ship">
+        <summary class="btn btn--primary">Mark shipped…</summary>
+        <div class="order-ship__form">
+          <label>Carrier
+            <select data-order-carrier>
+              <option value="">Choose a carrier</option>
+              ${["USPS", "UPS", "FedEx", "DHL", "Other"].map(c => `<option value="${c}">${c}</option>`).join("")}
+            </select>
+          </label>
+          <label>Tracking number
+            <input type="text" data-order-tracking maxlength="60" autocomplete="off" placeholder="Optional" />
+          </label>
+          <div class="order-ship__buttons">
+            <button type="button" class="btn btn--primary" data-order-act="ship-email"${o.buyer_email ? "" : " disabled"}>Mark shipped and email buyer</button>
+            <button type="button" class="btn" data-order-act="ship">Mark shipped, no email</button>
+          </div>
+          ${o.buyer_email ? "" : `<p class="app-card__meta">This order has no buyer email.</p>`}
+        </div>
+      </details>`;
+    const shippedLine = o.shipped_at
+      ? `<p class="app-card__meta">Shipped ${escapeHTML(new Date(o.shipped_at).toLocaleDateString())}${o.carrier ? ` · ${escapeHTML(o.carrier)}` : ""}${o.tracking_number ? ` ${escapeHTML(o.tracking_number)}` : ""}${o.shipped_email_sent_at ? " · buyer emailed" : " · buyer not emailed"}</p>`
+      : "";
     return `
       <article class="app-card${o.conflict && paid ? " app-card--declined" : ""}" data-order="${escapeHTML(o.id)}">
         <div class="app-card__head">
@@ -3106,15 +3131,17 @@ async function renderOrders() {
         </div>
         ${o.conflict && paid ? `<p class="app-card__notice app-card__notice--warn">Refund needed. This payment arrived after the hold ran out and the piece was already sold. Refund the buyer in Stripe, then mark it refunded here.</p>` : ""}
         <p class="app-card__meta">
-          ${money(o.price_cents, o.currency)}${paid ? ` + ${money(o.shipping_cents, o.currency)} shipping` : ""} · ${escapeHTML(seller)} · ${escapeHTML(new Date(o.paid_at || o.created_at).toLocaleString())}
+          ${money(o.price_cents, o.currency)}${paid ? ` + ${money(o.shipping_cents, o.currency)} shipping` : ""}${taxCents > 0 ? ` + ${money(taxCents, o.currency)} tax` : ""} · ${escapeHTML(seller)} · ${escapeHTML(new Date(o.paid_at || o.created_at).toLocaleString())}
         </p>
         <p class="app-card__meta">${escapeHTML(sellerLine)}</p>
         ${paid ? `<p class="app-card__offering">${buyer ? escapeHTML(buyer) : "No buyer details"}<br>${addr ? escapeHTML(addr) : "No address collected"}</p>` : ""}
+        ${normal ? shippedLine : ""}
         ${paid || o.status === "refunded" ? `
         <div class="app-card__actions">
           ${normal ? (o.shipped_at
-            ? `<button type="button" class="btn" data-order-act="unship">Shipped ${escapeHTML(new Date(o.shipped_at).toLocaleDateString())} · Undo</button>`
-            : `<button type="button" class="btn btn--primary" data-order-act="ship">Mark shipped</button>`) : ""}
+            ? `<button type="button" class="btn" data-order-act="unship">Undo shipped</button>
+               ${o.buyer_email ? `<button type="button" class="btn" data-order-act="resend">Email buyer again</button>` : ""}`
+            : shipForm) : ""}
           ${normal && o.payout_status === "unpaid" ? `<button type="button" class="btn btn--primary" data-order-act="pay">Mark seller paid</button>` : ""}
           ${normal && o.payout_status === "paid" ? `<button type="button" class="btn" data-order-act="unpay">Seller paid · Undo</button>` : ""}
           ${paid && o.conflict ? `<button type="button" class="btn app-decline" data-order-act="refund">Mark refunded</button>` : ""}
@@ -3158,8 +3185,37 @@ async function renderOrders() {
 
     const act = btn.dataset.orderAct;
     const now = new Date().toISOString();
+
+    // Carrier and tracking as typed on this card. A tracking number with no
+    // carrier is filed under Other, as the server does.
+    const typedTracking = ((el.querySelector("[data-order-tracking]") || {}).value || "").trim();
+    const typedCarrier = ((el.querySelector("[data-order-carrier]") || {}).value || "") || (typedTracking ? "Other" : "");
+
+    // Mark shipped and email the buyer. The Worker sends the email and saves
+    // the order, so nothing is marked shipped if the email fails.
+    if (act === "ship-email" || act === "resend") {
+      const carrier = act === "resend" ? (order.carrier || "") : typedCarrier;
+      const tracking = act === "resend" ? (order.tracking_number || "") : typedTracking;
+      el.querySelectorAll("button").forEach(b => { b.disabled = true; });
+      const result = await emailOrderShipped(order.id, carrier, tracking);
+      if (result.ok) {
+        Object.assign(order, {
+          shipped_at: result.shipped_at || order.shipped_at || now,
+          carrier: carrier || null,
+          tracking_number: tracking || null,
+          shipped_email_sent_at: now
+        });
+      } else {
+        alert(result.error);
+      }
+      draw();
+      return;
+    }
+
     const patches = {
-      ship: { shipped_at: now },
+      // The new tracking columns are only written when something was typed,
+      // so marking shipped works even before the tracking migration is run.
+      ship: { shipped_at: now, ...(typedCarrier || typedTracking ? { carrier: typedCarrier || null, tracking_number: typedTracking || null } : {}) },
       unship: { shipped_at: null },
       pay: { payout_status: "paid", payout_paid_at: now },
       unpay: { payout_status: "unpaid", payout_paid_at: null },
@@ -3178,6 +3234,27 @@ async function renderOrders() {
     }
     draw();
   };
+}
+
+// Asks the Worker to email the buyer that the order shipped, and to save the
+// tracking on the order. The Worker reads the buyer from the database itself.
+async function emailOrderShipped(orderId, carrier, trackingNumber) {
+  try {
+    const session = await window.PodaDB.getSession();
+    const res = await fetch("/api/order-shipped", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${session ? session.access_token : ""}`
+      },
+      body: JSON.stringify({ order_id: orderId, carrier, tracking_number: trackingNumber })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok && body.ok) return { ok: true, shipped_at: body.shipped_at };
+    return { ok: false, error: body.error || `The email service returned ${res.status}.` };
+  } catch (e) {
+    return { ok: false, error: "Could not reach the email service." };
+  }
 }
 
 function blankSupplier() {
