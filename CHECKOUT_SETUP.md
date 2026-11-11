@@ -154,6 +154,29 @@ emails, Successful payments in live mode if you also want that.
   `folders.js` and `policies.html`, and the 7-day window for a piece that is
   not as described is in `policies.html`. Change each place together.
 
+## Payouts dashboard
+
+Admin, Supply, Payouts shows the money for a period and what each seller is
+owed. Run `migrations/20261113_payouts.sql` first, then its self-test.
+
+- **Sales** are paid orders not waiting on a refund, counted by paid date.
+- **Tax** is a pass-through. It is never counted as poda's revenue.
+- **poda keeps** the commission on a consigned piece and the whole price on
+  its own pieces.
+- **Stripe fees** come out of poda's share, never the seller's. The Worker
+  records each fee when the payment arrives, so sales made before this was
+  added show no fee. The card says how many sales have one.
+- **Net to poda** is what poda keeps, plus shipping collected, minus Stripe
+  fees. Real shipping cost is not tracked, so it is not taken off.
+- A seller is **ready to pay** 7 days after the order ships, the same window
+  buyers have in `policies.html`. The number is `PAYOUT_HOLD_DAYS` in
+  `admin.js`. Change both places together.
+- **Pay out…** records a payout for the orders you tick. Send the money first,
+  then record it. A mistake can be voided, which puts the orders back to unpaid.
+- **Record refund** on an order, after you refund the buyer in Stripe, removes
+  it from sales. If the seller was already paid, it shows as money to recover.
+- Both CSV buttons download what you see, for your accountant.
+
 ## Sales tax
 
 Checkout adds no tax today. The switch is `STRIPE_TAX_ENABLED` in

@@ -896,16 +896,47 @@
       .from("orders")
       .select("*, suppliers(name, type)")
       .order("created_at", { ascending: false })
-      .limit(300);
+      .limit(5000);
     if (error) throw error;
     return data || [];
+  }
+
+  /* —— Payouts (admin only) —— */
+  async function getPayouts() {
+    const { data, error } = await client()
+      .from("payouts")
+      .select("*")
+      .order("paid_at", { ascending: false })
+      .limit(2000);
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Pays a seller for a batch of orders in one step. The database checks that
+  // every order is theirs, paid, and not already paid out; if any is not,
+  // nothing changes.
+  async function createPayout(supplierId, orderIds, method, reference, note) {
+    const { data, error } = await client().rpc("create_payout", {
+      p_supplier: supplierId,
+      p_order_ids: orderIds,
+      p_method: method || "",
+      p_reference: reference || "",
+      p_note: note || ""
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function voidPayout(payoutId) {
+    const { error } = await client().rpc("void_payout", { p_payout: payoutId });
+    if (error) throw error;
   }
 
   // Only the bookkeeping can change from the admin. The money and the piece
   // are frozen when the order is made.
   async function updateOrder(id, patch) {
     const row = {};
-    ["shipped_at", "carrier", "tracking_number", "payout_status", "payout_paid_at", "status"].forEach(k => {
+    ["shipped_at", "carrier", "tracking_number", "payout_status", "payout_paid_at", "status", "refunded_at"].forEach(k => {
       if (patch[k] !== undefined) row[k] = patch[k];
     });
     const { data, error } = await client().from("orders").update(row).eq("id", id).select().single();
@@ -927,6 +958,9 @@
     setMyInstagram,
     getOrders,
     updateOrder,
+    getPayouts,
+    createPayout,
+    voidPayout,
     canDeleteRelease,
     deleteRelease,
     addReleaseEvent,

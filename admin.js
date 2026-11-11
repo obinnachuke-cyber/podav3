@@ -3144,6 +3144,7 @@ async function renderOrders() {
             : shipForm) : ""}
           ${normal && o.payout_status === "unpaid" ? `<button type="button" class="btn btn--primary" data-order-act="pay">Mark seller paid</button>` : ""}
           ${normal && o.payout_status === "paid" ? `<button type="button" class="btn" data-order-act="unpay">Seller paid · Undo</button>` : ""}
+          ${normal ? `<button type="button" class="btn app-decline" data-order-act="refund-paid">Record refund</button>` : ""}
           ${paid && o.conflict ? `<button type="button" class="btn app-decline" data-order-act="refund">Mark refunded</button>` : ""}
         </div>` : ""}
       </article>`;
@@ -3219,12 +3220,19 @@ async function renderOrders() {
       unship: { shipped_at: null },
       pay: { payout_status: "paid", payout_paid_at: now },
       unpay: { payout_status: "unpaid", payout_paid_at: null },
-      refund: { status: "refunded" }
+      refund: { status: "refunded", refunded_at: now },
+      "refund-paid": { status: "refunded", refunded_at: now }
     };
     const patch = patches[act];
     if (!patch) return;
     if (act === "pay" && !confirm(`Mark ${order.suppliers ? order.suppliers.name : "the seller"} paid ${money(order.seller_payout_cents, order.currency)}? Only do this after you have sent the money.`)) return;
     if (act === "refund" && !confirm("Mark this order refunded? Only do this after you have refunded the buyer in Stripe.")) return;
+    if (act === "refund-paid") {
+      const owedBack = order.payout_status === "paid"
+        ? `\n\nThe seller has already been paid ${money(order.seller_payout_cents, order.currency)} for this order, so you will need to recover that from them. It will show under Payouts as money to recover.`
+        : "";
+      if (!confirm(`Record this order as refunded? Only do this after you have refunded the buyer in Stripe. It stops counting as a sale.${owedBack}`)) return;
+    }
 
     el.querySelectorAll("button").forEach(b => { b.disabled = true; });
     try {
@@ -3233,6 +3241,302 @@ async function renderOrders() {
       alert(err && err.message ? err.message : "That didn't work.");
     }
     draw();
+  };
+}
+
+/* ============================================================
+   View: Payouts (Supply > Payouts)
+   The money in one place: what came in for a period, what poda keeps, and
+   what each seller is owed. Every figure comes from finance.js, which holds
+   the rules. Recording a payout is one step in the database (create_payout),
+   so a batch is paid in full or not at all, and a mistake can be voided.
+   poda still sends the money by hand; this records that it was sent.
+   ============================================================ */
+// Days after an order ships before its seller counts as ready to pay. It
+// matches the 7-day window in policies.html for a piece not as described.
+const PAYOUT_HOLD_DAYS = 7;
+const PAYOUT_METHODS = ["Zelle", "Venmo", "PayPal", "Bank transfer", "Cash", "Check", "Other"];
+let payoutsRange = "month";        // month | lastMonth | last30 | all
+let payoutsOpenSeller = null;      // the seller whose Pay out panel is open
+
+function downloadCsv(filename, text) {
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function renderPayouts() {
+  const M = window.PodaMarketplace;
+  const F = window.PodaFinance;
+  if (!M || !M.getPayouts || !F) {
+    adminMain.innerHTML = `<p class="admin-empty">The payouts code isn't loaded.</p>`;
+    return;
+  }
+  adminMain.innerHTML = `<p class="admin-empty">Loading…</p>`;
+
+  let orders = [];
+  let payouts = [];
+  const load = async () => { [orders, payouts] = await Promise.all([M.getOrders(), M.getPayouts()]); };
+  try {
+    await load();
+  } catch (e) {
+    const missing = /payouts|orders|relation|schema cache/i.test((e && e.message) || "");
+    adminMain.innerHTML = `<p class="admin-empty">${missing
+      ? "Payouts aren't set up yet. Run migrations/20261111_checkout.sql and then migrations/20261113_payouts.sql in the Supabase SQL editor."
+      : "Could not load payouts."}</p>`;
+    return;
+  }
+
+  const money = cents => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((cents || 0) / 100);
+  const dateOf = iso => (iso ? new Date(iso).toLocaleDateString() : "");
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const nameOf = id => {
+    const hit = orders.find(o => o.supplier_id === id && o.suppliers && o.suppliers.name);
+    return hit ? hit.suppliers.name : "Seller";
+  };
+
+  const card = (label, value, sub, cls) => `
+    <div class="fin-card${cls ? ` ${cls}` : ""}">
+      <div class="fin-card__label">${escapeHTML(label)}</div>
+      <div class="fin-card__value">${escapeHTML(value)}</div>
+      ${sub ? `<div class="fin-card__sub">${escapeHTML(sub)}</div>` : ""}
+    </div>`;
+
+  // The Pay out panel for one seller: their unpaid orders as checkboxes. Only
+  // the ones that are ready start checked.
+  function payPanel(r, now) {
+    const rows = r.ready.orders.concat(r.window.orders, r.notShipped.orders);
+    const items = rows.map(o => {
+      const st = F.payoutState(o, PAYOUT_HOLD_DAYS, now);
+      const ready = st.state === "ready";
+      const label = ready ? "Ready" : st.state === "window" ? `In window until ${dateOf(new Date(st.eligibleAt).toISOString())}` : "Not shipped";
+      return `
+        <label class="fin-pay__row">
+          <input type="checkbox" data-pay-order="${escapeHTML(o.id)}" data-cents="${Number(o.seller_payout_cents) || 0}" data-ready="${ready ? 1 : 0}"${ready ? " checked" : ""} />
+          <span class="fin-pay__piece">${escapeHTML([o.brand, o.title].filter(Boolean).join(" — ") || "Untitled")}</span>
+          <em class="${ready ? "" : "fin-pay__wait"}">${escapeHTML(label)}</em>
+          <b>${money(o.seller_payout_cents)}</b>
+        </label>`;
+    }).join("");
+    return `
+      <div class="fin-pay" data-pay-panel="${escapeHTML(r.supplierId)}">
+        <p class="fin-pay__intro">Send ${escapeHTML(r.name)} the money first, then record it here. Only the checked orders are included.</p>
+        <div class="fin-pay__list">${items}</div>
+        <div class="fin-pay__form">
+          <label>Method
+            <select data-pay-method>${PAYOUT_METHODS.map(m => `<option>${m}</option>`).join("")}</select>
+          </label>
+          <label>Reference
+            <input type="text" data-pay-reference maxlength="120" autocomplete="off" placeholder="For example a Zelle confirmation" />
+          </label>
+          <label>Note
+            <input type="text" data-pay-note maxlength="300" autocomplete="off" placeholder="Optional" />
+          </label>
+        </div>
+        <p class="fin-pay__warn" data-pay-warn hidden></p>
+        <button type="button" class="btn btn--primary" data-pay-submit>Record payout of <span data-pay-total>${money(0)}</span></button>
+      </div>`;
+  }
+
+  // Keeps the total, the warning and the button in step with the ticks.
+  function refreshPayPanel() {
+    const panel = adminMain.querySelector("[data-pay-panel]");
+    if (!panel) return;
+    const boxes = Array.from(panel.querySelectorAll("[data-pay-order]")).filter(b => b.checked);
+    const total = boxes.reduce((sum, b) => sum + (Number(b.dataset.cents) || 0), 0);
+    const early = boxes.filter(b => b.dataset.ready !== "1").length;
+    panel.querySelector("[data-pay-total]").textContent = money(total);
+    panel.querySelector("[data-pay-submit]").disabled = boxes.length === 0 || total <= 0;
+    const warn = panel.querySelector("[data-pay-warn]");
+    warn.hidden = early === 0;
+    warn.textContent = early
+      ? `${plural(early, "checked order")} ${early === 1 ? "is" : "are"} still in the return window or not shipped. Paying early means you cannot easily get the money back if it is refunded.`
+      : "";
+  }
+
+  function draw() {
+    const now = Date.now();
+    const range = F.rangeFor(payoutsRange, now);
+    const sum = F.summarize(orders, range);
+    const list = F.balances(orders, { holdDays: PAYOUT_HOLD_DAYS, now });
+    const owed = F.totalsOwed(list);
+    const period = payoutsRange === "all"
+      ? "All time"
+      : `${dateOf(new Date(range.from).toISOString())} to ${dateOf(new Date(range.to - 1).toISOString())}`;
+
+    const chip = (key, label) =>
+      `<button type="button" class="app-filter${payoutsRange === key ? " is-active" : ""}" data-pay-range="${key}" aria-pressed="${payoutsRange === key}">${label}</button>`;
+
+    const sellerRow = r => {
+      const open = payoutsOpenSeller === r.supplierId;
+      const unpaid = r.ready.cents + r.window.cents + r.notShipped.cents;
+      return `
+        <tr>
+          <td class="cell-strong">${escapeHTML(r.name)}</td>
+          <td>${r.sales}</td>
+          <td>${money(r.ready.cents)}</td>
+          <td>${money(r.window.cents)}</td>
+          <td>${money(r.notShipped.cents)}</td>
+          <td>${money(r.paid)}</td>
+          <td>${r.clawback.cents ? `<span class="fin-warn">${money(r.clawback.cents)}</span>` : "—"}</td>
+          <td>${unpaid > 0 ? `<button type="button" class="btn${r.ready.cents ? " btn--primary" : ""}" data-pay-open="${escapeHTML(r.supplierId)}">${open ? "Close" : "Pay out…"}</button>` : ""}</td>
+        </tr>
+        ${open ? `<tr><td colspan="8">${payPanel(r, now)}</td></tr>` : ""}`;
+    };
+
+    const historyRow = p => `
+      <tr class="${p.voided_at ? "fin-voided" : ""}">
+        <td>${escapeHTML(dateOf(p.paid_at))}</td>
+        <td class="cell-strong">${escapeHTML(nameOf(p.supplier_id))}</td>
+        <td>${money(p.amount_cents)}</td>
+        <td>${escapeHTML(p.method || "")}</td>
+        <td>${escapeHTML(p.reference || "")}</td>
+        <td>${orders.filter(o => o.payout_id === p.id).length}</td>
+        <td>${escapeHTML(p.note || "")}</td>
+        <td>${p.voided_at ? `Voided ${escapeHTML(dateOf(p.voided_at))}` : `<button type="button" class="btn" data-pay-void="${escapeHTML(p.id)}">Void</button>`}</td>
+      </tr>`;
+
+    adminMain.innerHTML = `
+      <div class="section-bar section-bar--admin">
+        <span class="section-bar__label">Supply</span>
+        <span class="section-bar__title">Payouts</span>
+      </div>
+      ${orders.length >= 5000 ? `<p class="app-card__notice app-card__notice--warn">Only the latest 5,000 orders are loaded, so these totals may be incomplete.</p>` : ""}
+
+      <div class="app-filters" role="group" aria-label="Period">
+        ${chip("month", "This month")}${chip("lastMonth", "Last month")}${chip("last30", "Last 30 days")}${chip("all", "All time")}
+      </div>
+      <h3 class="fin-h">Sales <span>${escapeHTML(period)}</span></h3>
+      <div class="fin-grid">
+        ${card("Gross sales", money(sum.gross), plural(sum.sales, "sale"))}
+        ${card("Shipping collected", money(sum.shipping))}
+        ${card("Tax collected", money(sum.tax), "Passed on, not poda's revenue")}
+        ${card("poda keeps", money(sum.kept), "Commission, plus poda's own pieces")}
+        ${card("Stripe fees", money(sum.fees), `Recorded on ${sum.feesRecorded} of ${sum.sales} sales`, sum.feesRecorded < sum.sales ? "fin-card--warn" : "")}
+        ${card("Net to poda", money(sum.net), "Kept + shipping − Stripe fees", "fin-card--net")}
+      </div>
+
+      <h3 class="fin-h">Owed to sellers <span>right now</span></h3>
+      <div class="fin-grid">
+        ${card("Ready to pay", money(owed.ready), `Shipped over ${PAYOUT_HOLD_DAYS} days ago`, owed.ready > 0 ? "fin-card--net" : "")}
+        ${card("In the return window", money(owed.window), "Shipped, still waiting it out")}
+        ${card("Not shipped yet", money(owed.notShipped))}
+        ${card("Paid out", money(sum.paidOut), period)}
+        ${owed.clawback > 0 ? card("To recover from sellers", money(owed.clawback), "Refunded after the seller was paid", "fin-card--warn") : ""}
+        ${sum.refundedCount ? card("Refunds", money(sum.refundedCents), `${plural(sum.refundedCount, "order")} in ${period.toLowerCase()}`) : ""}
+        ${sum.awaitingRefund ? card("Waiting for a refund", String(sum.awaitingRefund), "Open Orders, Needs action", "fin-card--warn") : ""}
+      </div>
+
+      <h3 class="fin-h">By seller</h3>
+      ${list.length ? `
+      <div class="table-wrap"><table class="admin-table">
+        <thead><tr><th>Seller</th><th>Sales</th><th>Ready</th><th>In window</th><th>Not shipped</th><th>Paid out</th><th>To recover</th><th></th></tr></thead>
+        <tbody>${list.map(sellerRow).join("")}</tbody>
+      </table></div>` : `<p class="admin-empty">No seller sales yet.</p>`}
+
+      <h3 class="fin-h">Payout history</h3>
+      ${payouts.length ? `
+      <div class="table-wrap"><table class="admin-table">
+        <thead><tr><th>Date</th><th>Seller</th><th>Amount</th><th>Method</th><th>Reference</th><th>Orders</th><th>Note</th><th></th></tr></thead>
+        <tbody>${payouts.map(historyRow).join("")}</tbody>
+      </table></div>` : `<p class="admin-empty">No payouts recorded yet.</p>`}
+
+      <div class="fin-actions">
+        <button type="button" class="btn" data-fin-csv="sales">Download sales (CSV)</button>
+        <button type="button" class="btn" data-fin-csv="payouts">Download payouts (CSV)</button>
+      </div>
+
+      <details class="fin-how">
+        <summary>How these numbers are worked out</summary>
+        <ul>
+          <li><b>Sales</b> are paid orders that are not waiting for a refund, counted by the day they were paid.</li>
+          <li><b>Gross sales</b> is the price of the pieces. Shipping and tax are collected on top.</li>
+          <li><b>Tax</b> is whatever the order total holds beyond the price and shipping. It is passed on and never counted as revenue.</li>
+          <li><b>poda keeps</b> the commission on a consigned piece and the whole price on its own pieces.</li>
+          <li><b>Stripe fees</b> come out of poda's share. Sellers are never charged them. Sales made before fees were recorded have none, which the card shows.</li>
+          <li><b>Net to poda</b> is what poda keeps, plus shipping collected, minus Stripe fees. The real cost of shipping is not tracked, so it is not taken off.</li>
+          <li>A <b>refunded</b> order stops being a sale. It appears on its own line, never in the totals.</li>
+          <li>A seller is <b>ready to pay</b> once their order shipped and ${PAYOUT_HOLD_DAYS} days have passed, the same window buyers have to report a piece not as described. Until then it is <b>in the return window</b>, or <b>not shipped</b>.</li>
+          <li><b>To recover</b> is money paid to a seller for an order that was refunded afterwards.</li>
+        </ul>
+      </details>`;
+    refreshPayPanel();
+  }
+  draw();
+
+  // One listener on the page area; draw() replaces the markup but not this.
+  adminMain.onclick = async e => {
+    const range = e.target.closest("[data-pay-range]");
+    if (range) { payoutsRange = range.dataset.payRange; draw(); return; }
+
+    const open = e.target.closest("[data-pay-open]");
+    if (open) {
+      payoutsOpenSeller = payoutsOpenSeller === open.dataset.payOpen ? null : open.dataset.payOpen;
+      draw();
+      return;
+    }
+
+    if (e.target.closest("[data-pay-order]")) { refreshPayPanel(); return; }
+
+    const csv = e.target.closest("[data-fin-csv]");
+    if (csv) {
+      const now = Date.now();
+      const r = F.rangeFor(payoutsRange, now);
+      const stamp = new Date(now).toISOString().slice(0, 10);
+      if (csv.dataset.finCsv === "sales") {
+        const inPeriod = orders.filter(o => F.inRange(o.paid_at, r.from, r.to) || (o.refunded_at && F.inRange(o.refunded_at, r.from, r.to)));
+        downloadCsv(`poda-sales-${payoutsRange}-${stamp}.csv`, F.salesCsv(inPeriod));
+      } else {
+        downloadCsv(`poda-payouts-${stamp}.csv`, F.payoutsCsv(payouts, nameOf));
+      }
+      return;
+    }
+
+    const submit = e.target.closest("[data-pay-submit]");
+    if (submit) {
+      const panel = submit.closest("[data-pay-panel]");
+      const ids = Array.from(panel.querySelectorAll("[data-pay-order]")).filter(b => b.checked).map(b => b.dataset.payOrder);
+      const total = Array.from(panel.querySelectorAll("[data-pay-order]")).filter(b => b.checked).reduce((s, b) => s + (Number(b.dataset.cents) || 0), 0);
+      const seller = nameOf(panel.dataset.payPanel);
+      if (!ids.length) return;
+      if (!confirm(`Record a payout of ${money(total)} to ${seller} for ${plural(ids.length, "order")}? Only do this after you have sent the money.`)) return;
+      submit.disabled = true;
+      try {
+        await M.createPayout(
+          panel.dataset.payPanel, ids,
+          panel.querySelector("[data-pay-method]").value,
+          panel.querySelector("[data-pay-reference]").value,
+          panel.querySelector("[data-pay-note]").value
+        );
+        payoutsOpenSeller = null;
+      } catch (err) {
+        alert(err && err.message ? err.message : "That didn't work.");
+      }
+      try { await load(); } catch (err) { /* keep what is on screen */ }
+      draw();
+      return;
+    }
+
+    const voidBtn = e.target.closest("[data-pay-void]");
+    if (voidBtn) {
+      const payout = payouts.find(p => p.id === voidBtn.dataset.payVoid);
+      if (!payout) return;
+      if (!confirm(`Void the ${money(payout.amount_cents)} payout to ${nameOf(payout.supplier_id)}? Its orders go back to unpaid. Only do this if the money was not actually sent.`)) return;
+      voidBtn.disabled = true;
+      try {
+        await M.voidPayout(payout.id);
+      } catch (err) {
+        alert(err && err.message ? err.message : "That didn't work.");
+      }
+      try { await load(); } catch (err) { /* keep what is on screen */ }
+      draw();
+    }
   };
 }
 

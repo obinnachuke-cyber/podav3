@@ -2666,3 +2666,34 @@ body.admin-body { overflow-x: clip; }
 .order-ship__form label { display: grid; gap: 4px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 .order-ship__form select, .order-ship__form input { min-height: 38px; padding: 0 10px; font: inherit; font-size: 14px; letter-spacing: normal; text-transform: none; }
 .order-ship__buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Payouts dashboard */
+.fin-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 26px 0 12px; font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.fin-h span { font-size: 11px; font-weight: 400; letter-spacing: 0.06em; color: var(--text-dim); text-transform: none; }
+.fin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.fin-card { padding: 12px 14px; border: 1px solid var(--border); background: var(--bg); min-width: 0; }
+.fin-card__label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); }
+.fin-card__value { margin-top: 4px; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fin-card__sub { margin-top: 3px; font-size: 11px; line-height: 1.4; color: var(--text-dim); }
+.fin-card--net { border-color: var(--text); }
+.fin-card--warn { border-color: #c95151; }
+.fin-card--warn .fin-card__value { color: #c95151; }
+.fin-warn { color: #c95151; font-weight: 700; }
+.fin-voided td { color: var(--text-faint); text-decoration: line-through; }
+.fin-voided td:last-child { text-decoration: none; }
+.fin-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 0; }
+.fin-how { margin-top: 24px; font-size: 13px; line-height: 1.6; max-width: 70ch; }
+.fin-how summary { cursor: pointer; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 11px; }
+.fin-how ul { margin: 10px 0 0; padding-left: 18px; }
+.fin-how li { margin-bottom: 6px; }
+.fin-pay { padding: 14px; border: 1px solid var(--border); background: var(--bg-box); }
+.fin-pay__intro { margin: 0 0 10px; font-size: 13px; }
+.fin-pay__list { display: grid; gap: 4px; margin-bottom: 12px; }
+.fin-pay__row { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 6px 8px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; }
+.fin-pay__row em { font-style: normal; font-size: 11px; color: var(--text-dim); }
+.fin-pay__row em.fin-pay__wait { color: #b07a1e; }
+.fin-pay__piece { min-width: 0; overflow-wrap: anywhere; }
+.fin-pay__form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.fin-pay__form label { display: grid; gap: 4px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.fin-pay__form select, .fin-pay__form input { min-height: 38px; padding: 0 10px; font: inherit; font-size: 14px; letter-spacing: normal; text-transform: none; }
+.fin-pay__warn { margin: 0 0 12px; padding: 8px 10px; border: 1px solid #b07a1e; background: #fbf5e6; font-size: 12px; line-height: 1.45; }

@@ -1272,6 +1272,27 @@ async function emailBuyerConfirmation(env, sale, buyer, totalCents) {
   }
 }
 
+// Stripe's processing fee on a payment. It comes out of poda's share, so the
+// Payouts dashboard needs it to show what poda really keeps. This is best
+// effort and can never fail a sale: if Stripe has no fee yet or a call fails,
+// the order simply has no fee recorded and the dashboard says so.
+async function recordStripeFee(env, sessionId, orderId) {
+  try {
+    const query = new URLSearchParams({ "expand[]": "payment_intent.latest_charge.balance_transaction" });
+    const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}?${query}`, {
+      headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` }
+    });
+    if (!res.ok) return;
+    const body = await res.json().catch(() => null);
+    const charge = body && body.payment_intent && body.payment_intent.latest_charge;
+    const fee = charge && charge.balance_transaction && charge.balance_transaction.fee;
+    if (!Number.isInteger(fee) || fee < 0) return;
+    await sbRpc(env, "record_order_fee", { p_order: orderId, p_fee: fee });
+  } catch (e) {
+    console.error("Could not record the Stripe fee:", e && e.message);
+  }
+}
+
 // Stripe tells us what happened. Returning 500 makes Stripe try again, so a
 // failure to record a payment is never silent.
 async function handleStripeWebhook(request, env, ctx) {
@@ -1339,6 +1360,7 @@ async function handleStripeWebhook(request, env, ctx) {
       const task = (async () => {
         await notifyAdminOfSale(env, done.body, buyer);
         if (!done.body.conflict) await emailBuyerConfirmation(env, done.body, buyer, session.amount_total);
+        await recordStripeFee(env, session.id, orderId);
       })();
       if (ctx && ctx.waitUntil) ctx.waitUntil(task); else await task;
     }
