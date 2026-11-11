@@ -814,8 +814,18 @@ async function handleApplicationDecision(request, env) {
 // Stripe page can still take payment.
 const STRIPE_SESSION_SECONDS = 31 * 60;
 
+// Names only, never values. A 503 reports which setting is missing so a
+// mistake in the Cloudflare dashboard is quick to find.
+function checkoutMissing(env) {
+  return ["STRIPE_SECRET_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SITE_URL"].filter(name => !env[name]);
+}
+
 function checkoutConfigured(env) {
-  return !!(env.STRIPE_SECRET_KEY && env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY && env.SITE_URL);
+  return checkoutMissing(env).length === 0;
+}
+
+function notReady(env, extra) {
+  return json(503, { error: "not_ready", missing: checkoutMissing(env).concat(extra || []) });
 }
 
 // Stripe takes form bodies with bracket keys: a[b][0][c]=value.
@@ -878,7 +888,7 @@ async function sbRpc(env, fn, args) {
 async function handleCheckout(request, env) {
   if (request.method !== "POST") return json(405, { error: "Method not allowed." });
   if (!isSameOrigin(request)) return json(403, { error: "Forbidden." });
-  if (!checkoutConfigured(env)) return json(503, { error: "not_ready" });
+  if (!checkoutConfigured(env)) return notReady(env);
 
   if (env.CHECKOUT_LIMITER) {
     const ip = request.headers.get("cf-connecting-ip") || "unknown";
@@ -964,7 +974,7 @@ async function handleCheckout(request, env) {
 async function handleCheckoutCancel(request, env) {
   if (request.method !== "POST") return json(405, { error: "Method not allowed." });
   if (!isSameOrigin(request)) return json(403, { error: "Forbidden." });
-  if (!checkoutConfigured(env)) return json(503, { error: "not_ready" });
+  if (!checkoutConfigured(env)) return notReady(env);
 
   let payload;
   try {
@@ -1087,7 +1097,9 @@ async function notifyAdminOfSale(env, sale, buyer) {
 // failure to record a payment is never silent.
 async function handleStripeWebhook(request, env, ctx) {
   if (request.method !== "POST") return json(405, { error: "Method not allowed." });
-  if (!env.STRIPE_WEBHOOK_SECRET || !checkoutConfigured(env)) return json(503, { error: "not_ready" });
+  if (!env.STRIPE_WEBHOOK_SECRET || !checkoutConfigured(env)) {
+    return notReady(env, env.STRIPE_WEBHOOK_SECRET ? [] : ["STRIPE_WEBHOOK_SECRET"]);
+  }
 
   const raw = await request.text();
   const valid = await verifyStripeSignature(raw, request.headers.get("stripe-signature"), env.STRIPE_WEBHOOK_SECRET);

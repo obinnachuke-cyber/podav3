@@ -415,6 +415,13 @@
   // supabase-config.js. For testing, opening any page with ?checkout_test=1
   // turns Buy on in that one browser tab and ?checkout_test=0 turns it off.
   // This only shows or hides the button. The server decides what can be bought.
+  // True in a tab opened with ?checkout_test=1. Only then do error messages
+  // include the technical reason, so a visitor never sees it.
+  function checkoutTestMode() {
+    try { return sessionStorage.getItem("poda:checkoutTest") === "1"; }
+    catch (e) { return false; }
+  }
+
   function checkoutOn() {
     if (window.PODA_CHECKOUT_ENABLED === true) return true;
     try {
@@ -1361,6 +1368,7 @@
       btn.disabled = true;
       btn.textContent = "Opening checkout…";
       let outcome = "fallback";
+      let detail = "";
       try {
         const res = await fetch("/api/checkout", {
           method: "POST",
@@ -1373,10 +1381,15 @@
           return;
         }
         outcome = data.error || "fallback";
+        const missing = Array.isArray(data.missing) && data.missing.length ? `, missing ${data.missing.join(" ")}` : "";
+        detail = `${res.status} ${data.error || "no reply from the server"}${missing}`;
       } catch (error) {
         console.error("Checkout request failed:", error);
+        detail = "network error";
       }
-      showBuyMessage(btn, BUY_MESSAGES[outcome] || BUY_MESSAGES.fallback);
+      let text = BUY_MESSAGES[outcome] || BUY_MESSAGES.fallback;
+      if (checkoutTestMode()) text += ` [${detail}]`;
+      showBuyMessage(btn, text);
       if (outcome === "sold" || outcome === "unavailable") { btn.hidden = true; return; }
       btn.disabled = false;
       btn.textContent = label;
