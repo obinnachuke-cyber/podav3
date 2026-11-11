@@ -3667,7 +3667,7 @@ button.card-link {
 
 /* index.html holds two views; folders.js shows one. The class rules above set
    display on these, which would otherwise override the [hidden] attribute. */
-#landingHome[hidden], #landingShop[hidden] { display: none !important; }
+#landingHome[hidden], #landingShop[hidden], #landingBuilding[hidden] { display: none !important; }
 
 /* ============================================================
    Folder homepage — a row of six tabbed folders in 3D. Hover or focus

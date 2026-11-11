@@ -524,7 +524,7 @@
 
     mount.innerHTML = `
       <article class="folder-page">
-        ${preview ? "" : `<a class="folder-page__back" href="index.html">← Home</a>`}
+        ${preview || (opts && opts.landing) ? "" : `<a class="folder-page__back" href="index.html">← Home</a>`}
         <header class="folder-head">
           ${folderArt(false)}
           <div class="folder-head__text">
@@ -666,20 +666,50 @@
     load();
   }
 
+  // The release being built: opened to the public, not yet dropped, not
+  // archived. A scheduled drop wins, soonest first; otherwise the newest.
+  // Drafts never reach this list, because the public view does not return them.
+  function pickBuilding(folders, nowMs) {
+    const open = (folders || []).filter(f => f.status !== "archived" && !f.drop_open);
+    const scheduled = open
+      .filter(f => f.publish_at && Date.parse(f.publish_at) > nowMs)
+      .sort((a, b) => Date.parse(a.publish_at) - Date.parse(b.publish_at));
+    return scheduled[0] || open[0] || null;
+  }
+
+  // The release being built, shown as the homepage. Notes, lookbook sets and
+  // updates appear as they are published; the products stay locked until the
+  // database opens the drop, and the page reloads then so it flips to Shop.
+  async function bootBuilding(mount, folder, folders) {
+    document.title = `${folderName(folder)} — ${folder.title} — poda`;
+    let content = { notes: [], studies: [], updates: [], products: [] };
+    try { content = await market().getPublicFolderContent(folder.id); }
+    catch (error) { console.error("Could not load the building folder:", error); }
+    renderFolder(mount, folder, content, { landing: true });
+    markSeen(folder.id);
+
+    if (folder.publish_at) {
+      const wait = Date.parse(folder.publish_at) - (Date.now() + clockSkew(folders)) + 1500;
+      if (wait > 0) setTimeout(() => window.location.reload(), Math.min(wait, MAX_TIMEOUT));
+    }
+  }
+
   /* ============================================================
-     Landing (index.html) — one address, two views.
-       - a release is in Shop  -> the Shop is the homepage
-       - nothing is in Shop    -> the folder homepage
-     index.html?view=shop always shows the Shop. If the data can't be
-     loaded the folder homepage is shown, because its links are static.
-     The header and footer are drawn by layout.js after this decides, so
-     the page never flashes the wrong one.
+     Landing (index.html) — one address, three views.
+       - a release is in Shop              -> the Shop is the homepage
+       - none in Shop, one is being built  -> that folder is the homepage
+       - none in Shop, none being built    -> the folder homepage (five folders)
+     ?view=shop always shows the Shop; ?view=home always shows the five
+     folders. If the data can't be loaded the five folders are shown, because
+     their links are static. The header and footer are drawn by layout.js
+     after this decides, so the page never flashes the wrong one.
      ============================================================ */
   async function bootLanding() {
     const homeEl = document.getElementById("landingHome");
     const shopEl = document.getElementById("landingShop");
-    // ?view=shop always shows the Shop; ?view=home always shows the folder
-    // homepage, even while a release is live.
+    const buildingEl = document.getElementById("landingBuilding");
+    // ?view=shop always shows the Shop; ?view=home always shows the five
+    // folders, even while a release is live or being built.
     const view = new URLSearchParams(window.location.search).get("view");
     const forceShop = view === "shop";
     const forceHome = view === "home";
@@ -691,22 +721,33 @@
     }
     const hasShop = !!(folders && folders.some(f => f.is_shop));
     const showShop = forceHome ? false : (forceShop || hasShop);
+    const building = (showShop || forceHome || !buildingEl)
+      ? null
+      : pickBuilding(folders, Date.now() + clockSkew(folders));
+    const showBuilding = !!building;
+    const showHome = !showShop && !showBuilding;
 
-    // Header and footer take their look from the view.
+    // Header and footer take their look from the view: the stripped one is
+    // only for the five-folder homepage.
     const header = document.getElementById("siteHeader");
     const footer = document.getElementById("siteFooter");
-    document.body.classList.toggle("site-body", !showShop);
-    if (!showShop) {
+    document.body.classList.toggle("site-body", showHome);
+    if (showHome) {
       if (header) header.dataset.variant = "minimal";
       if (footer) { footer.dataset.variant = "minimal"; footer.classList.remove("portal-shell"); }
     }
-    (showShop ? shopEl : homeEl).hidden = false;
-    document.body.dataset.landing = showShop ? "shop" : "home";
+    (showShop ? shopEl : showBuilding ? buildingEl : homeEl).hidden = false;
+    document.body.dataset.landing = showShop ? "shop" : showBuilding ? "building" : "home";
     if (window.__landingResolve) window.__landingResolve();
 
     if (showShop) {
       if (folders || (window.PodaDB && window.PodaDB.isConfigured && market())) bootShop(document.getElementById("shopPage"));
       else document.getElementById("shopPage").innerHTML = `<p class="status-message">This page is unavailable right now.</p>`;
+      return;
+    }
+
+    if (showBuilding) {
+      await bootBuilding(document.getElementById("buildingPage"), building, folders);
       return;
     }
 

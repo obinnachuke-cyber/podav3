@@ -107,6 +107,14 @@
     </section>
   </main>
 
+  <!-- View 3: the release being built, shown while nothing is in Shop. Filled
+       in by folders.js; its products stay locked until the drop opens. -->
+  <main class="portal-shell" id="landingBuilding" hidden>
+    <div id="buildingPage" aria-live="polite">
+      <p class="status-message">Opening folder…</p>
+    </div>
+  </main>
+
   <!-- View 2: the Shop. Filled in by folders.js; products come from the
        database only. -->
   <main class="portal-shell" id="landingShop" hidden>
