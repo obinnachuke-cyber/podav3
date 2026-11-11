@@ -199,6 +199,79 @@
     });
   }
 
+  // Touch: slide a finger across the row and each folder lifts and fans open
+  // as the finger passes over it, with a light buzz where the phone supports
+  // it and a slight tilt of the whole row toward the finger. Lifting the
+  // finger leaves the last folder raised and its index entry lit; a plain
+  // tap still opens a folder straight away. Vertical drags are left to the
+  // browser (touch-action: pan-y in style.css), so the page still scrolls.
+  function bindFolderDrag(root) {
+    const scene = root && root.querySelector(".fscene");
+    const row = scene && scene.querySelector(".frow");
+    if (!scene || !row) return;
+
+    const DRAG_THRESHOLD = 8;   // px of sideways travel before a touch counts as a drag
+    const MAX_TILT = 7;         // degrees the row turns from one edge to the other
+    let down = null;            // the touch in progress: { id, x }
+    let dragging = false;
+    let lastKey = null;
+    let swallowClick = false;   // a finished drag must not also open a folder
+
+    const setActive = key => {
+      root.querySelectorAll("[data-scene], [data-folder]").forEach(el => {
+        const k = el.dataset.scene || el.dataset.folder;
+        el.classList.toggle("is-active", !!key && k === key);
+      });
+    };
+    const stackAt = (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      return el && el.closest ? el.closest(".fstack") : null;
+    };
+    const tiltTo = x => {
+      const box = scene.getBoundingClientRect();
+      const ratio = box.width ? (x - box.left) / box.width - 0.5 : 0;
+      row.style.setProperty("--tilt", `${Math.max(-0.5, Math.min(0.5, ratio)) * 2 * MAX_TILT}deg`);
+    };
+
+    scene.addEventListener("pointerdown", e => {
+      if (e.pointerType === "mouse") return;   // mouse keeps the hover behaviour
+      down = { id: e.pointerId, x: e.clientX };
+      dragging = false;
+    });
+
+    scene.addEventListener("pointermove", e => {
+      if (!down || e.pointerId !== down.id) return;
+      if (!dragging && Math.abs(e.clientX - down.x) < DRAG_THRESHOLD) return;
+      dragging = true;
+      tiltTo(e.clientX);
+      const stack = stackAt(e.clientX, e.clientY);
+      const key = stack ? stack.dataset.scene : null;
+      if (key && key !== lastKey) {
+        lastKey = key;
+        setActive(key);
+        if (navigator.vibrate) navigator.vibrate(8);
+      }
+    });
+
+    const end = e => {
+      if (!down || e.pointerId !== down.id) return;
+      if (dragging) {
+        swallowClick = true;
+        setTimeout(() => { swallowClick = false; }, 350);
+        row.style.setProperty("--tilt", "0deg");
+      }
+      down = null;
+      dragging = false;
+    };
+    scene.addEventListener("pointerup", end);
+    scene.addEventListener("pointercancel", end);
+
+    // Capture phase, so it runs before the folder link's own navigation.
+    scene.addEventListener("click", e => {
+      if (swallowClick) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+  }
+
   function setSub(tile, text) {
     const el = tile && tile.querySelector(".folder-tile__state");
     if (el && text) el.textContent = text;
@@ -639,6 +712,7 @@
 
     // The hover link between the scene and the index needs no data.
     bindFolderScene(homeEl);
+    bindFolderDrag(homeEl);
     if (folders) bootHome(document.getElementById("homeFolders"));
 
     // Waiting on a scheduled drop: reload at the drop moment, by the server's

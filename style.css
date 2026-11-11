@@ -3689,6 +3689,9 @@ button.card-link {
   margin: 0 0 8px;
   perspective: 1700px;
   perspective-origin: 50% 40%;
+  /* Sideways finger drags belong to the folders (see bindFolderDrag in
+     folders.js); vertical drags still scroll the page. */
+  touch-action: pan-y;
 }
 /* Soft contact shadow on the floor under the row */
 .fscene::after {
@@ -3709,7 +3712,9 @@ button.card-link {
   width: var(--fw);
   height: var(--fh);
   transform-style: preserve-3d;
-  transform: translate(148px, 22px) rotateX(-17deg) rotateY(38deg);
+  /* --tilt is set from JS while a finger drags across the row. */
+  transform: translate(148px, 22px) rotateX(-17deg) rotateY(calc(38deg + var(--tilt, 0deg)));
+  transition: transform 0.25s ease-out;
 }
 
 .fstack {
@@ -3861,14 +3866,14 @@ button.card-link {
 @media (max-width: 640px) {
   .fscene { --fw: 160px; --fh: 120px; --fp: 70px; height: 280px; }
   /* More side-on than desktop so each folder shows its whole name */
-  .frow { transform: translate(118px, 16px) rotateX(-17deg) rotateY(50deg) scale(0.82); }
+  .frow { transform: translate(118px, 16px) rotateX(-17deg) rotateY(calc(50deg + var(--tilt, 0deg))) scale(0.82); }
   .ftab { font-size: 12px; top: -16px; height: 17px; padding: 2px 12px 0 7px; }
   .findex { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .fripple { animation: none; }
-  .fstack, .fc, .fripple { transition: none; }
+  .fstack, .fc, .fripple, .frow { transition: none; }
 }
 
 /* "Folders" link in the header: with About and Admin on desktop, in the
