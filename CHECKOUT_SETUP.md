@@ -40,7 +40,7 @@ type **Secret**:
 | Name | Where to get it |
 |------|-----------------|
 | `STRIPE_SECRET_KEY` | Stripe, Developers, API keys, the `sk_test_` key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase, Project Settings, API, the `service_role` key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase, Project Settings, API Keys, the **Secret key** that starts with `sb_secret_`. It sits below the Publishable key on that page. The older `service_role` key also works. Keep the variable name as written. |
 | `STRIPE_WEBHOOK_SECRET` | Step 5 below |
 
 `RESEND_API_KEY` and `ADMIN_EMAIL` are already set. Checkout uses them to email

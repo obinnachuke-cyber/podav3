@@ -33,6 +33,7 @@ SHIPPING_FLAT_CENTS = "1500"
 # Checkout needs three more secrets, set the same way (see CHECKOUT_SETUP.md):
 #   STRIPE_SECRET_KEY            sk_test_… while testing, sk_live_… when live
 #   STRIPE_WEBHOOK_SECRET        whsec_… from the Stripe webhook endpoint
-#   SUPABASE_SERVICE_ROLE_KEY    Supabase → Project Settings → API → service_role
+#   SUPABASE_SERVICE_ROLE_KEY    Supabase → Project Settings → API Keys → the
+#                                Secret key (sb_secret_…); legacy service_role also works
 # The service_role key bypasses all database security. It lives only in the
 # Worker. Never put it in a file in this repo or in browser code.

@@ -853,14 +853,21 @@ async function stripeApi(env, path, params, idempotencyKey) {
   return { ok: res.ok, status: res.status, body };
 }
 
+// Supabase has two kinds of server key. The legacy service_role key is a JWT
+// (it starts with "eyJ") and goes in both headers. The newer sb_secret_ key is
+// not a JWT and goes in the apikey header only; Supabase rejects it as a Bearer
+// token. Either works here, whichever is stored as SUPABASE_SERVICE_ROLE_KEY.
+function serviceHeaders(env) {
+  const key = String(env.SUPABASE_SERVICE_ROLE_KEY || "");
+  const headers = { apikey: key, "content-type": "application/json" };
+  if (key.startsWith("eyJ")) headers.Authorization = `Bearer ${key}`;
+  return headers;
+}
+
 async function sbRpc(env, fn, args) {
   const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: "POST",
-    headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-      "content-type": "application/json"
-    },
+    headers: serviceHeaders(env),
     body: JSON.stringify(args || {})
   });
   const body = await res.json().catch(() => null);
