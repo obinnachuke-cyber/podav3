@@ -425,7 +425,7 @@
     const seller = sellerLabel(product);
     const preview = opts && opts.preview;
     return `
-      <article class="catalog-card${available ? "" : " catalog-card--sold"}">
+      <article class="catalog-card${available ? "" : " catalog-card--sold"}" data-availability="${esc(availability)}">
         <div class="catalog-card__image${path ? "" : " catalog-card__image--empty"}${available ? "" : " catalog-card__image--sold"}">
           ${img}
           <span class="catalog-card__status catalog-card__status--${available ? "available" : "sold"}">${labels[availability]}</span>
@@ -574,6 +574,348 @@
   }
 
   /* ============================================================
+     Feed — the one stream that carries a folder's updates, notes and image
+     sets, newest first. Every post reads as a file: .txt for an update,
+     .doc for a note, .jpg for an image set. On the live page it opens from a
+     Feed bar (a sheet on a phone, a side panel on desktop); on the building
+     page it is the page. Everything shown here is already public data.
+     ============================================================ */
+  function pad(n, width) { return String(n).padStart(width, "0"); }
+
+  function ts(value) {
+    const t = Date.parse(value || "");
+    return Number.isFinite(t) ? t : 0;
+  }
+
+  // "new-work-uniform": a safe, short piece of a filename.
+  function fileSlug(text, max) {
+    return String(text || "").toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+      .slice(0, max || 28).replace(/-+$/, "");
+  }
+
+  // Notes and sets store date-only strings; showing those through a timezone
+  // would slip them back a day, so they are formatted from their parts.
+  function fmtStamp(iso) {
+    if (!iso) return "";
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
+    if (m) {
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+        .toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+    return fmtDateTime(iso);
+  }
+
+  // When the drop opened (a manual launch wins over the scheduled time).
+  function fmtOpened(folder) {
+    const iso = folder.launched_at || folder.publish_at;
+    if (!iso) return "";
+    if (window.PodaTZ) return window.PodaTZ.formatInZone(iso, folder.drop_timezone, true);
+    return fmtDateTime(iso);
+  }
+
+  // Plain-text pieces of a note's published HTML, for the in-feed preview.
+  // The HTML is only parsed into an inert document and read as text.
+  function notePreview(note) {
+    let thesis = "";
+    let paras = [];
+    if (note.websiteHtml) {
+      try {
+        const doc = new DOMParser().parseFromString(note.websiteHtml, "text/html");
+        const th = doc.querySelector("[data-poda-thesis] .note-article__thesis-body");
+        thesis = th ? th.textContent.trim() : "";
+        doc.querySelectorAll("[data-poda-thesis]").forEach(el => el.remove());
+        paras = Array.from(doc.querySelectorAll("p")).map(p => p.textContent.trim()).filter(Boolean);
+      } catch (e) { /* fall back to the plain body below */ }
+    }
+    if (!paras.length && note.body) {
+      paras = String(note.body).split(/\n+/).map(s => s.trim()).filter(Boolean);
+    }
+    const words = (thesis + " " + paras.join(" ")).trim().split(/\s+/).filter(Boolean).length;
+    let excerpt = paras.join(" ");
+    if (excerpt.length > 340) excerpt = excerpt.slice(0, 340).replace(/\s+\S*$/, "") + "…";
+    return { thesis, excerpt, minutes: words ? Math.max(1, Math.round(words / 220)) : 0 };
+  }
+
+  // One list from three kinds of post. seenMs is null when this browser cannot
+  // store anything, in which case nothing is marked new.
+  function buildFeed(content, seenMs) {
+    const entries = [];
+    (content.updates || [])
+      .slice().sort((a, b) => ts(a.created_at) - ts(b.created_at))
+      .forEach((u, i) => entries.push({
+        type: "updates", ext: "txt", iso: u.created_at, date: ts(u.created_at),
+        name: `update_${pad(i + 1, 2)}.txt`, update: u
+      }));
+    (content.notes || []).forEach(n => {
+      const iso = n.publishedAt || n.createdAt;
+      entries.push({
+        type: "notes", ext: "doc", iso, date: ts(iso), note: n,
+        name: `note_${n.issueNumber ? pad(n.issueNumber, 3) + "_" : ""}${fileSlug(n.slug || n.title, 34) || "untitled"}.doc`
+      });
+    });
+    (content.studies || []).forEach(s => {
+      const iso = s.date || s.createdAt;
+      entries.push({
+        type: "images", ext: "jpg", iso, date: ts(iso), study: s,
+        name: `set${s.studyNumber ? pad(s.studyNumber, 2) : ""}_${fileSlug(s.title, 30) || "untitled"}.jpg`
+      });
+    });
+    entries.sort((a, b) => b.date - a.date);
+    entries.forEach(e => { e.isNew = seenMs != null && e.date > seenMs; });
+    return entries;
+  }
+
+  function feedSeenMs(folder) {
+    const seen = readSeen();
+    if (!seen) return null;
+    const t = seen["feed:" + folder.id] ? Date.parse(seen["feed:" + folder.id]) : 0;
+    return Number.isFinite(t) ? t : 0;
+  }
+
+  function feedEntryHTML(e) {
+    const head = `
+      <div class="ff-eh">
+        <span class="ff-x ff-x--${e.ext}">${e.ext.toUpperCase()}</span>
+        <span class="ff-fn">${esc(e.name)}</span>
+        <time>${esc(fmtStamp(e.iso))}</time>
+        ${e.isNew ? `<em class="ff-new">NEW</em>` : ""}
+      </div>`;
+    const cls = `ff-entry${e.isNew ? " is-new" : ""}`;
+
+    if (e.update) {
+      const u = e.update;
+      const img = u.image_path
+        ? `<img class="ff-upimg" src="${esc(market().noteMediaUrl(u.image_path))}" alt="" loading="lazy" decoding="async" />`
+        : "";
+      return `<article class="${cls}" data-type="updates">${head}<p class="ff-tx">${esc(u.body)}</p>${img}</article>`;
+    }
+
+    if (e.note) {
+      const n = e.note;
+      const p = notePreview(n);
+      const cat = String(n.category || "").toUpperCase();
+      const href = `note.html?id=${encodeURIComponent(n.id)}`;
+      let lead = n.subtitle || p.excerpt || "";
+      if (lead.length > 160) lead = lead.slice(0, 160).replace(/\s+\S*$/, "") + "…";
+      const hasPreview = !!(p.thesis || p.excerpt);
+      return `
+        <article class="${cls}" data-type="notes">${head}
+          <div class="ff-nb">
+            ${cat ? `<span class="ff-tag">${esc(cat)}</span>` : ""}
+            <h3 class="ff-nt">${esc(n.title || "Untitled")}</h3>
+            ${lead ? `<p class="ff-nl">${esc(lead)}</p>` : ""}
+            ${hasPreview ? `
+            <div class="ff-prev" hidden>
+              ${p.thesis ? `<div class="ff-thesis"><b>THESIS</b><p>${esc(p.thesis)}</p></div>` : ""}
+              ${p.excerpt ? `<p class="ff-ex">${esc(p.excerpt)}</p>` : ""}
+              <a class="ff-cta" href="${href}"><span>Open full note</span><span aria-hidden="true">→</span></a>
+            </div>` : ""}
+          </div>
+          <div class="ff-ef">
+            <span>${p.minutes ? `${p.minutes} min` : ""}</span>
+            ${hasPreview
+              ? `<button type="button" class="ff-toggle" aria-expanded="false">Preview ▾</button>`
+              : `<a href="${href}">Open note →</a>`}
+          </div>
+        </article>`;
+    }
+
+    const s = e.study;
+    const images = Array.isArray(s.images) ? s.images : [];
+    const url = s.coverImage || images[0] || "";
+    const href = `study.html?id=${encodeURIComponent(s.id)}`;
+    return `
+      <article class="${cls}" data-type="images">${head}
+        <a class="ff-im" href="${href}">${url
+          ? `<img src="${esc(url)}" alt="" loading="lazy" decoding="async" />`
+          : `<span class="ff-im__empty">poda</span>`}</a>
+        <p class="ff-cap">${esc(s.title || "Untitled")}${s.framing ? ` · ${esc(s.framing)}` : ""}</p>
+        <div class="ff-ef"><span>${images.length} image${images.length === 1 ? "" : "s"}</span><a href="${href}">Open set →</a></div>
+      </article>`;
+  }
+
+  function feedHTML(entries) {
+    const filters = [["all", "All"], ["notes", "Notes"], ["images", "Images"], ["updates", "Updates"]];
+    return `
+      <div class="ff-feed" data-feed>
+        <div class="ff-filters" role="group" aria-label="Filter the feed">
+          ${filters.map(([key, label], i) =>
+            `<button type="button" data-f="${key}" aria-pressed="${i === 0}"${i === 0 ? ' class="on"' : ""}>${label}</button>`).join("")}
+          <span class="ff-order">Newest ↓</span>
+        </div>
+        ${entries.length ? `<div class="ff-rail">${entries.map(feedEntryHTML).join("")}</div>` : ""}
+        <p class="ff-empty"${entries.length ? " hidden" : ""}>Nothing posted yet. Updates, notes and images appear here as they are published.</p>
+      </div>`;
+  }
+
+  function applyFeedFilter(feed, key) {
+    let shown = 0;
+    feed.querySelectorAll(".ff-entry").forEach(el => {
+      const on = key === "all" || el.dataset.type === key;
+      el.hidden = !on;
+      if (on) shown++;
+    });
+    const empty = feed.querySelector(".ff-empty");
+    if (empty) {
+      const hasAny = !!feed.querySelector(".ff-entry");
+      empty.textContent = hasAny
+        ? "Nothing of this kind yet."
+        : "Nothing posted yet. Updates, notes and images appear here as they are published.";
+      empty.hidden = shown > 0;
+    }
+    feed.querySelectorAll(".ff-filters button").forEach(b => {
+      const on = b.dataset.f === key;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+  }
+
+  function openFeed(root, opener) {
+    const panel = root.querySelector(".ff-panel");
+    if (!panel) return;
+    root.__ffOpener = opener || null;
+    panel.hidden = false;
+    const dim = root.querySelector(".ff-dim");
+    if (dim) dim.hidden = false;
+    document.documentElement.classList.add("ff-lock");
+    root.querySelectorAll("[data-feed-open]").forEach(b => b.setAttribute("aria-expanded", "true"));
+    if (panel.dataset.seenKey) markSeen(panel.dataset.seenKey);
+    root.querySelectorAll(".ff-count").forEach(el => { el.hidden = true; }); // read now
+    const close = panel.querySelector("[data-feed-close]");
+    if (close) close.focus();
+  }
+
+  function closeFeed(root) {
+    const panel = root.querySelector(".ff-panel");
+    if (!panel || panel.hidden) return;
+    panel.hidden = true;
+    const dim = root.querySelector(".ff-dim");
+    if (dim) dim.hidden = true;
+    document.documentElement.classList.remove("ff-lock");
+    root.querySelectorAll("[data-feed-open]").forEach(b => b.setAttribute("aria-expanded", "false"));
+    if (root.__ffOpener && root.__ffOpener.focus) root.__ffOpener.focus();
+  }
+
+  // One delegated listener on the mount point, so it survives the page
+  // re-rendering at the drop moment.
+  function bindFeedUI(mount) {
+    if (mount.dataset.ffBound) return;
+    mount.dataset.ffBound = "1";
+
+    mount.addEventListener("click", event => {
+      const root = mount.querySelector("[data-ff-root]");
+      if (!root) return;
+
+      const opener = event.target.closest("[data-feed-open]");
+      if (opener) { openFeed(root, opener); return; }
+      if (event.target.closest("[data-feed-close]") || event.target.closest(".ff-dim")) { closeFeed(root); return; }
+
+      const filter = event.target.closest(".ff-filters button[data-f]");
+      if (filter) { applyFeedFilter(filter.closest("[data-feed]"), filter.dataset.f); return; }
+
+      const toggle = event.target.closest(".ff-toggle");
+      if (toggle) {
+        const entry = toggle.closest(".ff-entry");
+        const prev = entry.querySelector(".ff-prev");
+        const open = prev.hidden;       // about to open
+        prev.hidden = !open;
+        entry.querySelector(".ff-nb").classList.toggle("is-open", open);
+        toggle.setAttribute("aria-expanded", String(open));
+        toggle.textContent = open ? "Collapse ▴" : "Preview ▾";
+        return;
+      }
+
+      const dropFilter = event.target.closest(".ff-dflt button[data-df]");
+      if (dropFilter) {
+        const key = dropFilter.dataset.df;
+        root.querySelectorAll(".items-grid .catalog-card").forEach(card => {
+          const a = card.dataset.availability || "unavailable";
+          card.hidden = !(key === "all" || a === key);
+        });
+        dropFilter.parentElement.querySelectorAll("button").forEach(b => {
+          const on = b === dropFilter;
+          b.classList.toggle("on", on);
+          b.setAttribute("aria-pressed", String(on));
+        });
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key !== "Escape") return;
+      const root = mount.querySelector("[data-ff-root]");
+      if (root) closeFeed(root);
+    });
+  }
+
+  // "03 days 14 hrs ..." until the drop, by the server's clock.
+  function countdownHTML(folder) {
+    if (!folder.publish_at) {
+      return `
+        <div class="ff-cd">
+          <span class="ff-cd__lb">THE DROP</span>
+          <p class="ff-cd__dt">The drop date hasn't been set yet.</p>
+        </div>`;
+    }
+    const cell = (unit, label) => `<span><b data-u="${unit}">00</b><small>${label}</small></span>`;
+    return `
+      <div class="ff-cd" data-cd="${esc(folder.publish_at)}" role="timer" aria-label="Time until the drop opens">
+        <span class="ff-cd__lb">DROP OPENS IN</span>
+        <div class="ff-cd__n">${cell("d", "DAYS")}${cell("h", "HRS")}${cell("m", "MIN")}${cell("s", "SEC")}</div>
+        <p class="ff-cd__dt">${esc(fmtDrop(folder))}</p>
+      </div>`;
+  }
+
+  function startCountdown(root, skew) {
+    const el = root.querySelector("[data-cd]");
+    if (!el) return;
+    const target = Date.parse(el.dataset.cd);
+    if (!Number.isFinite(target)) return;
+    const set = (unit, value) => {
+      const node = el.querySelector(`[data-u="${unit}"]`);
+      if (node) node.textContent = pad(value, 2);
+    };
+    let timer = null;
+    // Only reload if the visitor actually watches the timer reach zero. A page
+    // that loads already at zero must not reload itself in a loop while the
+    // database catches up.
+    const watching = target - (Date.now() + skew) > 0;
+    const tick = () => {
+      const ms = target - (Date.now() + skew);
+      const s = Math.max(0, Math.floor(ms / 1000));
+      set("d", Math.floor(s / 86400));
+      set("h", Math.floor((s % 86400) / 3600));
+      set("m", Math.floor((s % 3600) / 60));
+      set("s", s % 60);
+      if (ms <= 0) {
+        clearInterval(timer);
+        // The drop is due: reload a moment later, when the database has opened it.
+        if (watching) setTimeout(() => window.location.reload(), 1500);
+      }
+    };
+    tick();
+    timer = setInterval(tick, 1000);
+  }
+
+  // A short line from a post, for the Feed bar.
+  function entrySnippet(e) {
+    const text = e.update ? e.update.body : e.note ? e.note.title : e.study ? e.study.title : "";
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    return clean.length > 44 ? clean.slice(0, 44).replace(/\s+\S*$/, "") + "…" : clean;
+  }
+
+  function folderHeadHTML(folder, kind, extra) {
+    const num = folder.number == null ? "FOLDER" : `FOLDER ${pad(folder.number, 3)}`;
+    return `
+      <header class="ff-head">
+        <span class="ff-tab">${esc(num)}</span>
+        <span class="ff-state ff-state--${kind}">${kind === "live" ? "Live" : "Building"}</span>
+        <h1 class="ff-title">${esc(folder.title)}</h1>
+        ${extra || ""}
+      </header>`;
+  }
+
+  /* ============================================================
      Shop — the release currently in Shop, and the next drop if one is
      scheduled. The page re-asks the database at the drop moment (using the
      server's clock, not this browser's), and again when a hidden tab becomes
@@ -582,6 +924,7 @@
   function bootShop(mount) {
     let timer = null;
     let lastLoad = 0;
+    bindFeedUI(mount);
 
     function upcomingNotice(upcoming) {
       if (!upcoming) return "";
@@ -608,21 +951,61 @@
           </article>`;
         return;
       }
+      // The live page is the drop and nothing else. The updates, notes and
+      // image sets sit behind a Feed bar (a sheet on a phone, a side tab and
+      // panel on desktop).
       const products = content.products;
+      const entries = buildFeed(content, feedSeenMs(shop));
+      const newCount = entries.filter(e => e.isNew).length;
+      const availOf = p => p.availability || (p.is_available ? "available" : "unavailable");
+      const left = products.filter(p => availOf(p) === "available").length;
+      const sold = products.filter(p => availOf(p) === "sold").length;
+      const opened = fmtOpened(shop);
+      const meta = [
+        opened ? `Opened ${opened}` : "",
+        products.length ? `${products.length} piece${products.length === 1 ? "" : "s"}` : ""
+      ].filter(Boolean).join(" · ");
+      const countText = newCount > 9 ? "9+" : String(newCount);
       mount.innerHTML = `
-        <article class="folder-page shop-page">
-          <header class="shop-head">
-            <p class="folder-head__no">SHOP <span class="folder-state folder-state--live">${esc(folderName(shop))}</span></p>
-            <h1 class="folder-head__title">${esc(shop.title)}</h1>
-            ${shop.standfirst ? `<p class="folder-head__standfirst">${esc(shop.standfirst)}</p>` : ""}
-            <p class="shop-readmore"><a class="product-link" href="folder.html?id=${encodeURIComponent(shop.id)}">Read the folder — notes, lookbook, updates →</a></p>
-          </header>
-          ${products.length
-            ? `<div class="items-grid">${products.map(p => productCard(shop, p)).join("")}</div>`
-            : `<p class="status-message">The drop is live — pieces are being placed.</p>`}
-          ${upcomingNotice(upcoming)}
-          <p class="shop-footer"><a class="product-link" href="archive.html">Past releases →</a></p>
-        </article>`;
+        <div class="ff-root" data-ff-root>
+          <article class="folder-page shop-page ff-page">
+            ${folderHeadHTML(shop, "live", meta ? `<p class="ff-meta">${esc(meta)}</p>` : "")}
+            <button type="button" class="ff-bar" data-feed-open aria-expanded="false" aria-controls="ffPanel">
+              <b>FEED</b>
+              <span class="ff-bar__lt">${esc(entries[0] ? `${entries[0].name} · ${entrySnippet(entries[0])}` : "Updates, notes and images")}</span>
+              ${newCount ? `<span class="ff-count">${countText} NEW</span>` : ""}
+              <i aria-hidden="true">▾</i>
+            </button>
+            <section class="ff-drop">
+              <div class="section-bar">
+                <span class="section-bar__label">01</span>
+                <span class="section-bar__title">The Drop</span>
+                ${products.length ? `<span class="ff-left">${left} of ${products.length} left</span>` : ""}
+              </div>
+              ${products.length ? `
+              <div class="ff-dflt" role="group" aria-label="Filter the drop">
+                <button type="button" data-df="all" aria-pressed="true" class="on">All ${products.length}</button>
+                <button type="button" data-df="available" aria-pressed="false">Available ${left}</button>
+                <button type="button" data-df="sold" aria-pressed="false">Sold ${sold}</button>
+              </div>
+              <div class="items-grid">${products.map(p => productCard(shop, p)).join("")}</div>`
+                : `<p class="status-message">The drop is live — pieces are being placed.</p>`}
+            </section>
+            ${upcomingNotice(upcoming)}
+            <p class="shop-footer"><a class="product-link" href="archive.html">Past releases →</a></p>
+          </article>
+          <button type="button" class="ff-edge" data-feed-open aria-expanded="false" aria-controls="ffPanel">
+            <span>FEED</span>${newCount ? `<b class="ff-count">${countText}</b>` : ""}
+          </button>
+          <div class="ff-dim" hidden></div>
+          <aside class="ff-panel" id="ffPanel" role="dialog" aria-label="Feed" data-seen-key="${esc("feed:" + shop.id)}" hidden>
+            <div class="ff-ph">
+              <span class="ff-ph__t">Feed<small>${esc(folderName(shop))}</small></span>
+              <button type="button" class="ff-close" data-feed-close aria-label="Close the feed">✕</button>
+            </div>
+            ${feedHTML(entries)}
+          </aside>
+        </div>`;
     }
 
     function schedule(upcoming, skew) {
@@ -653,7 +1036,14 @@
       const shop = folders.find(f => f.is_shop) || null;
       const upcoming = pickUpcoming(folders, Date.now() + skew);
       const content = shop ? await market().getPublicFolderContent(shop.id) : { products: [] };
+      // A visitor reading the Feed should not have it closed under them by a
+      // background refresh: keep the open panel until they close it.
+      if (shop && mount.dataset.shopId === shop.id && mount.querySelector(".ff-panel:not([hidden])")) {
+        schedule(upcoming, skew);
+        return;
+      }
       render(shop, upcoming, content);
+      mount.dataset.shopId = shop ? shop.id : "";
       if (shop) markSeen("shop");
       schedule(upcoming, skew);
     }
@@ -677,21 +1067,43 @@
     return scheduled[0] || open[0] || null;
   }
 
-  // The release being built, shown as the homepage. Notes, lookbook sets and
-  // updates appear as they are published; the products stay locked until the
-  // database opens the drop, and the page reloads then so it flips to Shop.
+  // The release being built, shown as the homepage: a countdown to the drop,
+  // sealed tiles where the products will be, and the feed as the page. The
+  // products themselves stay locked until the database opens the drop; the
+  // countdown reloads the page at that moment so it flips to Shop.
   async function bootBuilding(mount, folder, folders) {
     document.title = `${folderName(folder)} — ${folder.title} — poda`;
     let content = { notes: [], studies: [], updates: [], products: [] };
     try { content = await market().getPublicFolderContent(folder.id); }
     catch (error) { console.error("Could not load the building folder:", error); }
-    renderFolder(mount, folder, content, { landing: true });
-    markSeen(folder.id);
 
-    if (folder.publish_at) {
-      const wait = Date.parse(folder.publish_at) - (Date.now() + clockSkew(folders)) + 1500;
-      if (wait > 0) setTimeout(() => window.location.reload(), Math.min(wait, MAX_TIMEOUT));
-    }
+    const skew = clockSkew(folders);
+    const entries = buildFeed(content, feedSeenMs(folder));
+    mount.innerHTML = `
+      <div class="ff-root" data-ff-root>
+        <article class="folder-page ff-page ff-page--building">
+          ${folderHeadHTML(folder, "building", folder.standfirst ? `<p class="ff-stand">${esc(folder.standfirst)}</p>` : "")}
+          <div class="ff-bgrid">
+            <aside class="ff-brail">
+              ${countdownHTML(folder)}
+              <div class="section-bar ff-brail__bar">
+                <span class="section-bar__label">01</span>
+                <span class="section-bar__title">The Drop</span>
+                <span class="ff-left">Locked</span>
+              </div>
+              <div class="ff-seals" aria-hidden="true"><div>poda</div><div>poda</div><div>poda</div><div>poda</div></div>
+            </aside>
+            <section class="ff-bmain">
+              <div class="section-bar"><span class="section-bar__title">Feed</span></div>
+              ${feedHTML(entries)}
+            </section>
+          </div>
+        </article>
+      </div>`;
+    bindFeedUI(mount);
+    startCountdown(mount, skew);
+    markSeen(folder.id);
+    markSeen("feed:" + folder.id);
   }
 
   /* ============================================================

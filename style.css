@@ -4075,3 +4075,360 @@ button.card-link {
   text-align: center;
   color: var(--text-dim);
 }
+
+/* ============================================================
+   Folder feed. The live page is the drop; the Feed opens from a bar (a sheet
+   on a phone) or a side tab (a panel on desktop). On the building page the
+   feed is the page. Posts read as files: .txt update, .doc note, .jpg set.
+   JS: folders.js (feed, bindFeedUI, countdown).
+   ============================================================ */
+.ff-page { padding-top: 22px; }
+.ff-tab {
+  display: inline-block;
+  padding: 5px 26px 4px 11px;
+  background: var(--accent);
+  color: #fff;
+  font-family: "Anton", Impact, "Haettenschweiler", "Arial Narrow Bold", sans-serif;
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.2;
+  letter-spacing: 0.05em;
+  clip-path: polygon(0 0, 84% 0, 100% 100%, 0 100%);
+}
+.ff-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  vertical-align: middle;
+  font-family: var(--font);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.ff-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+.ff-state--live { color: #E6533D; }
+.ff-state--live::before { background: #E6533D; }
+.ff-state--building { color: var(--accent); }
+.ff-state--building::before { border: 1.5px solid var(--accent); }
+.ff-title {
+  max-width: 16ch;
+  margin: 12px 0 8px;
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 8vw, 3.6rem);
+  font-weight: 600;
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+  font-variation-settings: "opsz" 144;
+}
+.ff-meta {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.ff-stand {
+  max-width: 46ch;
+  margin: 0 0 8px;
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-style: italic;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+.ff-left {
+  margin-left: auto;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #E6533D;
+}
+.ff-brail .ff-left { color: var(--text-dim); }
+.ff-count {
+  background: #E6533D;
+  color: #fff;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+}
+.ff-count[hidden] { display: none; }
+
+/* The Feed bar (phone) and side tab (desktop) */
+.ff-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--text);
+  background: #fff;
+  color: var(--text);
+  font-family: var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+.ff-bar b { font-size: 10px; letter-spacing: 0.16em; }
+.ff-bar__lt {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  color: var(--text-dim);
+}
+.ff-bar i { font-style: normal; font-size: 11px; }
+.ff-bar:hover, .ff-bar:focus-visible { border-color: var(--accent); outline: none; }
+.ff-edge {
+  display: none;
+  position: fixed;
+  right: 0;
+  top: 46%;
+  z-index: 60;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 9px;
+  border: 0;
+  background: var(--text);
+  color: #fff;
+  writing-mode: vertical-rl;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  cursor: pointer;
+}
+.ff-edge .ff-count { writing-mode: horizontal-tb; width: 18px; padding: 3px 0; text-align: center; letter-spacing: 0; }
+.ff-edge:hover, .ff-edge:focus-visible { background: var(--accent); outline: none; }
+
+/* The drop on the live page */
+.ff-drop { margin-top: 24px; }
+.ff-dflt, .ff-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.ff-dflt { padding: 0 0 14px; }
+.ff-dflt button, .ff-filters button {
+  appearance: none;
+  padding: 0 0 3px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.ff-dflt button.on, .ff-filters button.on { color: var(--text); border-bottom-color: var(--accent); }
+.items-grid .catalog-card[hidden] { display: none; }
+
+/* Panel: a sheet over the page on a phone, a side panel on desktop */
+.ff-dim { position: fixed; inset: 0; z-index: 190; background: rgba(21, 21, 26, 0.4); }
+.ff-panel {
+  position: fixed;
+  z-index: 200;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: 64px;
+  padding: 14px var(--pad) 32px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #fff;
+  border-top: 1px solid var(--text);
+}
+.ff-ph {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.ff-ph small { margin-left: 8px; font-weight: 400; letter-spacing: 0.08em; color: var(--text-faint); }
+.ff-close {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--text);
+  background: #fff;
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+}
+.ff-close:hover, .ff-close:focus-visible { background: var(--text); color: #fff; outline: none; }
+@media (max-width: 1023px) { html.ff-lock { overflow: hidden; } }
+@media (min-width: 1024px) {
+  .ff-bar { display: none; }
+  .ff-edge { display: flex; }
+  .ff-dim { background: transparent; }
+  .ff-panel {
+    left: auto;
+    top: 0;
+    width: 410px;
+    padding: 24px 28px 40px;
+    border-top: 0;
+    border-left: 1px solid var(--text);
+    box-shadow: -16px 0 30px rgba(21, 21, 26, 0.08);
+  }
+}
+
+/* The feed itself */
+.ff-filters { padding: 0 0 10px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.ff-order { margin-left: auto; font-weight: 400; color: var(--text-faint); }
+.ff-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin-left: 5px;
+  padding-left: 16px;
+  border-left: 1px solid var(--text);
+}
+.ff-entry { position: relative; min-width: 0; }
+.ff-entry::before { content: ""; position: absolute; left: -20.5px; top: 2px; width: 7px; height: 7px; background: var(--accent); }
+.ff-entry.is-new::before { background: #E6533D; }
+.ff-eh {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin-bottom: 6px;
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.ff-eh time { white-space: nowrap; text-transform: uppercase; letter-spacing: 0.06em; }
+.ff-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; color: var(--text); }
+.ff-x { flex: 0 0 auto; padding: 2px 4px; color: #fff; font-size: 7.5px; font-weight: 700; letter-spacing: 0.08em; }
+.ff-x--txt { background: #7a7a74; }
+.ff-x--doc { background: var(--text); }
+.ff-x--jpg { background: #5b78ff; }
+.ff-new { margin-left: auto; padding: 1px 5px; background: #E6533D; color: #fff; font-size: 8px; font-style: normal; font-weight: 700; letter-spacing: 0.12em; }
+.ff-tx { margin: 0; font-family: var(--font-serif); font-size: 1rem; line-height: 1.3; overflow-wrap: anywhere; }
+.ff-upimg { display: block; width: 100%; max-width: 420px; margin-top: 9px; border: 1px solid var(--border); }
+.ff-ef {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  font-family: var(--font);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.ff-ef a, .ff-ef button { color: var(--accent); font-weight: 700; text-decoration: none; }
+.ff-ef button { appearance: none; padding: 0; border: 0; background: none; font: inherit; font-weight: 700; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.ff-nb { padding: 10px 12px; border: 1px solid var(--text); background: #fff; }
+.ff-nb.is-open { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.ff-tag { display: inline-block; margin-bottom: 6px; padding: 2px 6px; background: var(--accent); color: #fff; font-family: var(--font); font-size: 8px; font-weight: 700; letter-spacing: 0.14em; }
+.ff-nt { margin: 0 0 4px; font-family: var(--font-serif); font-size: 1.15rem; font-weight: 600; line-height: 1.08; letter-spacing: -0.01em; }
+.ff-nl { margin: 0; font-family: var(--font-serif); font-size: 0.85rem; line-height: 1.4; color: var(--text-dim); }
+.ff-thesis { margin: 10px 0; padding: 9px 11px; background: var(--bg-box); }
+.ff-thesis b { display: block; margin-bottom: 3px; font-family: var(--font); font-size: 8.5px; letter-spacing: 0.16em; color: var(--accent); }
+.ff-thesis p { margin: 0; font-family: var(--font-serif); font-size: 0.9rem; line-height: 1.28; }
+.ff-ex { margin: 0 0 10px; font-family: var(--font-serif); font-size: 0.88rem; line-height: 1.5; overflow-wrap: anywhere; }
+.ff-cta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 12px -12px -10px;
+  padding: 12px;
+  background: var(--text);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.ff-cta:hover, .ff-cta:focus-visible { background: var(--accent); outline: none; }
+.ff-im { position: relative; display: block; aspect-ratio: 3 / 2; overflow: hidden; background: var(--image-bg); border: 1px solid var(--border); }
+.ff-im::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(21, 21, 26, 0.75) 0.5px, transparent 0.6px);
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+.ff-im img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ff-im__empty { display: grid; place-items: center; height: 100%; font-family: var(--font-serif); font-weight: 600; color: var(--text-faint); }
+.ff-cap { margin: 6px 0 0; font-family: var(--font-serif); font-size: 0.85rem; line-height: 1.3; color: var(--text-dim); }
+.ff-empty { margin: 0; font-family: var(--font); font-size: 10px; letter-spacing: 0.06em; color: var(--text-faint); }
+
+/* The building page: countdown, sealed tiles, then the feed */
+.ff-cd { margin: 18px 0 10px; padding: 14px; border: 1px solid var(--text); background: var(--bg-box); }
+.ff-cd__lb { display: block; margin-bottom: 8px; font-family: var(--font); font-size: 9px; font-weight: 700; letter-spacing: 0.2em; color: var(--accent); }
+.ff-cd__n { display: flex; gap: 6px; }
+.ff-cd__n span { flex: 1; padding: 9px 4px 7px; background: var(--text); color: #fff; line-height: 1; text-align: center; }
+.ff-cd__n b { display: block; font-family: var(--font); font-size: clamp(1.3rem, 6vw, 1.6rem); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ff-cd__n small { display: block; margin-top: 5px; font-family: var(--font); font-size: 7.5px; letter-spacing: 0.16em; opacity: 0.7; }
+.ff-cd__dt { margin: 8px 0 0; font-family: var(--font); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-dim); }
+.ff-seals { display: flex; gap: 6px; }
+.ff-seals div {
+  position: relative;
+  flex: 1;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--image-bg);
+  border: 1px solid var(--border);
+  font-family: var(--font-serif);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+.ff-seals div::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(21, 21, 26, 0.75) 0.5px, transparent 0.6px);
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+}
+.ff-brail__bar { display: none; }
+.ff-bmain { margin-top: 22px; }
+@media (min-width: 900px) {
+  .ff-bgrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas: "main rail";
+    gap: 56px;
+    margin-top: 22px;
+    align-items: start;
+  }
+  .ff-bmain { grid-area: main; margin-top: 0; }
+  .ff-brail { grid-area: rail; }
+  .ff-brail .ff-cd { margin-top: 0; }
+  .ff-brail__bar { display: flex; margin-top: 22px; }
+  .ff-seals { display: grid; grid-template-columns: 1fr 1fr; }
+}
