@@ -539,7 +539,7 @@
       html: `<div class="inbox-list">${notes.map(noteRow).join("")}</div>`
     });
     if (studies.length) parts.push({
-      id: "imagery", title: "Lookbook", count: String(studies.length),
+      id: "imagery", title: "Index", count: String(studies.length),
       html: `<div class="study-grid">${studies.map(studyCard).join("")}</div>`
     });
     if (updates.length) parts.push({
@@ -745,8 +745,8 @@
     (content.studies || []).forEach(s => {
       const iso = s.date || s.createdAt;
       entries.push({
-        type: "lookbook", ext: "jpg", iso, date: ts(iso), study: s,
-        name: `lookbook${s.studyNumber ? "_" + pad(s.studyNumber, 2) : ""}_${fileSlug(s.title, 30) || "untitled"}.jpg`
+        type: "lookbook", ext: "idx", iso, date: ts(iso), study: s,
+        name: `index${s.studyNumber ? "_" + pad(s.studyNumber, 2) : ""}_${fileSlug(s.title, 30) || "untitled"}.idx`
       });
     });
     entries.sort((a, b) => b.date - a.date);
@@ -814,7 +814,9 @@
     const s = e.study;
     const images = (Array.isArray(s.images) ? s.images : []).filter(Boolean);
     const shown = images.slice(0, LOOKBOOK_MAX);
-    const href = `study.html?id=${encodeURIComponent(s.id)}`;
+    // An Index entry has its own short link; a plain set opens by id.
+    const href = s.kind && s.slug ? `/index/${encodeURIComponent(s.slug)}` : `study.html?id=${encodeURIComponent(s.id)}`;
+    const handle = /^[A-Za-z0-9._]{1,30}$/.test(s.instagram || "") ? s.instagram : "";
     let visual;
     if (shown.length <= 1) {
       const url = shown[0] || s.coverImage || "";
@@ -832,13 +834,14 @@
     return `
       <article class="${cls}" data-type="lookbook">${head}
         ${visual}
-        <p class="ff-cap">${esc(s.title || "Untitled")}${s.framing ? ` · ${esc(s.framing)}` : ""}</p>
-        <div class="ff-ef"><span>${images.length} image${images.length === 1 ? "" : "s"}${more}</span><a href="${href}">Open set →</a></div>
+        <p class="ff-cap">${esc(s.title || "Untitled")}${s.framing ? ` · ${esc(s.framing)}` : ""}${handle ? ` · @${esc(handle)}` : ""}</p>
+        <p class="ff-files">${shown.slice(0, 4).map((_, i) => `image_${pad(i + 1, 2)}.jpg`).join("  ")}${shown.length > 4 ? "  …" : ""}</p>
+        <div class="ff-ef"><span>${images.length} image${images.length === 1 ? "" : "s"}${more}</span><a href="${href}">Open index →</a></div>
       </article>`;
   }
 
   function feedHTML(entries) {
-    const filters = [["all", "All"], ["notes", "Notes"], ["lookbook", "Lookbook"], ["updates", "Updates"]];
+    const filters = [["all", "All"], ["notes", "Notes"], ["lookbook", "Index"], ["updates", "Updates"]];
     return `
       <div class="ff-feed" data-feed>
         <div class="ff-filters" role="group" aria-label="Filter the feed">
@@ -1046,7 +1049,7 @@
           ${folderHeadHTML(folder, kind, meta ? `<p class="ff-meta">${esc(meta)}</p>` : "")}
           <button type="button" class="ff-bar" data-feed-open aria-expanded="false" aria-controls="ffPanel">
             <b>FEED</b>
-            <span class="ff-bar__lt">${esc(entries[0] ? `${entries[0].name} · ${entrySnippet(entries[0])}` : "Updates, notes and lookbook")}</span>
+            <span class="ff-bar__lt">${esc(entries[0] ? `${entries[0].name} · ${entrySnippet(entries[0])}` : "Updates, notes and index")}</span>
             ${newCount ? `<span class="ff-count">${countText} NEW</span>` : ""}
             <i aria-hidden="true">▾</i>
           </button>

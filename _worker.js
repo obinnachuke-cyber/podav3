@@ -1466,9 +1466,117 @@ async function serveSellerPage(request, env, url) {
   return res;
 }
 
+/* ============================================================
+   Index entries: /index/<name> and /go/<name>
+
+   An Index entry is a published lookbook set that carries a brand or
+   reference. /index/<name> serves the study page with that entry's title,
+   text and cover image written into the page head, so a link pasted into
+   Instagram, iMessage or Slack previews as the entry and not as a blank
+   page. /go/<name> sends the visitor to the entry's Instagram and counts the
+   click. The destination is always built from a checked handle, never taken
+   from the request, so it cannot be used as an open redirect.
+   ============================================================ */
+const INDEX_KEY_RE = /^[A-Za-z0-9_-]{1,80}$/;
+const IG_HANDLE_RE = /^[A-Za-z0-9._]{1,30}$/;
+// Link-preview fetchers and scripts are not visitors, so they are not counted.
+const NOT_A_VISITOR_RE = /bot\b|crawl|spider|facebookexternalhit|facebot|slackbot|whatsapp|telegram|embedly|twitterbot|linkedinbot|discordbot|headlesschrome|curl\/|python-requests|node-fetch/i;
+
+// Finds a published entry by its short name or its id. Reads as the public
+// does, so RLS decides what is visible: a draft is never returned.
+async function findIndexEntry(env, key) {
+  if (!INDEX_KEY_RE.test(key) || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return null;
+  try {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/studies?select=id,data&or=(id.eq.${key},data->>slug.eq.${key})&limit=1`,
+      { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${env.SUPABASE_ANON_KEY}` } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row || !row.data || row.data.status !== "published") return null;
+    return row.data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function cleanText(value, max) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text.length > max ? text.slice(0, max - 1).trimEnd() + "…" : text;
+}
+
+function indexHead(entry, siteUrl) {
+  const key = entry.slug || entry.id;
+  const title = `${cleanText(entry.title, 90) || "Index"} — poda`;
+  const description = cleanText(entry.framing, 200) || "Selected by poda.";
+  const image = entry.coverImage || (Array.isArray(entry.images) ? entry.images[0] : "") || "";
+  const url = `${siteUrl}/index/${encodeURIComponent(key)}`;
+  const tags = [
+    `<meta property="og:site_name" content="poda" />`,
+    `<meta property="og:type" content="article" />`,
+    `<meta property="og:title" content="${escapeHTML(title)}" />`,
+    `<meta property="og:description" content="${escapeHTML(description)}" />`,
+    `<meta property="og:url" content="${escapeHTML(url)}" />`,
+    image ? `<meta property="og:image" content="${escapeHTML(image)}" />` : "",
+    `<meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}" />`
+  ].filter(Boolean).join("\n  ");
+  return { title, description, tags };
+}
+
+async function serveIndexEntry(request, env, url, key) {
+  if (request.method !== "GET" && request.method !== "HEAD") return json(405, { error: "Method not allowed." });
+  let res = await env.ASSETS.fetch(new Request(new URL("/study.html", url.origin), request));
+  if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+    res = await env.ASSETS.fetch(new Request(new URL(res.headers.get("location"), url.origin), request));
+  }
+  const entry = await findIndexEntry(env, key);
+  if (!entry || !res.ok) return res;
+
+  const siteUrl = String(env.SITE_URL || url.origin).replace(/\/$/, "");
+  const head = indexHead(entry, siteUrl);
+  let html = await res.text();
+  html = html
+    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${escapeHTML(head.title)}</title>`)
+    .replace(/<meta name="description"[^>]*>/i, `<meta name="description" content="${escapeHTML(head.description)}" />`)
+    .replace(/<\/head>/i, `  ${head.tags}\n</head>`);
+  const headers = new Headers(res.headers);
+  headers.delete("content-length");
+  headers.set("content-type", "text/html; charset=utf-8");
+  return new Response(request.method === "HEAD" ? null : html, { status: 200, headers });
+}
+
+async function handleIndexGo(request, env, ctx, key) {
+  const entry = await findIndexEntry(env, key);
+  const handle = entry ? String(entry.instagram || "").replace(/^@/, "") : "";
+  if (!entry || !IG_HANDLE_RE.test(handle)) return json(404, { error: "Not found." });
+
+  const agent = request.headers.get("user-agent") || "";
+  if (request.method === "GET" && !NOT_A_VISITOR_RE.test(agent) && env.SUPABASE_SERVICE_ROLE_KEY && env.SUPABASE_URL) {
+    const record = fetch(`${env.SUPABASE_URL}/rest/v1/index_clicks`, {
+      method: "POST",
+      headers: { ...serviceHeaders(env), Prefer: "return=minimal" },
+      body: JSON.stringify({ study_id: entry.id })
+    }).catch(() => {});
+    // Counting must never slow the redirect or break it.
+    if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(record);
+  }
+  return new Response(null, {
+    status: 302,
+    headers: { location: `https://www.instagram.com/${handle}/`, "cache-control": "no-store" }
+  });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (url.pathname.startsWith("/index/") && url.pathname.length > 7) {
+      return serveIndexEntry(request, env, url, decodeURIComponent(url.pathname.slice(7)).replace(/\/$/, ""));
+    }
+    if (url.pathname.startsWith("/go/") && url.pathname.length > 4) {
+      return handleIndexGo(request, env, ctx, decodeURIComponent(url.pathname.slice(4)).replace(/\/$/, ""));
+    }
 
     if (url.pathname === "/api/notes-send") return handleNotesSend(request, env);
     if (url.pathname === "/api/unsubscribe") return handleUnsubscribe(request, env);

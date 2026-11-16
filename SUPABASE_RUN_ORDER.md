@@ -44,6 +44,7 @@ If a column reads `false`, run that step. `admin_rows` must be at least 1.
 | 12 | `migrations/20261111_checkout_selftest.sql` | Checks step 11 and rolls itself back. Ends in a red error box on purpose. The last line should say 26 passed, 0 failed |
 | 14 | `migrations/20261113_payouts.sql` | Payouts: the payouts table, recording and voiding a payout, Stripe fee on each order, refund date. Run after step 11. Powers Supply, Payouts in the admin |
 | 15 | `migrations/20261113_payouts_selftest.sql` | Checks step 14 and rolls itself back. Ends in a red error box on purpose. The last line should say 24 passed, 0 failed |
+| 16 | `migrations/20261114_index_clicks.sql` | Counts Instagram clicks on Index entries. Optional: without it the links work and the admin shows no click counts. Safe to run at any time |
 
 Steps 1 to 3 are first-time setup. If Step 0 shows `base_marketplace` true and
 `admin_rows` at least 1, skip them.

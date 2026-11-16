@@ -370,6 +370,7 @@ function renderCurrentView() {
   const renderers = {
     release:   () => window.PodaRelease.renderCurrent(),
     releases:  () => window.PodaRelease.renderAll(),
+    index:     () => window.PodaRelease.renderIndex(),
     supply:    () => window.PodaRelease.renderSupply(),
     subscribers: () => window.PodaRelease.renderSubscribersArea(),
     settings:  () => window.PodaRelease.renderSettings(),

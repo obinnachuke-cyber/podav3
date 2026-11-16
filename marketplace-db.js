@@ -901,6 +901,20 @@
     return data || [];
   }
 
+  /* —— Index entries: Instagram click counts (admin only) ——
+     Returns { studyId: count }. Needs migrations/20261114_index_clicks.sql;
+     throws before that, and the caller shows no counts. */
+  async function getIndexClicks() {
+    const { data, error } = await client()
+      .from("index_clicks")
+      .select("study_id")
+      .limit(50000);
+    if (error) throw error;
+    const counts = {};
+    (data || []).forEach(r => { counts[r.study_id] = (counts[r.study_id] || 0) + 1; });
+    return counts;
+  }
+
   /* —— Payouts (admin only) —— */
   async function getPayouts() {
     const { data, error } = await client()
@@ -959,6 +973,7 @@
     getOrders,
     updateOrder,
     getPayouts,
+    getIndexClicks,
     createPayout,
     voidPayout,
     canDeleteRelease,

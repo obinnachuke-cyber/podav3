@@ -24,12 +24,12 @@
   }
 
   function studyCard(s) {
-    const href = `study.html?id=${encodeURIComponent(s.id)}`;
+    const href = s.kind && s.slug ? `/index/${encodeURIComponent(s.slug)}` : `study.html?id=${encodeURIComponent(s.id)}`;
     return `
       <a class="study-card" href="${href}">
         <div class="study-card__image">${cover(s)}</div>
         <div class="study-card__meta">
-          <span class="study-card__num">${s.studyNumber ? `Vol. ${esc(String(s.studyNumber).padStart(2, "0"))}` : "Visual Study"}${studyDate(s) ? ` · ${esc(studyDate(s))}` : ""}</span>
+          <span class="study-card__num">${s.kind ? (s.kind === "reference" ? "Reference" : "Brand") : (s.studyNumber ? `Vol. ${esc(String(s.studyNumber).padStart(2, "0"))}` : "Visual Study")}${studyDate(s) ? ` · ${esc(studyDate(s))}` : ""}</span>
           <h2 class="study-card__title">${esc(s.title || "Untitled study")}</h2>
           ${s.framing ? `<p class="study-card__framing">${esc(s.framing)}</p>` : ""}
         </div>

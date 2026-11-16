@@ -39,6 +39,8 @@
   ];
 
   function currentFile() {
+    // An Index entry lives at /index/<name> but is the study page.
+    if (window.location.pathname.indexOf("/index/") === 0) return "study.html";
     const path = window.location.pathname.split("/").pop() || "index.html";
     return path.toLowerCase();
   }

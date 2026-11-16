@@ -558,20 +558,48 @@
   }
 
   /* —— Lookbook set (title, images, captions, cover, order, publish) —— */
-  function openSetModal(id) {
+  // opts.index opens it as an Index entry: a brand or reference that can stand
+  // on its own, with an Instagram handle and a credit line. A set that already
+  // has a kind always opens that way.
+  function openSetModal(id, opts) {
     const existing = id ? studyState.studies.find(s => s.id === id) : null;
+    const index = !!(opts && opts.index) || !!(existing && existing.kind);
     R.modal = {
       kind: "set",
+      index,
       set: existing
         ? structuredClone(existing)
         : {
             id: "", title: "", framing: "", date: new Date().toISOString().slice(0, 10),
             status: "draft", coverImage: "", images: [], captions: [],
-            relatedNoteId: "", relatedDropId: R.data.release.id, studyNumber: ""
+            relatedNoteId: "", relatedDropId: index ? "" : R.data.release.id, studyNumber: "",
+            ...(index ? { kind: "brand", instagram: "", credit: "" } : {})
           },
       uploading: ""
     };
     drawSetModal();
+  }
+
+  // "@name", "name" or a pasted instagram.com link all become "name".
+  // Returns "" when it is empty and null when it is not a real handle.
+  function cleanHandle(value) {
+    let v = String(value || "").trim();
+    if (!v) return "";
+    const fromUrl = v.match(/instagram\.com\/([^/?#\s]+)/i);
+    if (fromUrl) v = fromUrl[1];
+    v = v.replace(/^@+/, "").replace(/\/+$/, "");
+    return /^[A-Za-z0-9._]{1,30}$/.test(v) ? v : null;
+  }
+
+  // A short, readable name for the entry's link. Kept once chosen, so a link
+  // you have already sent never changes when the title is edited.
+  function makeSlug(title, takenBy) {
+    const base = String(title || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 50).replace(/-+$/, "") || "entry";
+    const used = new Set(studyState.studies.filter(s => s.id !== takenBy).map(s => s.slug).filter(Boolean));
+    if (!used.has(base)) return base;
+    for (let n = 2; n < 1000; n++) if (!used.has(`${base}-${n}`)) return `${base}-${n}`;
+    return `${base}-${Date.now().toString(36)}`;
   }
 
   function drawSetModal() {
@@ -590,12 +618,27 @@
         </div>
       </div>`).join("");
 
-    openModalHTML(s.id ? "Edit lookbook set" : "New lookbook set", `
+    const indexFields = m.index ? `
+          <div class="field"><label for="relSetKind">Kind</label>
+            <select id="relSetKind">
+              <option value="brand"${s.kind !== "reference" ? " selected" : ""}>Brand</option>
+              <option value="reference"${s.kind === "reference" ? " selected" : ""}>Reference</option>
+            </select></div>
+          <div class="field"><label for="relSetInstagram">Instagram</label>
+            <input id="relSetInstagram" type="text" value="${esc(s.instagram || "")}" placeholder="@handle" autocomplete="off" /></div>
+          <div class="field field--full"><label for="relSetCredit">Credit line</label>
+            <input id="relSetCredit" type="text" value="${esc(s.credit || "")}" placeholder="Leave empty to credit the Instagram handle" /></div>
+          <div class="field field--full"><label for="relSetFolder">Folder</label>
+            <select id="relSetFolder"><option value="">None, stands on its own</option>${(R.indexReleases || []).map(r =>
+              `<option value="${esc(r.id)}"${s.relatedDropId === r.id ? " selected" : ""}>${esc(releaseLabel(r))} — ${esc(r.title || "Untitled")}</option>`).join("")}</select></div>` : "";
+
+    openModalHTML(m.index ? (s.id ? "Edit index entry" : "New index entry") : (s.id ? "Edit lookbook set" : "New lookbook set"), `
       <form id="relSetForm" novalidate>
         <div class="field-grid">
-          <div class="field field--full"><label for="relSetTitle">Title</label>
+          <div class="field field--full"><label for="relSetTitle">${m.index ? "Brand or title" : "Title"}</label>
             <input id="relSetTitle" type="text" value="${esc(s.title)}" /></div>
-          <div class="field field--full"><label for="relSetFraming">Framing (one sentence)</label>
+          ${indexFields}
+          <div class="field field--full"><label for="relSetFraming">${m.index ? "Why poda picked this" : "Framing (one sentence)"}</label>
             <textarea id="relSetFraming" rows="2">${esc(s.framing)}</textarea></div>
           <div class="field"><label for="relSetStatus">Status</label>
             <select id="relSetStatus"><option value="draft"${s.status !== "published" ? " selected" : ""}>Draft — private</option>
@@ -623,6 +666,12 @@
     const t = val("relSetTitle"); if (t !== null) s.title = t;
     const f = val("relSetFraming"); if (f !== null) s.framing = f;
     const st = val("relSetStatus"); if (st !== null) s.status = st;
+    if (m.index) {
+      const kind = val("relSetKind"); if (kind !== null) s.kind = kind;
+      const ig = val("relSetInstagram"); if (ig !== null) s.instagram = ig;
+      const credit = val("relSetCredit"); if (credit !== null) s.credit = credit;
+      const folder = val("relSetFolder"); if (folder !== null) s.relatedDropId = folder;
+    }
     document.querySelectorAll("[data-rel-caption]").forEach(el => {
       s.captions[Number(el.dataset.relCaption)] = el.value;
     });
@@ -677,19 +726,118 @@
   async function saveSet() {
     syncSetFields();
     const s = R.modal.set;
-    if (!String(s.title).trim()) { modalError("A lookbook set needs a title."); return; }
+    const index = !!R.modal.index;
+    if (!String(s.title).trim()) { modalError(index ? "An index entry needs a brand or title." : "A lookbook set needs a title."); return; }
+    if (index) {
+      const handle = cleanHandle(s.instagram);
+      if (handle === null) { modalError("That is not an Instagram handle. Use @name or paste the profile link."); return; }
+      s.instagram = handle;
+      if (s.status === "published" && !(s.images || []).length) { modalError("Add at least one image before publishing."); return; }
+      s.credit = String(s.credit || "").trim();
+      s.framing = String(s.framing || "").trim();
+    }
     if (!s.id) s.id = genId("study");
-    s.relatedDropId = R.data.release.id;
-    if (s.releaseOrder === undefined) s.releaseOrder = R.data.studies.length;
+    if (index) {
+      if (!s.slug) s.slug = makeSlug(s.title, s.id);
+    } else {
+      s.relatedDropId = R.data.release.id;
+    }
+    if (s.releaseOrder === undefined) s.releaseOrder = R.data ? R.data.studies.length : 0;
     if (!s.coverImage && s.images.length) s.coverImage = s.images[0];
     s.captions = (s.captions || []).slice(0, s.images.length);
     try {
       await D().upsertStudy(s);
-    } catch (e) { modalError(e.message || "Could not save the set."); return; }
+    } catch (e) { modalError(e.message || "Could not save."); return; }
     const idx = studyState.studies.findIndex(x => x.id === s.id);
     if (idx >= 0) studyState.studies[idx] = s; else studyState.studies.unshift(s);
     closeRelModal();
-    await renderWorkspace();
+    if (index) await renderIndex(); else await renderWorkspace();
+  }
+
+  /* ============================================================
+     Index: brands and references, each with its own link
+     ============================================================ */
+  const INDEX_KINDS = { brand: "Brand", reference: "Reference" };
+
+  async function renderIndex() {
+    hideTabs();
+    bindOnce();
+    adminMain.innerHTML = `<p class="admin-empty">Loading…</p>`;
+    let studies, releases, clicks = null;
+    try {
+      [studies, releases] = await Promise.all([D().getStudies(), A().getEdits().catch(() => [])]);
+    } catch (e) {
+      adminMain.innerHTML = `<p class="admin-empty">Could not load the index: ${esc(e.message || e)}</p>`;
+      return;
+    }
+    studyState.studies = studies;
+    R.indexReleases = releases;
+    // Clicks need migrations/20261114_index_clicks.sql; without it, show none.
+    try { clicks = await A().getIndexClicks(); } catch (e) { clicks = null; }
+
+    const entries = studies.filter(s => s.kind).sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    const folderOf = id => { const r = releases.find(x => x.id === id); return r ? `${releaseLabel(r)}` : ""; };
+
+    const row = s => {
+      const live = s.status === "published";
+      const link = s.slug ? `${location.origin}/index/${s.slug}` : "";
+      const n = clicks ? (clicks[s.id] || 0) : null;
+      return `
+        <div class="rel-row">
+          <div class="rel-row__main">
+            <p class="rel-row__title">${esc(s.title || "Untitled")}</p>
+            <p class="rel-row__meta">
+              ${chip(live ? "Published" : "Draft", live)} ${chip(INDEX_KINDS[s.kind] || "Entry", false)}
+              ${s.instagram ? `@${esc(s.instagram)}` : "No Instagram"}
+              · ${(s.images || []).length} image${(s.images || []).length === 1 ? "" : "s"}
+              ${s.relatedDropId ? ` · ${esc(folderOf(s.relatedDropId) || "In a folder")}` : ""}
+              ${n === null ? "" : ` · ${n} Instagram click${n === 1 ? "" : "s"}`}
+            </p>
+            ${link ? `<p class="rel-row__meta">${esc(link)}</p>` : ""}
+          </div>
+          <div class="rel-actions">
+            ${link && live ? `<button type="button" class="btn" data-rel="index-copy" data-id="${esc(s.id)}">Copy link</button>` : ""}
+            <button type="button" class="btn" data-rel="index-edit" data-id="${esc(s.id)}">Edit</button>
+            <button type="button" class="btn" data-rel="index-toggle" data-id="${esc(s.id)}">${live ? "Unpublish" : "Publish"}</button>
+            <button type="button" class="btn" data-rel="index-delete" data-id="${esc(s.id)}">Delete</button>
+          </div>
+        </div>`;
+    };
+
+    adminMain.innerHTML = `
+      <div class="section-bar section-bar--admin">
+        <span class="section-bar__label">Index</span>
+        <span class="section-bar__title">Brands and references</span>
+      </div>
+      <p class="rel-note">A published entry has its own link. Send that link to a brand, or post it. The Instagram button on the page is counted.</p>
+      <p><button type="button" class="btn btn--primary" data-rel="index-new">New index entry</button></p>
+      ${clicks === null ? `<p class="rel-note">Click counts are off until you run migrations/20261114_index_clicks.sql in Supabase.</p>` : ""}
+      ${entries.length ? entries.map(row).join("") : `<p class="admin-empty">No entries yet.</p>`}`;
+  }
+
+  async function indexToggle(id) {
+    const s = studyState.studies.find(x => x.id === id);
+    if (!s) return;
+    if (s.status !== "published" && !(s.images || []).length) { alert("Add at least one image before publishing."); return; }
+    s.status = s.status === "published" ? "draft" : "published";
+    await D().upsertStudy(s);
+    await renderIndex();
+  }
+
+  async function indexDelete(id) {
+    const s = studyState.studies.find(x => x.id === id);
+    if (!s) return;
+    if (!confirm(`Delete "${s.title || "this entry"}"? Its link will stop working.`)) return;
+    await D().deleteStudy(id);
+    await renderIndex();
+  }
+
+  async function indexCopy(id) {
+    const s = studyState.studies.find(x => x.id === id);
+    if (!s || !s.slug) return;
+    const link = `${location.origin}/index/${s.slug}`;
+    try { await navigator.clipboard.writeText(link); alert("Link copied:\n" + link); }
+    catch (e) { window.prompt("Copy this link:", link); }
   }
 
   /* —— Existing note / set pickers —— */
@@ -1314,6 +1462,11 @@
         case "attach-note": await attachNote(id); break;
         case "detach-note": await detachNote(id); break;
         case "new-set": openSetModal(null); break;
+        case "index-new": openSetModal(null, { index: true }); break;
+        case "index-edit": openSetModal(id); break;
+        case "index-toggle": await indexToggle(id); break;
+        case "index-delete": await indexDelete(id); break;
+        case "index-copy": await indexCopy(id); break;
         case "edit-set": openSetModal(id); break;
         case "pick-set": openSetPicker(); break;
         case "attach-set": await attachSet(id); break;
@@ -1406,6 +1559,6 @@
   }
 
   window.PodaRelease = {
-    renderCurrent, renderAll, renderSupply, renderSubscribersArea, renderSettings, showSupply
+    renderCurrent, renderAll, renderIndex, renderSupply, renderSubscribersArea, renderSettings, showSupply
   };
 })();
