@@ -2753,7 +2753,7 @@ function renderStudies() {
 
   adminMain.innerHTML = `
     <div class="section-bar section-bar--admin">
-      <span class="section-bar__label">Lookbook</span>
+      <span class="section-bar__label">Index</span>
       <span class="section-bar__title">Visual Studies</span>
       <button type="button" class="admin-newitem section-bar__action" data-new-study>+ New Study</button>
     </div>

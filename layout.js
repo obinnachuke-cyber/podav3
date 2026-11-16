@@ -14,7 +14,7 @@
   const PRIMARY = [
     { href: "index.html?view=shop", label: "Shop" },
     { href: "market-notes.html", label: "Inbox" },
-    { href: "lookbook.html",     label: "Lookbook" },
+    { href: "lookbook.html",     label: "Index" },
     { href: "archive.html",      label: "Archive" },
     { href: "sell.html",         label: "Sell with poda" }
   ];
@@ -51,7 +51,7 @@
     // The Shop is the homepage; old shop.html links redirect there.
     if (file === "shop.html") return "index.html";
     if (file === "note.html") return "market-notes.html";
-    // A study opens from the Lookbook; a release page sits under Shop.
+    // A study opens from the Index; a release page sits under Shop.
     if (file === "study.html") return "lookbook.html";
     if (file === "folder.html") return "index.html";
     return file;

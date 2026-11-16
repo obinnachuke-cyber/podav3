@@ -149,7 +149,7 @@
   function renderFirstRelease() {
     adminMain.innerHTML = `
       <div class="section-bar"><span class="section-bar__title">Create your first release</span></div>
-      <p class="rel-note">A release is one biweekly folder. You'll add its note, lookbook, updates and products here, then schedule its drop into Shop.</p>
+      <p class="rel-note">A release is one biweekly folder. You'll add its note, index, updates and products here, then schedule its drop into Shop.</p>
       ${newReleaseFormHTML(1)}`;
   }
 
@@ -256,8 +256,8 @@
         <div class="rel-menu__list" id="relAddList" hidden>
           <button type="button" class="rel-menu__item" data-rel="new-note">Market Note — write new</button>
           <button type="button" class="rel-menu__item" data-rel="pick-note">Market Note — attach existing…</button>
-          <button type="button" class="rel-menu__item" data-rel="new-set">Lookbook set — create new</button>
-          <button type="button" class="rel-menu__item" data-rel="pick-set">Lookbook set — attach existing…</button>
+          <button type="button" class="rel-menu__item" data-rel="new-set">Index set — create new</button>
+          <button type="button" class="rel-menu__item" data-rel="pick-set">Index set — attach existing…</button>
           <button type="button" class="rel-menu__item" data-rel="pick-products">Products — select from inventory…</button>
           <button type="button" class="rel-menu__item" data-rel="new-update">Update — short text, optional image</button>
         </div>
@@ -300,7 +300,7 @@
           <button type="button" class="btn" data-rel="toggle-set" data-id="${esc(s.id)}">${s.status === "published" ? "Unpublish" : "Publish"}</button>
           <button type="button" class="btn" data-rel="detach-set" data-id="${esc(s.id)}">Remove from release</button>
         </div>
-      </div>`).join("") : `<p class="rel-note">No lookbook sets yet.</p>`;
+      </div>`).join("") : `<p class="rel-note">No index sets yet.</p>`;
 
     const updatesHTML = d.updates.length ? d.updates.map((u, i) => `
       <div class="rel-row">
@@ -351,9 +351,9 @@
         <span class="section-bar__title">Contents</span>
         <span class="section-bar__action">${addMenuHTML()}</span>
       </div>
-      <p class="rel-note">Public order: Market Notes, Lookbook, Updates, then the drop. Each item publishes on its own; products stay private until the drop time (see Settings).</p>
+      <p class="rel-note">Public order: Market Notes, Index, Updates, then the drop. Each item publishes on its own; products stay private until the drop time (see Settings).</p>
       <section class="rel-block"><div class="section-bar"><span class="section-bar__label">01</span><span class="section-bar__title">Market Notes</span></div>${notesHTML}</section>
-      <section class="rel-block"><div class="section-bar"><span class="section-bar__label">02</span><span class="section-bar__title">Lookbook</span></div>${setsHTML}</section>
+      <section class="rel-block"><div class="section-bar"><span class="section-bar__label">02</span><span class="section-bar__title">Index</span></div>${setsHTML}</section>
       <section class="rel-block"><div class="section-bar"><span class="section-bar__label">03</span><span class="section-bar__title">Updates</span></div>${updatesHTML}</section>
       <section class="rel-block"><div class="section-bar"><span class="section-bar__label">04</span><span class="section-bar__title">Products</span></div>${productsHTML}</section>`;
   }
@@ -420,8 +420,8 @@
     const s = studyState.studies.find(x => x.id === id);
     const published = s && s.status === "published";
     const msg = published
-      ? "Remove this lookbook set from the release? It is published, so it will stay public in the Lookbook."
-      : "Remove this lookbook set from the release? The set itself is kept.";
+      ? "Remove this index set from the release? It is published, so it will stay public in the Index."
+      : "Remove this index set from the release? The set itself is kept.";
     if (!confirm(msg)) return;
     await setSetFolder(id, "");
     await logEvent("set_removed", { title: s && s.title });
@@ -557,7 +557,7 @@
     await renderWorkspace();
   }
 
-  /* —— Lookbook set (title, images, captions, cover, order, publish) —— */
+  /* —— Index set (title, images, captions, cover, order, publish) —— */
   // opts.index opens it as an Index entry: a brand or reference that can stand
   // on its own, with an Instagram handle and a credit line. A set that already
   // has a kind always opens that way.
@@ -632,7 +632,7 @@
             <select id="relSetFolder"><option value="">None, stands on its own</option>${(R.indexReleases || []).map(r =>
               `<option value="${esc(r.id)}"${s.relatedDropId === r.id ? " selected" : ""}>${esc(releaseLabel(r))} — ${esc(r.title || "Untitled")}</option>`).join("")}</select></div>` : "";
 
-    openModalHTML(m.index ? (s.id ? "Edit index entry" : "New index entry") : (s.id ? "Edit lookbook set" : "New lookbook set"), `
+    openModalHTML(m.index ? (s.id ? "Edit index entry" : "New index entry") : (s.id ? "Edit index set" : "New index set"), `
       <form id="relSetForm" novalidate>
         <div class="field-grid">
           <div class="field field--full"><label for="relSetTitle">${m.index ? "Brand or title" : "Title"}</label>
@@ -727,7 +727,7 @@
     syncSetFields();
     const s = R.modal.set;
     const index = !!R.modal.index;
-    if (!String(s.title).trim()) { modalError(index ? "An index entry needs a brand or title." : "A lookbook set needs a title."); return; }
+    if (!String(s.title).trim()) { modalError(index ? "An index entry needs a brand or title." : "A index set needs a title."); return; }
     if (index) {
       const handle = cleanHandle(s.instagram);
       if (handle === null) { modalError("That is not an Instagram handle. Use @name or paste the profile link."); return; }
@@ -872,8 +872,8 @@
             ${(s.images || []).length} images · ${s.relatedDropId ? "In another release — attaching moves it" : "Standalone"}</p>
         </div>
         <button type="button" class="btn" data-rel="attach-set" data-id="${esc(s.id)}">Attach</button>
-      </div>`).join("") || `<p class="rel-note">No other lookbook sets. Create a new one instead.</p>`;
-    openModalHTML("Attach an existing lookbook set", rows, `<button type="button" class="btn" data-rel="close-modal">Close</button>`);
+      </div>`).join("") || `<p class="rel-note">No other index sets. Create a new one instead.</p>`;
+    openModalHTML("Attach an existing index set", rows, `<button type="button" class="btn" data-rel="close-modal">Close</button>`);
   }
 
   async function attachNote(id) {
@@ -1029,7 +1029,7 @@
 
       <section class="rel-block">
         <div class="section-bar"><span class="section-bar__title">Editorial visibility</span></div>
-        <p class="rel-note">Opening a release makes its page public so published notes, lookbook sets and updates can appear as you add them. It does <strong>not</strong> publish products, and each item still needs its own Publish.</p>
+        <p class="rel-note">Opening a release makes its page public so published notes, index sets and updates can appear as you add them. It does <strong>not</strong> publish products, and each item still needs its own Publish.</p>
         <div class="rel-actions" style="margin-top:10px;">
           ${r.status === "draft"
             ? `<button type="button" class="btn btn--primary" data-rel="open-release">Open release to the public</button>`
@@ -1062,7 +1062,7 @@
       <section class="rel-block">
         <div class="section-bar"><span class="section-bar__title">Delete release</span></div>
         ${A().canDeleteRelease(r)
-          ? `<p class="rel-note">This release has never been public, so it can be deleted. Its notes and lookbook sets are kept and detached. Products stay in inventory. Its updates and activity log are removed.</p>
+          ? `<p class="rel-note">This release has never been public, so it can be deleted. Its notes and index sets are kept and detached. Products stay in inventory. Its updates and activity log are removed.</p>
              <div class="rel-actions" style="margin-top:10px;"><button type="button" class="btn btn--danger" data-rel="delete-release">Delete release</button></div>`
           : `<p class="rel-note">Only a draft that was never opened to the public, scheduled or launched can be deleted. Use <strong>Archive release</strong> for this one. Nothing is lost.</p>`}
       </section>`;
@@ -1076,7 +1076,7 @@
     if (!A().canDeleteRelease(r)) { setNotice("Only a never-public draft can be deleted. Archive it instead.", true); return; }
     const parts = [];
     if (d.notes.length) parts.push(`${d.notes.length} note${d.notes.length === 1 ? "" : "s"} (kept, detached)`);
-    if (d.studies.length) parts.push(`${d.studies.length} lookbook set${d.studies.length === 1 ? "" : "s"} (kept, detached)`);
+    if (d.studies.length) parts.push(`${d.studies.length} index set${d.studies.length === 1 ? "" : "s"} (kept, detached)`);
     if (d.placements.length) parts.push(`${d.placements.length} product${d.placements.length === 1 ? "" : "s"} (stay in inventory)`);
     if (d.updates.length) parts.push(`${d.updates.length} update${d.updates.length === 1 ? "" : "s"} (deleted)`);
     const summary = parts.length ? `\n\nIn this release: ${parts.join(", ")}.` : "";
@@ -1263,8 +1263,8 @@
     working_set: "Made the working release",
     product_added: "Product added", product_removed: "Product removed",
     note_attached: "Note attached", note_removed: "Note removed",
-    set_attached: "Lookbook set attached", set_removed: "Lookbook set removed",
-    set_published: "Lookbook set published", set_unpublished: "Lookbook set unpublished",
+    set_attached: "Index set attached", set_removed: "Index set removed",
+    set_published: "Index set published", set_unpublished: "Index set unpublished",
     update_published: "Update published", update_unpublished: "Update unpublished"
   };
 
@@ -1426,7 +1426,7 @@
 
       <section class="rel-block">
         <div class="section-bar"><span class="section-bar__title">Legacy data</span></div>
-        <p class="rel-note">The old closet pipeline (${(state.items || []).length} items), drops and per-stage item views were retired from navigation. Their records are untouched in the database. The header's <strong>Export / Backup / Restore legacy items</strong> buttons cover that items table only — not releases, notes, lookbook sets, suppliers, products or subscribers.</p>
+        <p class="rel-note">The old closet pipeline (${(state.items || []).length} items), drops and per-stage item views were retired from navigation. Their records are untouched in the database. The header's <strong>Export / Backup / Restore legacy items</strong> buttons cover that items table only — not releases, notes, index sets, suppliers, products or subscribers.</p>
         <div class="rel-actions"><button type="button" class="btn" data-rel="open-legacy">Open legacy items list</button></div>
       </section>`;
   }

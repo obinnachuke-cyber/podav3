@@ -809,7 +809,7 @@
         </article>`;
     }
 
-    // A lookbook post: its images laid out on a grid, with some cells left
+    // An index post: its images laid out on a grid, with some cells left
     // empty on purpose. One image (or none) is shown as a single wide picture.
     const s = e.study;
     const images = (Array.isArray(s.images) ? s.images : []).filter(Boolean);

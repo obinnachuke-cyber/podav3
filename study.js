@@ -83,7 +83,7 @@
       <article class="study-article">
         <header class="study-article__header">
           <p class="study-article__eyebrow">
-            <a href="lookbook.html">← Lookbook</a>
+            <a href="lookbook.html">← Index</a>
             <span>${isEntry ? (study.kind === "reference" ? "Reference" : "Brand") : (study.studyNumber ? `Vol. ${esc(String(study.studyNumber).padStart(2, "0"))}` : "Visual Study")}${date ? ` · ${esc(date)}` : ""}</span>
           </p>
           <h1 class="study-article__title">${esc(study.title || "Untitled study")}</h1>
