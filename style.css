@@ -4616,3 +4616,26 @@ html.pd-lock { overflow: hidden; }
 .sae__join .subscribe-form__submit { padding: 0 18px; white-space: nowrap; }
 .sae__fine { margin: 0; max-width: 62ch; font-size: 11px; line-height: 1.55; color: var(--text-faint); }
 .sae__fine a { color: inherit; text-decoration: underline; }
+
+/* Study and Index pages: a compact grid of small crops, full size on tap */
+.sg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 960px; margin: 0 auto; }
+@media (min-width: 640px) { .sg { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 960px) { .sg { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; } }
+.sg__cell { margin: 0; }
+.sg__item { display: block; width: 100%; padding: 0; border: 1px solid var(--border); background: var(--image-bg); cursor: zoom-in; overflow: hidden; aspect-ratio: 4 / 5; }
+.sg__item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
+.sg__item:hover img, .sg__item:focus-visible img { transform: scale(1.03); }
+.sg__item:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.sg__cell figcaption { margin-top: 6px; font-size: 10px; letter-spacing: 0.06em; line-height: 1.4; color: var(--text-faint); }
+.study-article__body .sg { max-width: none; }
+@media (prefers-reduced-motion: reduce) { .sg__item img { transition: none; } }
+
+.lb { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 56px 16px 24px; background: rgba(12, 12, 14, 0.92); }
+.lb img { max-width: 100%; max-height: calc(100vh - 140px); object-fit: contain; display: block; }
+.lb__cap { margin: 0; max-width: 60ch; text-align: center; font-size: 12px; color: rgba(255,255,255,0.8); }
+.lb__count { margin: 0; font-size: 10px; letter-spacing: 0.14em; color: rgba(255,255,255,0.5); }
+.lb__close, .lb__nav { position: absolute; width: 44px; height: 44px; border: 0; background: transparent; color: #fff; font-size: 30px; line-height: 1; cursor: pointer; }
+.lb__close { top: 8px; right: 8px; }
+.lb__nav { top: 50%; transform: translateY(-50%); }
+.lb__nav--prev { left: 4px; }
+.lb__nav--next { right: 4px; }

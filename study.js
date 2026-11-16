@@ -13,6 +13,57 @@
       .replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
   }
 
+  // Full-size viewer for the grid: arrows or swipe-free buttons, Esc to close.
+  function bindLightbox(grid, images, captions) {
+    if (!grid || !images.length) return;
+    let at = 0;
+    let box = null;
+
+    function show(i) {
+      at = (i + images.length) % images.length;
+      box.querySelector("img").src = images[at];
+      box.querySelector(".lb__cap").textContent = captions[at] || "";
+      box.querySelector(".lb__count").textContent = `${at + 1} / ${images.length}`;
+    }
+    function close() {
+      if (!box) return;
+      document.removeEventListener("keydown", onKey);
+      box.remove();
+      box = null;
+      document.body.style.overflow = "";
+    }
+    function onKey(e) {
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowRight") show(at + 1);
+      else if (e.key === "ArrowLeft") show(at - 1);
+    }
+    function open(i) {
+      box = document.createElement("div");
+      box.className = "lb";
+      box.setAttribute("role", "dialog");
+      box.setAttribute("aria-modal", "true");
+      box.innerHTML = `
+        <button type="button" class="lb__close" aria-label="Close">×</button>
+        ${images.length > 1 ? `<button type="button" class="lb__nav lb__nav--prev" aria-label="Previous">‹</button>
+        <button type="button" class="lb__nav lb__nav--next" aria-label="Next">›</button>` : ""}
+        <img alt="" />
+        <p class="lb__cap"></p><p class="lb__count"></p>`;
+      box.addEventListener("click", e => {
+        if (e.target.closest(".lb__close") || e.target === box) close();
+        else if (e.target.closest(".lb__nav--prev")) show(at - 1);
+        else if (e.target.closest(".lb__nav--next")) show(at + 1);
+      });
+      document.body.appendChild(box);
+      document.body.style.overflow = "hidden";
+      document.addEventListener("keydown", onKey);
+      show(i);
+    }
+    grid.addEventListener("click", e => {
+      const item = e.target.closest(".sg__item");
+      if (item) open(Number(item.dataset.i));
+    });
+  }
+
   async function load() {
     const page = document.getElementById("studyPage");
     const status = document.getElementById("studyStatus");
@@ -38,23 +89,16 @@
     const images = Array.isArray(study.images) ? study.images : [];
     const captions = Array.isArray(study.captions) ? study.captions : [];
 
-    // Alternate rhythm: full-bleed, then a pair, then full-bleed… (brief §10)
-    let figures = "";
-    for (let i = 0; i < images.length; i++) {
-      const cap = captions[i] ? `<figcaption>${esc(captions[i])}</figcaption>` : "";
-      // Every 3rd image becomes part of a pair with the next one.
-      if (i % 3 === 1 && images[i + 1]) {
-        const cap2 = captions[i + 1] ? `<figcaption>${esc(captions[i + 1])}</figcaption>` : "";
-        figures += `
-          <div class="study-pair">
-            <figure class="study-figure"><img src="${esc(images[i])}" alt="" loading="lazy" />${cap}</figure>
-            <figure class="study-figure"><img src="${esc(images[i + 1])}" alt="" loading="lazy" />${cap2}</figure>
-          </div>`;
-        i++; // consumed the next one
-      } else {
-        figures += `<figure class="study-figure study-figure--full"><img src="${esc(images[i])}" alt="" loading="lazy" />${cap}</figure>`;
-      }
-    }
+    // A compact grid of small crops. Tapping one opens the full image.
+    const figures = images.length ? `
+      <div class="sg" id="studyGrid">${images.map((url, i) => `
+        <figure class="sg__cell">
+          <button type="button" class="sg__item" data-i="${i}" aria-label="View image ${i + 1} of ${images.length}">
+            <img src="${esc(url)}" alt="" loading="lazy" decoding="async" />
+          </button>
+          ${captions[i] ? `<figcaption>${esc(captions[i])}</figcaption>` : ""}
+        </figure>`).join("")}
+      </div>` : "";
 
     // An Index entry is a brand or reference poda picked. It names where the
     // images come from, links to the Instagram, and says plainly that poda
@@ -106,6 +150,7 @@
         ${entryExtras}
         ${related.length ? `<div class="study-article__related">${related.join("")}</div>` : ""}
       </article>`;
+    bindLightbox(page.querySelector("#studyGrid"), images, captions);
     const slot = page.querySelector("[data-poda-subscribe]");
     if (slot && window.PodaSubscribe && typeof window.PodaSubscribe.mount === "function") {
       // Take the attribute off so the page's own auto-mount does not add a second form.
