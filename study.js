@@ -61,19 +61,30 @@
     // does not sell it or vouch for it.
     const isEntry = !!study.kind;
     const handle = /^[A-Za-z0-9._]{1,30}$/.test(study.instagram || "") ? study.instagram : "";
-    const goHref = handle ? (study.slug ? `/go/${encodeURIComponent(study.slug)}` : `https://www.instagram.com/${handle}/`) : "";
+    // The counted link only works for a published entry, because the redirect
+    // reads the public entry. A draft, which only the admin can open, links
+    // straight to the Instagram so it can be checked before publishing.
+    const goHref = handle
+      ? (study.slug && study.status === "published" ? `/go/${encodeURIComponent(study.slug)}` : `https://www.instagram.com/${handle}/`)
+      : "";
     const credit = String(study.credit || "").trim() || (handle ? `@${handle}` : "");
     const contact = window.PODA_CONTACT_EMAIL || "";
     const removeHref = contact
       ? `mailto:${contact}?subject=${encodeURIComponent(`Removal request: ${study.title || "Index entry"}`)}`
       : "";
     const entryExtras = isEntry ? `
-        <div class="study-article__entry">
-          ${goHref ? `<a class="product-buy" href="${esc(goHref)}" target="_blank" rel="noopener">@${esc(handle)} on Instagram ↗</a>` : ""}
-          ${credit ? `<p class="study-article__credit">Images: ${esc(credit)}</p>` : ""}
-          <p class="study-article__fine">poda features brands it finds interesting. It does not sell their pieces, and is not affiliated with them unless it says so.${removeHref ? ` Own this work? <a href="${esc(removeHref)}">Ask us to remove it</a>.` : ""}</p>
-          <div class="study-article__subscribe" data-poda-subscribe="index"></div>
-        </div>` : "";
+        <footer class="sae">
+          <div class="sae__row">
+            ${goHref ? `<a class="sae__ig" href="${esc(goHref)}" target="_blank" rel="noopener">@${esc(handle)} <span>on Instagram ↗</span></a>` : ""}
+            ${credit ? `<p class="sae__credit">Images: ${esc(credit)}</p>` : ""}
+          </div>
+          <div class="sae__join">
+            <p class="sae__join-title">Market Notes by email</p>
+            <p class="sae__join-sub">Short notes on what is moving in fashion and retail.</p>
+            <div data-poda-subscribe="index"></div>
+          </div>
+          <p class="sae__fine">poda features brands it finds interesting. It does not sell their pieces and is not affiliated with them unless it says so.${removeHref ? ` Own this work? <a href="${esc(removeHref)}">Ask us to remove it</a>.` : ""}</p>
+        </footer>` : "";
 
     const related = [];
     if (study.relatedNoteId) related.push(`<a class="product-link" href="note.html?id=${encodeURIComponent(study.relatedNoteId)}">Read the related note →</a>`);
@@ -99,7 +110,7 @@
     if (slot && window.PodaSubscribe && typeof window.PodaSubscribe.mount === "function") {
       // Take the attribute off so the page's own auto-mount does not add a second form.
       slot.removeAttribute("data-poda-subscribe");
-      window.PodaSubscribe.mount(slot, { source: "index", compact: false });
+      window.PodaSubscribe.mount(slot, { source: "index", compact: true });
     }
   }
 
