@@ -28,8 +28,6 @@ html { scroll-behavior: smooth; }
 /* —— Hero —— */
 .cs-hero { padding-block: clamp(56px, 12vw, 128px) clamp(44px, 8vw, 80px); }
 .cs-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; margin-top: 4px; }
-.cs-link { font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--border-light); }
-.cs-link:hover, .cs-link:focus-visible { text-decoration-color: var(--accent); color: var(--accent); outline: none; }
 
 /* —— Buttons, tags, chips —— */
 .cs-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px; font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; color: var(--text); background: var(--bg); border: 1px solid var(--text); cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s; }
@@ -40,9 +38,6 @@ html { scroll-behavior: smooth; }
 .cs-btn--danger { border-color: var(--border-light); color: var(--danger); }
 .cs-btn--danger:hover, .cs-btn--danger:focus-visible { background: var(--bg); border-color: var(--danger); }
 .cs-btn--block { width: 100%; }
-.cs-btn--light { background: #fff; border-color: #fff; color: var(--accent); }
-.cs-btn--light:hover, .cs-btn--light:focus-visible { background: transparent; color: #fff; }
-.cs-btn--light:focus-visible { box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px #fff; }
 .cs-btn[disabled] { cursor: default; pointer-events: none; }
 .cs-btn--solid[disabled] { background: var(--text-dim); border-color: var(--text-dim); color: var(--bg); }
 .cs-btn--danger[disabled] { opacity: 0.4; }
@@ -136,7 +131,11 @@ html { scroll-behavior: smooth; }
 .cs-band { padding-block: clamp(56px, 10vw, 104px); background: var(--accent); color: #fff; }
 .cs-band .cs-h2 { max-width: 20ch; margin-bottom: 22px; }
 .cs-band__p { margin: 0 0 14px; max-width: 54ch; font-size: clamp(1rem, 2.3vw, 1.15rem); line-height: 1.55; }
-.cs-stack { margin: 26px 0 28px; font-family: var(--font); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.cs-band__link { margin: 0; font-size: 13px; }
+.cs-band__link a { color: #fff; opacity: 0.8; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(255, 255, 255, 0.5); }
+.cs-band__link a:hover, .cs-band__link a:focus-visible { opacity: 1; text-decoration-color: #fff; outline: none; }
+.cs-band__link a:focus-visible { box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px #fff; }
+.cs-stack { margin: 26px 0 20px; font-family: var(--font); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 
 /* —— Small screens —— */
 @media (max-width: 640px) {
