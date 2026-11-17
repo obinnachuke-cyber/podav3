@@ -91,6 +91,15 @@ the release's own timezone (`tz.js`, `edits.drop_timezone`).
   the visitor's own `localStorage`).
 - The folder art is the unmodified SVG set in `assets/folders/`.
 
+**Behind the Platform** (`build.html`, served at `/build`). A case study of the supplier,
+inventory, commission and payout systems, meant to be linked from outside the site and
+not from the shopping pages. It is `noindex`. It loads no Supabase client and calls no
+`/api/*` route: every table, order and payout on it is invented demo data held in the
+browser, in `casestudy-core.js` (data), `casestudy-stages.js` (stages 1 to 3),
+`casestudy-sim.js` (the commission and payout simulator) and `casestudy-ops.js` (the
+dashboard and architecture). The simulator runs the real `finance.js`, so a change to the
+money rules there changes this page too. `/build#simulator` opens the simulator directly.
+
 #### Database migrations
 
 Apply, in order, in the Supabase SQL editor: the base schema

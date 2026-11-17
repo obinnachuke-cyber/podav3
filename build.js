@@ -43,6 +43,7 @@ const INCLUDE = [
   "market-notes.html",
   "note.html",
   "policies.html",
+  "build.html", // /build: the Behind the Platform case study, demo data only
   "sell.html",
   // "source.html" is kept in the repo but off the site for now: add it back here to publish it.
   "study.html",
@@ -51,7 +52,12 @@ const INCLUDE = [
 
   "style.css",
   "admin.css",
+  "casestudy.css",
 
+  "casestudy-core.js",
+  "casestudy-sim.js",
+  "casestudy-stages.js",
+  "casestudy-ops.js",
   "script.js",
   "tz.js",
   "finance.js",
