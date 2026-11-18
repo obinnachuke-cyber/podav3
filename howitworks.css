@@ -1,0 +1,34 @@
+/* ============================================================
+   howitworks.css: the seller page (how-it-works.html).
+   Loads after style.css and casestudy.css. The walkthrough reuses the
+   .cs- components from /build; this file only adds the hero, headings
+   and closing, set in Anton like the Sell with poda page.
+   ============================================================ */
+.hw-hero { padding-block: clamp(56px, 12vw, 120px) clamp(48px, 9vw, 96px); }
+.hw-title,
+.hw-h2 {
+  margin: 0;
+  font-family: "Anton", Impact, "Haettenschweiler", "Arial Narrow Bold", sans-serif;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 0.98;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.hw-title { margin-bottom: 22px; font-size: clamp(56px, 16vw, 128px); }
+.hw-h2 { margin-bottom: 24px; font-size: clamp(38px, 9vw, 64px); }
+.hw-copy { margin: 0 0 30px; font-family: var(--font); font-size: 13px; line-height: 1.8; letter-spacing: 0.02em; color: var(--text-dim); }
+.hw-link { font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--text); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--border-light); }
+.hw-link:hover, .hw-link:focus-visible { color: var(--accent); text-decoration-color: var(--accent); outline: none; }
+.hw-link:focus-visible { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+
+.hw-mark { width: 44%; height: auto; }
+.hw-state { margin: 0 0 10px; text-align: center; }
+.hw-state .cs-chip { margin-left: 0; }
+.hw-result { margin: 18px 0 0; font-family: var(--font-serif); font-size: clamp(1.15rem, 3.2vw, 1.5rem); font-weight: 600; line-height: 1.25; text-align: center; }
+
+/* Sold uses the dark chip. */
+.cs-chip--sold { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+.hw-close { padding-block: clamp(48px, 9vw, 96px); }
+.hw-close .cs-label { margin-bottom: 18px; }

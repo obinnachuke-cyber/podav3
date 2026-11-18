@@ -236,6 +236,7 @@
         <div class="apply-intro__actions">
           <button type="button" class="btn btn--primary" data-act="start">Apply to sell</button>
           <a class="apply-login" href="seller.html">Seller login →</a>
+          <a class="apply-login" href="how-it-works.html">How it works →</a>
         </div>
       </div>`;
     },

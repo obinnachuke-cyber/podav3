@@ -1,8 +1,12 @@
 /* ============================================================
-   casestudy.js: the four step walkthrough on /build.
+   casestudy.js: the four step walkthrough on /build and /how-it-works.
    Everything here is simulated in the page. It loads no Supabase client,
-   calls no /api route and starts no Stripe session, so no real order,
-   payment or payout can happen from this page.
+   calls no /api route and starts no Stripe session, so no real account,
+   upload, order, payment or payout can happen from these pages.
+
+   Buttons marked data-advance finish their step and move to the next one.
+   On the last step they finish the demo and offer a restart. The /build
+   page uses named actions (submit, approve, buy) for the same thing.
    ============================================================ */
 (function () {
   "use strict";
@@ -61,8 +65,8 @@
     }
   }
 
-  function setLocked(panel, locked) {
-    Array.prototype.forEach.call(panel.querySelectorAll("button"), function (btn) {
+  function setLocked(panel, locked, selector) {
+    Array.prototype.forEach.call(panel.querySelectorAll(selector || "button"), function (btn) {
       if (locked) btn.setAttribute("disabled", "");
       else btn.removeAttribute("disabled");
     });
@@ -93,12 +97,22 @@
   // Mark the current step finished, hold for a moment, then move on.
   function finish(panel, next) {
     busy = true;
+    var last = next >= panels.length;
     panel.setAttribute("data-state", "done");
-    setLocked(panel, true);
+    // On the last step only the action locks, so the restart button stays usable.
+    setLocked(panel, true, last ? "[data-advance]" : null);
     var card = panel.querySelector("[data-card]");
-    if (card && next === 1) card.classList.add("is-sent"); // the item leaves the seller's view
+    // The item leaves the view it was in: always from step one on /build, and
+    // from any step whose card is marked data-sends.
+    if (card && !last && (next === 1 || card.hasAttribute("data-sends"))) card.classList.add("is-sent");
     window.setTimeout(function () {
       busy = false;
+      if (last) {
+        live.textContent = "Demo complete. Restart to run it again.";
+        var again = panel.querySelector('[data-action="restart"]');
+        if (again) again.focus({ preventScroll: true });
+        return;
+      }
       go(next, true);
     }, PAUSE_MS);
   }
@@ -117,9 +131,13 @@
   }
 
   root.addEventListener("click", function (event) {
-    var button = event.target.closest("[data-action]");
+    var button = event.target.closest("[data-action], [data-advance]");
     if (!button || busy) return;
     var panel = button.closest("[data-panel]");
+    if (button.hasAttribute("data-advance")) {
+      finish(panel, panels.indexOf(panel) + 1);
+      return;
+    }
     switch (button.getAttribute("data-action")) {
       case "submit": finish(panel, 1); break;
       case "approve": finish(panel, 2); break;
