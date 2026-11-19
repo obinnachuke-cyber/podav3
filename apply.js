@@ -322,11 +322,11 @@
           <span class="apply-private__email">${esc(state.email)}</span>
           <button type="button" class="apply-edit" data-edit="email" aria-label="Edit email">Edit</button>
         </div>
-        <p class="apply-note">Your application and photos are private and subject to review.</p>
+        <p class="apply-note">Everything here is private. Poda reviews each one.</p>
         <p class="apply-error" id="applyError" role="alert" hidden></p>
         <div class="apply-nav">
           <button type="button" class="btn" data-act="back">Back</button>
-          <button type="button" class="btn btn--primary" data-act="submit" id="applySubmit">Submit application</button>
+          <button type="button" class="btn btn--primary" data-act="submit" id="applySubmit">Submit</button>
         </div>
       </div>`;
     },
@@ -498,7 +498,7 @@
       } finally {
         state.submitting = false;
         const btn = document.getElementById("applySubmit");
-        if (btn) { btn.disabled = false; btn.textContent = "Submit application"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Submit"; }
       }
     }
   });

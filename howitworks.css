@@ -4,20 +4,17 @@
    .cs- components from /build; this file only adds the hero, headings
    and closing, set in Anton like the Sell with poda page.
    ============================================================ */
-.hw-hero { padding-block: clamp(56px, 12vw, 120px) clamp(48px, 9vw, 96px); }
-.hw-title,
 .hw-h2 {
-  margin: 0;
+  margin: 0 0 12px;
   font-family: "Anton", Impact, "Haettenschweiler", "Arial Narrow Bold", sans-serif;
   font-style: italic;
   font-weight: 400;
   line-height: 0.98;
   letter-spacing: 0.01em;
   text-transform: uppercase;
+  font-size: clamp(34px, 7vw, 52px);
 }
-.hw-title { margin-bottom: 22px; font-size: clamp(56px, 16vw, 128px); }
-.hw-h2 { margin-bottom: 24px; font-size: clamp(38px, 9vw, 64px); }
-.hw-copy { margin: 0 0 30px; font-family: var(--font); font-size: 13px; line-height: 1.8; letter-spacing: 0.02em; color: var(--text-dim); }
+.hw-copy { margin: 0 0 28px; font-family: var(--font); font-size: 13px; line-height: 1.8; letter-spacing: 0.02em; color: var(--text-dim); }
 .hw-link { font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--text); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--border-light); }
 .hw-link:hover, .hw-link:focus-visible { color: var(--accent); text-decoration-color: var(--accent); outline: none; }
 .hw-link:focus-visible { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
