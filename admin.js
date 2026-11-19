@@ -3007,8 +3007,12 @@ async function renderApplications() {
     // a failed email leaves the decision in place with a "Send now" link.
     const sendResult = async () => {
       const r = await emailApplicationDecision(app.id);
-      if (r.ok) app.notified_status = app.status;
-      else alert(`Saved, but the email to ${app.email} did not send: ${r.error}`);
+      if (r.ok) {
+        app.notified_status = app.status;
+        if (app.status === "accepted" && !r.account) {
+          alert(`The email to ${app.email} went out without an account link, because no unused invite exists for that address. Create one under Suppliers and send the invite from there.`);
+        }
+      } else alert(`Saved, but the email to ${app.email} did not send: ${r.error}`);
     };
 
     try {
@@ -3019,8 +3023,29 @@ async function renderApplications() {
       } else if (statusBtn) {
         const next = statusBtn.dataset.appStatus;
         const emails = next === "accepted" || next === "declined";
-        if (emails && !confirm(`${next === "accepted" ? "Accept" : "Decline"} ${app.name} and email ${app.email}?`)) return;
-        el.querySelectorAll("button").forEach(b => { b.disabled = true; });
+        if (next === "accepted") {
+          // Accepting creates the account: the supplier (or reuses theirs), then
+          // an invite for their email. Only then is the decision saved and the
+          // email sent, so the email always has the link to lead them in.
+          const choice = await askAcceptApplicant(app);
+          if (!choice) return;
+          el.querySelectorAll("button").forEach(b => { b.disabled = true; });
+          let supplierId = choice.supplierId;
+          if (!supplierId) {
+            const created = await M.createSupplier({
+              name: choice.name,
+              type: choice.type,
+              commissionBps: choice.bps,
+              contactEmail: app.email,
+              notes: `From the Sell with poda application of ${new Date(app.created_at).toLocaleDateString()}.`
+            });
+            supplierId = created.id;
+          }
+          await M.createSupplierInvite(supplierId, app.email);
+        } else {
+          if (emails && !confirm(`Decline ${app.name} and email ${app.email}?`)) return;
+          el.querySelectorAll("button").forEach(b => { b.disabled = true; });
+        }
         await M.setApplicationStatus(app.id, next);
         app.status = next;   // update in place: no reload, the list just redraws
         if (emails) await sendResult();
@@ -3668,12 +3693,80 @@ async function emailApplicationDecision(id) {
       body: JSON.stringify({ id })
     });
     const body = await res.json().catch(() => ({}));
-    if (res.ok && body.ok) return { ok: true, to: body.to };
+    if (res.ok && body.ok) return { ok: true, to: body.to, account: !!body.account };
     const detail = typeof body.detail === "string" ? ` (${body.detail})` : "";
     return { ok: false, error: (body.error || `The email service returned ${res.status}.`) + detail };
   } catch (e) {
     return { ok: false, error: "Could not reach the email service." };
   }
+}
+
+// Accepting an applicant also sets up their account: a supplier record and an
+// invite for the email they applied with, so the acceptance email can lead
+// them straight into creating their password. This dialog asks for the three
+// things that matter first, above all the commission, which is stored on every
+// order. If a supplier with this email already exists it is reused, so its
+// agreed rate is never overwritten. Resolves with
+// { supplierId } or { name, type, bps }, or null when cancelled.
+const APPLICANT_TYPE_TO_SUPPLIER = { closet: "consignor", store: "boutique", brand: "brand" };
+
+async function askAcceptApplicant(app) {
+  const M = window.PodaMarketplace;
+  let suppliers = [];
+  try { suppliers = await M.getSuppliers(); } catch (e) { /* treated as none found */ }
+  const want = String(app.email || "").trim().toLowerCase();
+  const existing = suppliers.find(s => String(s.contact_email || "").trim().toLowerCase() === want);
+
+  const type = APPLICANT_TYPE_TO_SUPPLIER[app.seller_type] || "consignor";
+  const pct = bps => `${(Number(bps) / 100).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}%`;
+
+  return new Promise(resolve => {
+    const body = existing
+      ? `<p class="rel-note">${escapeHTML(existing.name)} is already a supplier with this email: ${escapeHTML(existing.type)}, ${pct(existing.commission_bps)} to poda. They get a new account link at ${escapeHTML(app.email)}. Their rate stays as it is.</p>`
+      : `<p class="rel-note">This sets up ${escapeHTML(app.name)}'s account and emails them the link to create their password. poda keeps the commission below on every sale, and the seller keeps the rest.</p>
+         <p class="field-error" id="acceptError" hidden></p>
+         <div class="field-grid">
+           ${textField("Seller name", "name", app.name, { full: true })}
+           ${selectField("Type", "type", type, SUPPLIER_TYPES.filter(t => t !== "poda"))}
+           ${numberField("Commission to poda (bps)", "bps", SUPPLIER_DEFAULT_BPS[type], { placeholder: "2500 = 25%" })}
+         </div>
+         <p class="send-note-meta" id="acceptPct">${pct(SUPPLIER_DEFAULT_BPS[type])} to poda</p>`;
+
+    modalContent.innerHTML = `
+      <div class="modal-head">
+        <h2 class="modal-title">Accept ${escapeHTML(app.name)}</h2>
+        <button type="button" class="modal-close" id="modalClose" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">${body}</div>
+      <div class="modal-foot">
+        <button type="button" class="btn" id="acceptCancel">Cancel</button>
+        <button type="button" class="btn btn--primary" id="acceptGo">Accept and email the link</button>
+      </div>`;
+    modalOverlay.hidden = false;
+    document.body.style.overflow = "hidden";
+
+    const done = value => { closeModal(); resolve(value); };
+    document.getElementById("modalClose").addEventListener("click", () => done(null));
+    document.getElementById("acceptCancel").addEventListener("click", () => done(null));
+
+    const typeEl = modalContent.querySelector('[name="type"]');
+    const bpsEl = modalContent.querySelector('[name="bps"]');
+    const pctEl = document.getElementById("acceptPct");
+    const showPct = () => { if (pctEl) pctEl.textContent = `${pct(bpsEl.value || 0)} to poda`; };
+    if (typeEl) typeEl.addEventListener("change", () => { bpsEl.value = SUPPLIER_DEFAULT_BPS[typeEl.value] ?? 0; showPct(); });
+    if (bpsEl) bpsEl.addEventListener("input", showPct);
+
+    document.getElementById("acceptGo").addEventListener("click", () => {
+      if (existing) { done({ supplierId: existing.id }); return; }
+      const name = modalContent.querySelector('[name="name"]').value.trim();
+      const bps = Number(bpsEl.value);
+      const err = document.getElementById("acceptError");
+      const fail = message => { err.textContent = message; err.hidden = false; };
+      if (!name) return fail("Enter the seller's name.");
+      if (!Number.isInteger(bps) || bps < 0 || bps > 10000) return fail("Commission must be a whole number between 0 and 10000 (2500 = 25%).");
+      done({ name, type: typeEl.value, bps });
+    });
+  });
 }
 
 async function emailInvite(token) {

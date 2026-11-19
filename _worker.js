@@ -695,14 +695,31 @@ async function handleSendInvite(request, env) {
    emailed, so a repeat call does not email the person twice.
    ============================================================ */
 
-function buildDecisionEmail(name, decision, siteUrl) {
+// joinUrl is the applicant's personal account link. When an accepted applicant
+// has one, the email leads them straight into creating their account; without
+// one it keeps the older "we'll be in touch" wording.
+function buildDecisionEmail(name, decision, siteUrl, joinUrl) {
   const who = escapeHTML(name || "there");
   const accepted = decision === "accepted";
+  const withAccount = accepted && !!joinUrl;
   const subject = "Your poda application";
   const headline = accepted ? "We’d like to work with you." : "Thank you for applying.";
   const body = accepted
-    ? "Thanks for applying to sell with poda. We liked what you sent and would like to work with you. We’ll be in touch with next steps."
+    ? (withAccount
+        ? "Thanks for applying to sell with poda. We liked what you sent and would like to work with you. Create your password to open your closet. Upload your pieces, add the details, and poda chooses what goes live."
+        : "Thanks for applying to sell with poda. We liked what you sent and would like to work with you. We’ll be in touch with next steps.")
     : "Thanks for applying to sell with poda. We’re not able to take this one on right now. We appreciate you sharing it with us.";
+  const safeJoin = escapeHTML(joinUrl || "");
+  const buttonRow = withAccount
+    ? `<tr>
+              <td style="padding:0 32px 30px;">
+                <a href="${safeJoin}" style="display:inline-block;background:#15151a;color:#ffffff;text-decoration:none;font-family:'Courier New',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;padding:15px 26px;">Create your account &rarr;</a>
+              </td>
+            </tr>`
+    : "";
+  const footNote = withAccount
+    ? `This link is for you only and works once. If the button does not work, paste this into your browser:<br /><span style="word-break:break-all;">${safeJoin}</span><br /><br />Reply to this email if you have a question.`
+    : "Reply to this email if you have a question.";
 
   const html = `<!doctype html>
 <html>
@@ -725,9 +742,10 @@ function buildDecisionEmail(name, decision, siteUrl) {
                 Hi ${who},<br /><br />${body}
               </td>
             </tr>
+            ${buttonRow}
             <tr>
               <td style="padding:18px 32px;border-top:1px solid #dcdbd6;font-family:'Courier New',monospace;font-size:10px;letter-spacing:0.06em;line-height:1.6;color:#8a8882;">
-                Reply to this email if you have a question.
+                ${footNote}
               </td>
             </tr>
           </table>
@@ -737,8 +755,30 @@ function buildDecisionEmail(name, decision, siteUrl) {
   </body>
 </html>`;
 
-  const text = `Hi ${name || "there"},\n\n${body}\n\nReply to this email if you have a question.\n\npoda`;
+  const text = withAccount
+    ? `Hi ${name || "there"},\n\n${body}\n\nCreate your account: ${joinUrl}\n\nThis link is for you only and works once. Reply to this email if you have a question.\n\npoda`
+    : `Hi ${name || "there"},\n\n${body}\n\nReply to this email if you have a question.\n\npoda`;
   return { subject, html, text };
+}
+
+// The unused invite for this applicant's email, as a link, or "". Matched in
+// code on the lowercased address, so no characters in an email can act as a
+// search wildcard. Read with the admin's session, like the application itself.
+async function applicantJoinUrl(env, token, email, siteUrl) {
+  try {
+    const rows = await supabaseSelect(
+      env, token, "supplier_invites",
+      "used_at=is.null&select=email,token,code,created_at&order=created_at.desc&limit=200"
+    );
+    const want = String(email || "").trim().toLowerCase();
+    const invite = (rows || []).find(r => String(r.email || "").trim().toLowerCase() === want);
+    if (!invite) return "";
+    return invite.code
+      ? `${siteUrl}/join/${encodeURIComponent(invite.code)}`
+      : `${siteUrl}/seller.html?invite=${encodeURIComponent(invite.token)}`;
+  } catch (e) {
+    return "";
+  }
 }
 
 async function handleApplicationDecision(request, env) {
@@ -776,7 +816,8 @@ async function handleApplicationDecision(request, env) {
   }
 
   const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
-  const { subject, html, text } = buildDecisionEmail(app.name, app.status, siteUrl);
+  const joinUrl = app.status === "accepted" ? await applicantJoinUrl(env, auth.token, app.email, siteUrl) : "";
+  const { subject, html, text } = buildDecisionEmail(app.name, app.status, siteUrl, joinUrl);
 
   let result;
   try {
@@ -808,7 +849,9 @@ async function handleApplicationDecision(request, env) {
     body: JSON.stringify({ notified_status: app.status })
   }).catch(() => null);
 
-  return json(200, { ok: true, to: app.email, recorded: !!(mark && mark.ok) });
+  // `account` says whether the email carried the applicant's account link, so
+  // the admin screen can warn when an accepted applicant got none.
+  return json(200, { ok: true, to: app.email, recorded: !!(mark && mark.ok), account: !!joinUrl });
 }
 
 /* ============================================================
