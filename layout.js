@@ -20,11 +20,13 @@
   ];
   // The 3D folder homepage. index.html shows the Shop while a release is live,
   // so the folders need their own way in: ?view=home always shows them. On
-  // desktop the link sits with About and Admin; on phones it is in the menu.
+  // desktop the link sits with Seller login and Admin; on phones it is in the
+  // menu.
   const FOLDERS_HREF = "index.html?view=home";
 
+  // "seller" marks the link that turns into "My Closet" for a signed-in seller.
   const SECONDARY = [
-    { href: "about.html", label: "About" },
+    { href: "seller.html", label: "Seller login", seller: true },
     { href: "admin.html", label: "Admin" }
   ];
 
@@ -59,7 +61,8 @@
 
   function linkHTML(item, active) {
     const isActive = item.href.split("?")[0] === active;
-    return `<a href="${item.href}"${isActive ? ' class="is-active" aria-current="page"' : ""}>${item.label}</a>`;
+    const seller = item.seller ? " data-seller-link" : "";
+    return `<a href="${item.href}"${isActive ? ' class="is-active" aria-current="page"' : ""}${seller}>${item.label}</a>`;
   }
 
   function renderHeader(active) {
@@ -67,12 +70,16 @@
     const inner = header && header.querySelector(".site-header__inner");
     if (!header || !inner) return;
 
-    // The folder-desktop homepage (index.html) gets a stripped header —
-    // just the logo — instead of the primary nav. It IS the homepage, so
-    // there is no separate "Home" link (the old one-scroll page is retired).
+    // The folder-desktop homepage (index.html) gets a stripped header: the
+    // logo, and on the right the links that do not belong to a folder. It IS
+    // the homepage, so there is no separate "Home" link.
     if (header.dataset.variant === "minimal") {
+      const homeLinks = [PRIMARY[PRIMARY.length - 1]].concat(SECONDARY);
       inner.innerHTML = `
         <a class="site-logo" href="index.html"><img src="logo-blue.png" alt="poda" /></a>
+        <nav class="site-header__utility site-header__utility--home" aria-label="More from poda">
+          ${homeLinks.map(i => linkHTML(i, active)).join("")}
+        </nav>
       `;
       return;
     }
@@ -82,6 +89,7 @@
       <nav class="site-nav" aria-label="Primary">
         ${PRIMARY.map(i => linkHTML(i, active)).join("")}
         <a class="site-nav__folders" href="${FOLDERS_HREF}">Folders</a>
+        <a class="site-nav__seller" href="seller.html" data-seller-link>Seller login</a>
       </nav>
       <div class="site-header__utility">
         <a class="site-header__folders" href="${FOLDERS_HREF}">Folders</a>
@@ -146,7 +154,7 @@
           <span class="footer-tag">New York + Washington, DC + Los Angeles</span>
         </div>
         <nav class="footer-nav" aria-label="Footer">
-          ${PRIMARY.concat(SECONDARY, FOOTER_EXTRA).map(i => `<a href="${i.href}">${i.label}</a>`).join("")}
+          ${PRIMARY.concat(SECONDARY, FOOTER_EXTRA).map(i => `<a href="${i.href}"${i.seller ? " data-seller-link" : ""}>${i.label}</a>`).join("")}
         </nav>
         <nav class="footer-links" aria-label="Social">
           ${SOCIAL.map(s => `<a href="${s.href}" target="_blank" rel="noopener">${s.label} ↗</a>`).join("")}
@@ -178,11 +186,8 @@
     try {
       const profile = await market.myProfile();
       if (!profile || profile.role !== "supplier") return;
-      const link = `<a href="seller.html">My Closet</a>`;
-      const utility = document.querySelector(".site-header__utility");
-      if (utility) utility.insertAdjacentHTML("afterbegin", link);
-      // The homepage links row already has a static "Seller login"; for a
-      // signed-in supplier it becomes "My Closet".
+      // Every "Seller login" link, in the header, the menu and the footer,
+      // becomes "My Closet" for a signed-in supplier.
       document.querySelectorAll("[data-seller-link]").forEach(a => { a.textContent = "My Closet"; });
     } catch (e) { /* no closet link is better than a broken header */ }
   }

@@ -1173,19 +1173,48 @@
         </p>`;
     }
 
-    function render(shop, upcoming, content) {
+    // The most recent drop that has since closed or been replaced, or null.
+    function lastDrop(folders) {
+      const past = (folders || []).filter(isPast).sort((a, b) => (dropMoment(b) || 0) - (dropMoment(a) || 0));
+      return past[0] || null;
+    }
+
+    // Nothing is live. Say where things stand, what is next and how to hear
+    // about it, instead of a heading with one line under it.
+    function emptyShopHTML(upcoming, last) {
+      const next = upcoming
+        ? upcomingNotice(upcoming)
+        : `<p class="shop-next"><span class="folder-locked__label">Next drop</span> No date set yet.</p>`;
+      const previous = last ? `
+        <p class="shop-next">
+          <span class="folder-locked__label">Last drop</span>
+          ${esc(folderName(last))} — ${esc(last.title)}
+          · <a class="product-link" href="folder.html?id=${encodeURIComponent(last.id)}">See the folder →</a>
+        </p>` : "";
+      return `
+        <article class="folder-page shop-page">
+          <a class="folder-page__back" href="index.html">← Home</a>
+          <header class="shop-head">
+            <p class="folder-head__no">SHOP</p>
+            <h1 class="folder-head__title">Shop</h1>
+            <p class="folder-head__standfirst">${last ? "Between drops." : "The first drop is on its way."}</p>
+          </header>
+          ${next}
+          ${previous}
+          <section class="shop-signup" aria-label="Get the Market Note by email">
+            <p class="folder-locked__label">Get the Market Note by email</p>
+            <div data-shop-signup></div>
+          </section>
+          <p class="shop-sell">Have something for the next drop? <a class="product-link" href="sell.html#apply">Apply to sell →</a></p>
+          <p class="shop-footer"><a class="product-link" href="archive.html">Past releases →</a></p>
+        </article>`;
+    }
+
+    function render(shop, upcoming, content, folders) {
       if (!shop) {
-        mount.innerHTML = `
-          <article class="folder-page shop-page">
-            <a class="folder-page__back" href="index.html">← Home</a>
-            <header class="shop-head">
-              <p class="folder-head__no">SHOP</p>
-              <h1 class="folder-head__title">Shop</h1>
-              <p class="folder-head__standfirst">The first drop is on its way.</p>
-            </header>
-            ${upcomingNotice(upcoming)}
-            <p class="shop-footer"><a class="product-link" href="archive.html">Past releases →</a></p>
-          </article>`;
+        mount.innerHTML = emptyShopHTML(upcoming, lastDrop(folders));
+        const signup = mount.querySelector("[data-shop-signup]");
+        if (signup && window.PodaSubscribe) window.PodaSubscribe.mount(signup, { source: "shop-empty", compact: true });
         return;
       }
       // The live page is the drop and nothing else. The updates, notes and
@@ -1233,7 +1262,7 @@
         schedule(upcoming, skew);
         return;
       }
-      render(shop, upcoming, content);
+      render(shop, upcoming, content, folders);
       mount.dataset.shopId = shop ? shop.id : "";
       if (shop) markSeen("shop");
       schedule(upcoming, skew);

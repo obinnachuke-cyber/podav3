@@ -31,7 +31,6 @@ const INCLUDE = [
 
   "index.html",
   "home.html",
-  "about.html",
   "admin.html",
   "archive.html",
   "seller.html",

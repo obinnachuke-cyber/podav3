@@ -3094,25 +3094,6 @@ button.card-link {
 @media (min-width: 560px) {
   .home-folders__grid { grid-template-columns: repeat(3, minmax(0, 180px)); }
 }
-/* Six folders: three across on larger screens keeps it a tidy 3 × 2. */
-.home-folders__links {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px 22px;
-  margin-top: 40px;
-}
-.home-folders__links a {
-  font-family: var(--font);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--text-dim);
-}
-.home-folders__links a:hover,
-.home-folders__links a:focus-visible { color: var(--accent); outline: none; }
 .folder-tile {
   display: flex;
   flex-direction: column;
@@ -3326,6 +3307,10 @@ button.card-link {
   color: var(--text-dim);
 }
 .shop-next .folder-locked__label { display: inline; margin-right: 8px; }
+.shop-page .shop-next + .shop-next { margin-top: 12px; }
+.shop-signup { margin: 36px 0 0; max-width: 560px; }
+.shop-signup .folder-locked__label { display: block; margin: 0 0 10px; }
+.shop-sell { margin: 28px 0 0; font-size: 0.88rem; line-height: 1.55; color: var(--text-dim); }
 .shop-footer { margin: 28px 0 0; }
 .folder-chip {
   display: inline-block;
@@ -3713,12 +3698,12 @@ button.card-link {
   height: var(--fh);
   transform-style: preserve-3d;
   /* --tilt is set from JS while a finger drags across the row. */
-  transform: translate(148px, 22px) rotateX(-17deg) rotateY(calc(38deg + var(--tilt, 0deg)));
+  transform: translate(108px, 22px) rotateX(-17deg) rotateY(calc(38deg + var(--tilt, 0deg)));
   transition: transform 0.25s ease-out;
 }
 
 .fstack {
-  --z: calc((var(--i) - 4) * var(--fp));   /* the front folder is the last one, i = 4 */
+  --z: calc((var(--i) - 3) * var(--fp));   /* the front folder is the last one, i = 3 */
   --lift: 0px;
   --spread: 5px;
   position: absolute;
@@ -3815,7 +3800,7 @@ button.card-link {
 /* —— Index: the real navigation under the scene —— */
 .findex {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   width: min(960px, 100%);
   margin: 0 auto;
@@ -3862,13 +3847,13 @@ button.card-link {
 }
 
 @media (max-width: 900px) {
-  .findex { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 0; }
+  .findex { grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 0; }
   .findex__item { border-left: 0; border-top: 1px solid var(--border); }
 }
 @media (max-width: 640px) {
   .fscene { --fw: 160px; --fh: 120px; --fp: 70px; height: 280px; }
   /* More side-on than desktop so each folder shows its whole name */
-  .frow { transform: translate(118px, 16px) rotateX(-17deg) rotateY(calc(50deg + var(--tilt, 0deg))) scale(0.82); }
+  .frow { transform: translate(86px, 16px) rotateX(-17deg) rotateY(calc(50deg + var(--tilt, 0deg))) scale(0.82); }
   .ftab { font-size: 9px; letter-spacing: 0.06em; top: -16px; height: 17px; padding: 0 12px 0 7px; }
   .findex { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -3878,11 +3863,22 @@ button.card-link {
   .fstack, .fc, .fripple, .frow { transition: none; }
 }
 
-/* "Folders" link in the header: with About and Admin on desktop, in the
+/* "Folders" and "Seller login" in the header: with Admin on desktop, in the
    menu on phones (the utility links are hidden there). */
-.site-nav .site-nav__folders { display: none; }
+.site-nav .site-nav__folders,
+.site-nav .site-nav__seller { display: none; }
 @media (max-width: 767px) {
-  .site-header.is-open .site-nav .site-nav__folders { display: inline-flex; }
+  .site-header.is-open .site-nav .site-nav__folders,
+  .site-header.is-open .site-nav .site-nav__seller { display: inline-flex; }
+}
+
+/* Homepage header: Sell with poda, Seller login and Admin stay on the bar
+   at every width, since this header has no menu button. */
+.site-header__utility.site-header__utility--home { gap: 22px; }
+.site-header__utility.site-header__utility--home a { display: inline-flex; align-items: center; }
+@media (max-width: 480px) {
+  .site-header__utility.site-header__utility--home { gap: 12px; }
+  .site-header__utility.site-header__utility--home a { font-size: 9px; letter-spacing: 0.08em; }
 }
 
 /* ============================================================
