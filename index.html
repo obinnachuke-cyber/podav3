@@ -40,18 +40,18 @@
            and raises the red stack on a folder with new material. -->
       <div class="fscene" id="folderScene">
         <div class="frow">
-        <a class="fstack" data-scene="shop" href="index.html?view=shop" style="--i:0" aria-hidden="true" tabindex="-1">
+        <a class="fstack" data-scene="archive" href="archive.html" style="--i:0" aria-hidden="true" tabindex="-1">
+          <span class="fripple">
+            <i class="fc fc--b4"></i><i class="fc fc--b3"></i><i class="fc fc--b2"></i><i class="fc fc--b1"></i>
+            <i class="fc fc--r3"></i><i class="fc fc--r2"></i><i class="fc fc--r1"></i>
+            <span class="fc fc--front"><b class="ftab">Archive</b></span>
+          </span>
+        </a>
+        <a class="fstack" data-scene="shop" href="index.html?view=shop" style="--i:1" aria-hidden="true" tabindex="-1">
           <span class="fripple">
             <i class="fc fc--b4"></i><i class="fc fc--b3"></i><i class="fc fc--b2"></i><i class="fc fc--b1"></i>
             <i class="fc fc--r3"></i><i class="fc fc--r2"></i><i class="fc fc--r1"></i>
             <span class="fc fc--front"><b class="ftab">Shop</b></span>
-          </span>
-        </a>
-        <a class="fstack" data-scene="inbox" href="market-notes.html" style="--i:1" aria-hidden="true" tabindex="-1">
-          <span class="fripple">
-            <i class="fc fc--b4"></i><i class="fc fc--b3"></i><i class="fc fc--b2"></i><i class="fc fc--b1"></i>
-            <i class="fc fc--r3"></i><i class="fc fc--r2"></i><i class="fc fc--r1"></i>
-            <span class="fc fc--front"><b class="ftab">Inbox</b></span>
           </span>
         </a>
         <a class="fstack" data-scene="lookbook" href="lookbook.html" style="--i:2" aria-hidden="true" tabindex="-1">
@@ -61,31 +61,31 @@
             <span class="fc fc--front"><b class="ftab">Index</b></span>
           </span>
         </a>
-        <a class="fstack" data-scene="archive" href="archive.html" style="--i:3" aria-hidden="true" tabindex="-1">
+        <a class="fstack" data-scene="inbox" href="market-notes.html" style="--i:3" aria-hidden="true" tabindex="-1">
           <span class="fripple">
             <i class="fc fc--b4"></i><i class="fc fc--b3"></i><i class="fc fc--b2"></i><i class="fc fc--b1"></i>
             <i class="fc fc--r3"></i><i class="fc fc--r2"></i><i class="fc fc--r1"></i>
-            <span class="fc fc--front"><b class="ftab">Archive</b></span>
+            <span class="fc fc--front"><b class="ftab">Inbox</b></span>
           </span>
         </a>
         </div>
       </div>
       <nav class="findex" id="homeFolders" aria-label="Browse poda">
+        <a class="findex__item" href="archive.html" data-folder="archive" data-name="Archive">
+          <span class="folder-tile__label">Archive</span>
+          <span class="folder-tile__state">Past folders</span>
+        </a>
         <a class="findex__item" href="index.html?view=shop" data-folder="shop" data-name="Shop">
           <span class="folder-tile__label">Shop</span>
           <span class="folder-tile__state">The current drop</span>
-        </a>
-        <a class="findex__item" href="market-notes.html" data-folder="inbox" data-name="Inbox">
-          <span class="folder-tile__label">Inbox</span>
-          <span class="folder-tile__state">Notes &amp; updates</span>
         </a>
         <a class="findex__item" href="lookbook.html" data-folder="lookbook" data-name="Index">
           <span class="folder-tile__label">Index</span>
           <span class="folder-tile__state">Visual studies</span>
         </a>
-        <a class="findex__item" href="archive.html" data-folder="archive" data-name="Archive">
-          <span class="folder-tile__label">Archive</span>
-          <span class="folder-tile__state">Past folders</span>
+        <a class="findex__item" href="market-notes.html" data-folder="inbox" data-name="Inbox">
+          <span class="folder-tile__label">Inbox</span>
+          <span class="folder-tile__state">Notes &amp; updates</span>
         </a>
       </nav>
     </section>
