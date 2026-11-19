@@ -4,11 +4,13 @@
    the bg-box card, the progress bar, the choice buttons and .btn. This file
    only adds the screen layout and the type for the copy.
    ============================================================ */
+/* Grey page, white card: the reverse of the application form. */
+body.hiw-page { background: var(--bg-box); }
 .hiw { max-width: 760px; margin: 0 auto; padding: 56px 0 72px; }
 
 /* Brand name stays lowercase: the tab is not uppercased like the form's. */
 .hiw-tab { text-transform: none; font-size: 17px; letter-spacing: 0.04em; }
-.hiw .apply-card__body { padding: clamp(22px, 5vw, 40px); }
+.hiw .apply-card__body { padding: clamp(22px, 5vw, 40px); background: var(--bg); }
 .hiw-progress { margin-bottom: clamp(22px, 4vw, 34px); }
 .hiw .apply-progress__no { font-size: 12px; }
 
@@ -40,7 +42,7 @@
   max-height: 200px;
   display: grid;
   place-items: center;
-  background: var(--bg);
+  background: var(--bg-box);
   border: 1px solid var(--border);
   overflow: hidden;
 }
@@ -53,6 +55,7 @@
 .hiw-choices { margin-top: 6px; }
 .hiw-hint { margin: 14px 0 0; font-family: var(--font); font-size: 12px; letter-spacing: 0.04em; color: var(--text-dim); }
 .hiw-hint[hidden] { display: none; }
+.hiw .apply-choice { background: var(--bg-box); }
 .hiw .apply-choice.is-selected { background: var(--accent); border-color: var(--accent); color: #fff; }
 .hiw .apply-choice.is-selected:hover { color: #fff; }
 
