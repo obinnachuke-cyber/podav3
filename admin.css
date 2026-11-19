@@ -1264,6 +1264,9 @@
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr;
+  /* One row as tall as the body, so the canvas and the panel each scroll on
+     their own instead of one stacking under the other. */
+  grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -1342,6 +1345,9 @@
 @media (min-width: 768px) {
   .note-studio__settings-toggle { display: none !important; }
   .note-studio__panel[hidden] { display: block; }
+  /* The writing canvas, then the settings panel beside it. Without this the
+     panel dropped under the canvas and covered the editor. */
+  .note-studio__body { grid-template-columns: minmax(0, 1fr) 340px; }
 }
 @media (min-width: 1440px) {
   .note-studio__body.note-studio__body--edit {
