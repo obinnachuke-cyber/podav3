@@ -503,5 +503,8 @@
     }
   });
 
-  show("intro", { focus: false });
+  // sell.html#apply opens the first question, the same place the intro's
+  // "Apply to sell" button goes. Links from other pages use it.
+  if (location.hash === "#apply") show("type");
+  else show("intro", { focus: false });
 })();
