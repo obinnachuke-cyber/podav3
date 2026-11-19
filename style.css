@@ -3774,20 +3774,22 @@ button.card-link {
   top: -19px;
   min-width: 38%;
   height: 21px;
-  padding: 3px 20px 0 11px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px 0 11px;
   white-space: nowrap;
   border-radius: 7px 0 0 0;
   background: inherit;
   clip-path: polygon(0 0, 78% 0, 100% 100%, 0 100%);
   box-shadow: inset 0 1px 0 rgba(186, 198, 255, 0.55);
-  /* Same voice as the poda wordmark: heavy, condensed, slanted. Anton has a
-     single weight, so the slant is the browser's own oblique. */
-  font-family: "Anton", Impact, "Haettenschweiler", "Arial Narrow Bold", sans-serif;
-  font-style: italic;
-  font-weight: 400;
-  letter-spacing: 0.03em;
-  font-size: 15px;
-  line-height: 1.05;
+  /* Same type as the index under the scene: Space Mono, bold, uppercase. */
+  font-family: var(--font);
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
+  line-height: 1;
   color: #fff;
 }
 
@@ -3867,7 +3869,7 @@ button.card-link {
   .fscene { --fw: 160px; --fh: 120px; --fp: 70px; height: 280px; }
   /* More side-on than desktop so each folder shows its whole name */
   .frow { transform: translate(118px, 16px) rotateX(-17deg) rotateY(calc(50deg + var(--tilt, 0deg))) scale(0.82); }
-  .ftab { font-size: 12px; top: -16px; height: 17px; padding: 2px 12px 0 7px; }
+  .ftab { font-size: 9px; letter-spacing: 0.06em; top: -16px; height: 17px; padding: 0 12px 0 7px; }
   .findex { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
