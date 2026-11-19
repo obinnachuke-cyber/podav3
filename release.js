@@ -298,6 +298,7 @@
           <button type="button" class="btn" data-rel="move-set" data-id="${esc(s.id)}" data-dir="1" ${i === d.studies.length - 1 ? "disabled" : ""} aria-label="Move down">↓</button>
           <button type="button" class="btn" data-rel="edit-set" data-id="${esc(s.id)}">Edit</button>
           <button type="button" class="btn" data-rel="toggle-set" data-id="${esc(s.id)}">${s.status === "published" ? "Unpublish" : "Publish"}</button>
+          ${s.status === "published" && open ? `<button type="button" class="btn" data-rel="email-set" data-id="${esc(s.id)}">Email…</button>` : ""}
           <button type="button" class="btn" data-rel="detach-set" data-id="${esc(s.id)}">Remove from release</button>
         </div>
       </div>`).join("") : `<p class="rel-note">No index sets yet.</p>`;
@@ -1060,6 +1061,19 @@
       </section>
 
       <section class="rel-block">
+        <div class="section-bar"><span class="section-bar__title">Email subscribers</span></div>
+        <p class="rel-note">Nothing is emailed on its own, except the drop reminders you schedule below. Every email can be previewed, and sent to you first, before it goes to subscribers.</p>
+        <div class="rel-actions" style="margin-top:10px;">
+          <button type="button" class="btn btn--primary" data-rel="email-drop" ${dropped && r.status !== "archived" ? "" : "disabled"}>Email: the drop is live…</button>
+        </div>
+        ${dropped && r.status !== "archived" ? "" : `<p class="rel-note">The drop email unlocks once the drop is open.</p>`}
+        ${!dropped && r.publish_at && r.status !== "draft" && r.status !== "archived"
+          ? `<div id="relReminders" class="rel-reminders"><p class="rel-note">Checking reminders…</p></div>`
+          : (dropped ? "" : `<p class="rel-note">Reminders appear once the release is open and has a drop date.</p>`)}
+        <p class="rel-note">Index sets: use Email on a published set under Contents. Market Notes: use Send in the Market Notes list.</p>
+      </section>
+
+      <section class="rel-block">
         <div class="section-bar"><span class="section-bar__title">Delete release</span></div>
         ${A().canDeleteRelease(r)
           ? `<p class="rel-note">This release has never been public, so it can be deleted. Its notes and index sets are kept as private drafts. Products stay in inventory. Its updates and activity log are removed.</p>
@@ -1067,6 +1081,204 @@
           : `<p class="rel-note">This release has been public, scheduled or archived. Deleting it takes it out of Shop and the Archive and its link stops working. Products stay in inventory, notes and index sets are kept as private drafts so visitors no longer see them, and orders already placed are kept. Its updates and activity log are removed. <strong>Archive release</strong> keeps a record instead. You will be asked to type the title to confirm.</p>
              <div class="rel-actions" style="margin-top:10px;"><button type="button" class="btn btn--danger" data-rel="delete-release">Delete release…</button></div>`}
       </section>`;
+    if (document.getElementById("relReminders")) loadReminders();
+  }
+
+  /* ============================================================
+     Email subscribers: preview, send to me, send to everyone, and the two
+     timed drop reminders. The Worker builds and sends the emails
+     (/api/release-send, /api/release-reminders); this is only the screen.
+     ============================================================ */
+  const EM = { state: null };   // the open email window
+
+  const EMAIL_TITLES = {
+    drop: "Email: the drop is live",
+    index: "Email: Index set",
+    reminder_morning: "Reminder: morning of the drop",
+    reminder_soon: "Reminder: 30 minutes before"
+  };
+
+  function emailBody(extra) {
+    const s = EM.state;
+    return { kind: s.kind, editId: s.editId, studyId: s.studyId || undefined, ...extra };
+  }
+
+  async function openEmailModal(kind, studyId) {
+    EM.state = { kind, editId: R.data.release.id, studyId: studyId || "", phase: "loading", preview: null, error: "", result: null, confirmText: "", prior: null };
+    drawEmailModal();
+    let res;
+    try { res = await D().adminPost("/api/release-send", emailBody({ mode: "preview" })); }
+    catch (e) { res = { ok: false, error: e.message }; }
+    if (!EM.state) return;   // closed while loading
+    if (res.ok) { EM.state.phase = "preview"; EM.state.preview = res; }
+    else { EM.state.phase = "error"; EM.state.error = res.error || "Could not build the preview."; }
+    drawEmailModal();
+  }
+
+  function drawEmailModal() {
+    const s = EM.state;
+    if (!s) return;
+    const isReminder = s.kind.startsWith("reminder");
+    let body = "";
+    let foot = `<button type="button" class="btn" data-rel="close-modal">Close</button>`;
+
+    if (s.phase === "loading") {
+      body = `<p class="send-note-meta">Building the preview…</p>`;
+    } else if (s.phase === "error") {
+      body = `<p class="field-error">${esc(s.error)}</p>`;
+    } else {
+      const p = s.preview;
+      const over = p.dailyLimit !== null && p.usedToday + p.recipients > p.dailyLimit;
+      body = `
+        <div class="send-preview">
+          <p class="send-preview__meta">Subject: <strong>${esc(p.subject)}</strong></p>
+          <p class="send-preview__meta">Inbox preview line: <strong>${esc(p.preheader)}</strong></p>
+          <iframe class="send-frame" title="Email preview" sandbox srcdoc="${esc(p.html)}"></iframe>
+          ${(p.warnings || []).map(w => `<p class="field-error">${esc(w)}</p>`).join("")}
+        </div>`;
+
+      if (s.phase === "preview" || s.phase === "testing") {
+        body += `
+          ${isReminder
+            ? `<p class="send-note-meta">Reminders go out on their own at the times set on the release page. Send yourself a test to see how it lands.</p>`
+            : `<p class="send-note-meta">${p.recipients} active subscriber${p.recipients === 1 ? "" : "s"} would receive this.${p.dailyLimit !== null ? ` ${p.usedToday} of ${p.dailyLimit} emails used today.` : ""}</p>`}
+          ${over && !isReminder ? `<p class="field-error">Sending now would pass today's limit of ${p.dailyLimit}. Some would not be delivered.</p>` : ""}
+          ${s.error ? `<p class="field-error">${esc(s.error)}</p>` : ""}
+          ${s.result && s.result.mode === "test" ? `<p class="field-success">Test sent to ${esc(s.result.to || "")}.</p>` : ""}`;
+        foot = `
+          <button type="button" class="btn" data-rel="close-modal">Close</button>
+          <button type="button" class="btn" data-rel="email-test" ${s.phase === "testing" ? "disabled" : ""}>${s.phase === "testing" ? "Sending…" : "Send test to me"}</button>
+          ${isReminder ? "" : `<button type="button" class="btn btn--primary" data-rel="email-start" ${over ? "disabled" : ""}>Send to ${p.recipients} subscriber${p.recipients === 1 ? "" : "s"}…</button>`}`;
+      } else if (s.phase === "confirm") {
+        body += `
+          <div class="send-confirm">
+            <p class="send-confirm__warning">This sends a real email to <strong>${p.recipients}</strong> active subscriber${p.recipients === 1 ? "" : "s"}. This cannot be undone.</p>
+            <label class="field field--full"><span>Type SEND to confirm</span>
+              <input type="text" id="emailConfirmInput" autocomplete="off" value="${esc(s.confirmText)}" /></label>
+            ${s.prior ? `<p class="field-error">Already sent on ${esc(new Date(s.prior.created_at).toLocaleString())} (${s.prior.succeeded}/${s.prior.attempted} delivered).
+              <label style="display:block;margin-top:6px;"><input type="checkbox" id="emailOverride" /> Send again anyway</label></p>` : ""}
+            ${s.error ? `<p class="field-error">${esc(s.error)}</p>` : ""}
+          </div>`;
+        foot = `
+          <button type="button" class="btn" data-rel="email-cancel">Back</button>
+          <button type="button" class="btn btn--primary" id="emailConfirmBtn" data-rel="email-confirm" disabled>Confirm and send</button>`;
+      } else if (s.phase === "sending") {
+        body += `<p class="send-note-meta">Sending…</p>`;
+        foot = "";
+      } else if (s.phase === "done") {
+        const r = s.result || {};
+        body += `<p class="field-success">Sent: ${r.succeeded || 0} delivered, ${r.failed || 0} failed.</p>`;
+      }
+    }
+    openModalHTML(EMAIL_TITLES[s.kind] || "Email", body, foot);
+    const box = document.getElementById("emailConfirmInput");
+    if (box) { box.focus(); syncEmailConfirm(); }
+  }
+
+  function syncEmailConfirm() {
+    const input = document.getElementById("emailConfirmInput");
+    const btn = document.getElementById("emailConfirmBtn");
+    if (input && btn) btn.disabled = input.value.trim() !== "SEND";
+  }
+
+  async function emailTest() {
+    const s = EM.state;
+    s.phase = "testing"; s.error = ""; s.result = null;
+    drawEmailModal();
+    let res;
+    try { res = await D().adminPost("/api/release-send", emailBody({ mode: "test" })); }
+    catch (e) { res = { ok: false, error: e.message }; }
+    if (!EM.state) return;
+    s.phase = "preview";
+    if (res.ok) s.result = { mode: "test", to: res.to }; else s.error = res.error || "Test send failed.";
+    drawEmailModal();
+  }
+
+  async function emailBroadcast() {
+    const s = EM.state;
+    const override = !!(document.getElementById("emailOverride") || {}).checked;
+    s.phase = "sending"; s.error = "";
+    drawEmailModal();
+    let res;
+    try { res = await D().adminPost("/api/release-send", emailBody({ mode: "broadcast", confirm: "SEND", override })); }
+    catch (e) { res = { ok: false, error: e.message }; }
+    if (!EM.state) return;
+    if (res.httpStatus === 409 && res.priorSend) { s.phase = "confirm"; s.prior = res.priorSend; s.error = res.error; }
+    else if (!res.ok) { s.phase = "confirm"; s.error = res.error || "Send failed."; }
+    else {
+      s.phase = "done"; s.result = res;
+      await logEvent("email_sent", { kind: s.kind, studyId: s.studyId || null, succeeded: res.succeeded, failed: res.failed });
+    }
+    drawEmailModal();
+  }
+
+  /* —— The two timed reminders on a scheduled drop —— */
+  const REMINDER_STATE = { scheduled: "Scheduled", sending: "Sending", sent: "Sent", cancelled: "Cancelled", skipped: "Skipped", failed: "Failed" };
+
+  function remindersHTML(res) {
+    const byKind = Object.fromEntries((res.rows || []).map(r => [r.kind, r]));
+    const rows = res.plan.map(item => {
+      const row = byKind[item.kind];
+      const kind = item.kind === "morning" ? "reminder_morning" : "reminder_soon";
+      let state;
+      if (row && row.status !== "cancelled") state = `${REMINDER_STATE[row.status] || row.status}${row.note ? `: ${esc(row.note)}` : ""}`;
+      else if (!item.feasible) state = esc(item.why);
+      else state = "Not scheduled";
+      const canSchedule = item.feasible && (!row || ["cancelled", "skipped", "failed"].includes(row.status));
+      const canCancel = row && row.status === "scheduled";
+      return `
+        <div class="rel-row">
+          <div class="rel-row__main">
+            <p class="rel-row__title">${esc(item.label)}</p>
+            <p class="rel-row__meta">${esc(item.whenText)} · ${state}</p>
+          </div>
+          <div class="rel-actions">
+            <button type="button" class="btn" data-rel="email-reminder-preview" data-kind="${kind}">Preview</button>
+            ${canSchedule ? `<button type="button" class="btn btn--primary" data-rel="reminder-schedule" data-which="${item.kind}">Schedule…</button>` : ""}
+            ${canCancel ? `<button type="button" class="btn" data-rel="reminder-cancel" data-which="${item.kind}">Cancel</button>` : ""}
+          </div>
+        </div>`;
+    }).join("");
+
+    const n = res.recipients || 0;
+    const dayTotal = 3 * n;
+    const tight = res.dailyLimit !== null && dayTotal > res.dailyLimit;
+    return `
+      <p class="rel-note" style="margin-top:14px;"><strong>Drop reminders.</strong> Sent automatically to active subscribers at the times below, in the drop's timezone. Moving the drop time cancels them.</p>
+      ${rows}
+      ${res.ready ? "" : `<p class="field-error">Reminders cannot run yet: set SUPABASE_SERVICE_ROLE_KEY and RESEND_API_KEY in Cloudflare.</p>`}
+      ${tight ? `<p class="field-error">On the drop day, two reminders and the drop email are ${dayTotal} emails to ${n} subscribers. Your daily limit is ${res.dailyLimit}, so the last one would be blocked. Schedule one reminder, or upgrade Resend.</p>` : ""}`;
+  }
+
+  async function loadReminders() {
+    const box = document.getElementById("relReminders");
+    if (!box) return;
+    let res;
+    try { res = await D().adminPost("/api/release-reminders", { editId: R.data.release.id, action: "status" }); }
+    catch (e) { res = { ok: false, error: e.message }; }
+    const now = document.getElementById("relReminders");
+    if (!now) return;
+    now.innerHTML = res.ok
+      ? remindersHTML(res)
+      : `<p class="field-error" style="margin-top:12px;">${esc(res.error || "Could not load reminders.")}</p>`;
+  }
+
+  async function scheduleReminder(which) {
+    const label = which === "morning" ? "the morning of the drop" : "30 minutes before the drop";
+    const typed = prompt(`This emails every active subscriber automatically ${label}. It cannot be recalled once it sends.\n\nType SEND to confirm:`);
+    if (typed === null) return;
+    if (typed.trim() !== "SEND") { setNotice("That did not match, so nothing was scheduled.", true); return; }
+    const res = await D().adminPost("/api/release-reminders", { editId: R.data.release.id, action: "schedule", kinds: [which], confirm: "SEND" });
+    if (!res.ok) { setNotice(res.error || "Could not schedule the reminder.", true); return; }
+    setNotice("Reminder scheduled.", false);
+    await loadReminders();
+  }
+
+  async function cancelReminder(which) {
+    const res = await D().adminPost("/api/release-reminders", { editId: R.data.release.id, action: "cancel", kinds: [which] });
+    if (!res.ok) { setNotice(res.error || "Could not cancel the reminder.", true); return; }
+    setNotice("Reminder cancelled.", false);
+    await loadReminders();
   }
 
   // Delete a release. Notes and sets are detached (kept) by the database
@@ -1541,9 +1753,19 @@
           drawSetModal();
           break;
         }
+        case "email-drop": await openEmailModal("drop"); break;
+        case "email-set": await openEmailModal("index", id); break;
+        case "email-reminder-preview": await openEmailModal(el.dataset.kind); break;
+        case "email-test": await emailTest(); break;
+        case "email-start": EM.state.phase = "confirm"; EM.state.confirmText = ""; EM.state.error = ""; EM.state.prior = null; drawEmailModal(); break;
+        case "email-cancel": EM.state.phase = "preview"; EM.state.error = ""; drawEmailModal(); break;
+        case "email-confirm": await emailBroadcast(); break;
+        case "reminder-schedule": await scheduleReminder(el.dataset.which); break;
+        case "reminder-cancel": await cancelReminder(el.dataset.which); break;
         case "close-modal": {
           // Pickers change the release behind them, so refresh it on close.
           const wasPicker = R.modal && R.modal.kind === "picker";
+          EM.state = null;
           closeRelModal();
           if (wasPicker) await renderWorkspace();
           break;
@@ -1594,6 +1816,13 @@
     modalContent.addEventListener("click", onClick);
     adminMain.addEventListener("change", onChange);
     modalContent.addEventListener("change", onChange);
+    // The SEND box in the email window enables its confirm button.
+    modalContent.addEventListener("input", e => {
+      if (e.target && e.target.id === "emailConfirmInput") {
+        if (EM.state) EM.state.confirmText = e.target.value;
+        syncEmailConfirm();
+      }
+    });
   }
 
   // Go to a Supply tab from elsewhere. The tab is chosen BEFORE the view

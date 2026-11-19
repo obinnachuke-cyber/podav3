@@ -479,8 +479,26 @@
     return { httpStatus: res.status, ok: res.ok, ...result };
   }
 
+  /* —— A signed-in admin POST to one of the Worker's /api routes (release
+     emails and reminders). The admin's own access token authorizes it. —— */
+  async function adminPost(url, body) {
+    const session = await getSession();
+    if (!session) throw new Error("Sign in required.");
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify(body)
+    });
+    const result = await res.json().catch(() => ({}));
+    return { httpStatus: res.status, ok: res.ok, ...result };
+  }
+
   window.PodaDB = {
     isConfigured,
+    adminPost,
     // Exposed so marketplace-db.js (suppliers/products/edits) can issue
     // queries against the same client/session instead of creating a
     // second one — two independent clients against the same project

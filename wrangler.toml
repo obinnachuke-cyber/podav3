@@ -9,6 +9,12 @@ compatibility_date = "2025-01-01"
 directory = "./dist"
 binding = "ASSETS"
 
+# Every five minutes the Worker checks for drop reminder emails that are due
+# (see runDueReminders in _worker.js). It needs the SUPABASE_SERVICE_ROLE_KEY
+# and RESEND_API_KEY secrets. Without them it does nothing.
+[triggers]
+crons = ["*/5 * * * *"]
+
 # Plain (non-secret) runtime variables. These are safe to commit — they're
 # the same public Supabase URL/anon key already shipped in supabase-config.js,
 # and the site's own public URL. Row Level Security, not secrecy, protects

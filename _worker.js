@@ -140,7 +140,6 @@ function noteSubject(note) {
 function buildEmail(note, siteUrl, unsubscribeUrl) {
   const noteUrl = `${siteUrl}/note.html?id=${encodeURIComponent(note.id)}`;
   const subject = (note.emailSubject && note.emailSubject.trim()) || noteSubject(note);
-  const issueLabel = note.issueNumber ? `No. ${escapeHTML(String(note.issueNumber))}` : "Market Note";
 
   const imageBlock = note.coverImage
     ? `<tr><td style="padding:0 28px 20px;"><img src="${escapeHTML(note.coverImage)}" alt="${escapeHTML(note.coverImageAlt || "")}" width="100%" style="display:block;max-width:100%;border:1px solid #26262a;" /></td></tr>`
@@ -165,13 +164,12 @@ function buildEmail(note, siteUrl, unsubscribeUrl) {
   const html = `<!doctype html>
 <html>
   <body style="margin:0;padding:0;background:#f5f5f3;font-family:Georgia,'Times New Roman',serif;color:#090909;">
+    ${preheaderHtml(note.emailPreviewText || plainExcerpt(note))}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f3;padding:32px 0;">
       <tr>
         <td align="center">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #26262a;">
-            <tr>
-              <td style="padding:24px 28px 20px;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#555555;">poda &middot; ${issueLabel}</td>
-            </tr>
+            ${emailHeader(siteUrl, note.issueNumber ? `No. ${note.issueNumber}` : "Market Note")}
             ${imageBlock}
             <tr>
               <td style="padding:0 28px 12px;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.1;font-weight:600;color:#090909;">${escapeHTML(note.title || "poda")}</td>
@@ -1567,7 +1565,696 @@ async function handleIndexGo(request, env, ctx, key) {
   });
 }
 
+/* ============================================================
+   Release emails: the drop, Index sets and the two drop reminders.
+
+   /api/release-send       admin, POST { kind, editId, studyId?, mode, confirm?, override? }
+     kind: drop | index | reminder_morning | reminder_soon
+     mode: preview   returns the rendered email, sends nothing
+           test      sends to the signed-in admin only
+           broadcast sends to every active subscriber, after the typed SEND.
+                     Reminders cannot be broadcast by hand: they go out on
+                     their schedule.
+   /api/release-reminders  admin, POST { editId, action, kinds?, confirm? }
+     action: status | schedule | cancel
+   The Worker's cron trigger (wrangler.toml) runs runDueReminders() every five
+   minutes. It needs SUPABASE_SERVICE_ROLE_KEY and RESEND_API_KEY.
+
+   Tables: release_email_log and release_reminders, created by
+   migrations/20261120_release_emails.sql.
+   ============================================================ */
+
+const RELEASE_EMAIL_KINDS = ["drop", "index", "reminder_morning", "reminder_soon"];
+const MIGRATION_HINT = "Run migrations/20261120_release_emails.sql in the Supabase SQL editor, then try again.";
+
+// Resend's free plan stops at 100 emails a day. Set RESEND_DAILY_LIMIT in
+// Cloudflare to the real figure for a paid plan, or to 0 for no limit.
+function dailyEmailLimit(env) {
+  const raw = env.RESEND_DAILY_LIMIT;
+  if (raw === undefined || raw === null || raw === "") return 100;
+  const n = Number(raw);
+  if (Number.isNaN(n)) return 100;
+  return n <= 0 ? Infinity : n;
+}
+
+// One Supabase REST call, as the signed-in admin ({ token }) or as the Worker
+// itself ({ service: true }, for the cron job, which has no admin session).
+async function sbRest(env, auth, method, path, body, prefer) {
+  const headers = auth.service
+    ? serviceHeaders(env)
+    : { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${auth.token}`, "content-type": "application/json" };
+  if (prefer) headers.Prefer = prefer;
+  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
+  if (!res.ok) {
+    const detail = typeof data === "string" ? data : JSON.stringify(data);
+    const error = new Error(`Supabase ${method} ${path.split("?")[0]} failed: ${res.status} ${detail}`);
+    error.status = res.status;
+    error.missingTable = /PGRST205|42P01|does not exist|schema cache/i.test(detail || "");
+    throw error;
+  }
+  return data;
+}
+
+/* —— The shared look: logo, hidden inbox preview line, clean card, footer —— */
+
+// The hidden line most inboxes show beside the subject. The padding stops the
+// first lines of the body leaking into the preview.
+function preheaderHtml(text) {
+  const pad = "&#847;&zwnj;&nbsp;".repeat(70);
+  return `<div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${escapeHTML(text)}${pad}</div>`;
+}
+
+// Logo on the left, what kind of email it is on the right. The logo's alt text
+// is "poda", so the name still shows where images are blocked.
+function emailHeader(siteUrl, kicker) {
+  return `<tr>
+              <td style="padding:24px 32px 20px;border-bottom:1px solid #ebeae5;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+                  <td align="left" valign="middle"><a href="${siteUrl}" style="text-decoration:none;"><img src="${siteUrl}/logo-blue.png" alt="poda" width="88" style="display:block;border:0;outline:none;height:auto;font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:600;color:#244cff;" /></a></td>
+                  <td align="right" valign="middle" style="font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6b6a65;">${escapeHTML(kicker)}</td>
+                </tr></table>
+              </td>
+            </tr>`;
+}
+
+function emailShell({ siteUrl, unsubscribeUrl, kicker, preheader, inner }) {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>poda</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f4f3ef;font-family:Helvetica,Arial,sans-serif;color:#15151a;">
+    ${preheaderHtml(preheader)}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f3ef;padding:28px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#ffffff;border:1px solid #e3e2dc;">
+            ${emailHeader(siteUrl, kicker)}
+            ${inner}
+            <tr>
+              <td style="padding:22px 32px 26px;border-top:1px solid #ebeae5;font-family:'Courier New',monospace;font-size:10px;line-height:1.7;letter-spacing:0.08em;color:#8a8983;">
+                poda &mdash; selective retail / market intelligence<br />
+                <a href="${unsubscribeUrl}" style="color:#8a8983;">Unsubscribe</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function emailLabel(text) {
+  return `<tr><td style="padding:28px 32px 0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#244cff;">${escapeHTML(text)}</td></tr>`;
+}
+
+function emailTitle(text) {
+  return `<tr><td style="padding:10px 32px 0;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:1.15;font-weight:600;color:#15151a;">${escapeHTML(text)}</td></tr>`;
+}
+
+function emailParagraph(text) {
+  return `<tr><td style="padding:14px 32px 0;font-family:Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#3a3a37;">${escapeHTML(text)}</td></tr>`;
+}
+
+function emailButton(label, url) {
+  return `<tr><td style="padding:28px 32px 32px;"><a href="${escapeHTML(url)}" style="display:inline-block;background:#15151a;color:#ffffff;text-decoration:none;font-family:'Courier New',monospace;font-size:12px;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;padding:15px 26px;">${escapeHTML(label)} &rarr;</a></td></tr>`;
+}
+
+function releaseLabel(r) {
+  return r.number == null ? "Folder" : `Folder ${String(r.number).padStart(3, "0")}`;
+}
+
+function releaseZone(r) {
+  return r.drop_timezone || "America/New_York";
+}
+
+// "4:12 PM EST" and "Nov 25", in the release's own timezone.
+function timeInZone(iso, zone) {
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: zone, hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(new Date(iso));
+  } catch (e) {
+    return new Date(iso).toUTCString();
+  }
+}
+
+function dayInZone(iso, zone) {
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: zone, month: "short", day: "numeric" }).format(new Date(iso));
+  } catch (e) {
+    return new Date(iso).toISOString().slice(0, 10);
+  }
+}
+
+function zonedParts(date, zone) {
+  const f = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
+  });
+  const out = {};
+  f.formatToParts(date).forEach(p => { if (p.type !== "literal") out[p.type] = Number(p.value); });
+  return out;
+}
+
+// The UTC moment when a wall clock in `zone` reads y-m-d hh:mm.
+function zonedWallToUtc(y, m, d, hh, mm, zone) {
+  const want = Date.UTC(y, m - 1, d, hh, mm);
+  let guess = want;
+  for (let i = 0; i < 4; i++) {
+    const p = zonedParts(new Date(guess), zone);
+    const got = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute);
+    const diff = want - got;
+    if (!diff) break;
+    guess += diff;
+  }
+  return new Date(guess);
+}
+
+function isDropped(release, nowMs) {
+  return !!release.launched_at || (!!release.publish_at && Date.parse(release.publish_at) <= nowMs);
+}
+
+function releaseSubject(release, tail) {
+  const title = String(release.title || "").trim();
+  return `poda - ${releaseLabel(release)}${tail ? `: ${tail}` : title ? `: ${title}` : ""}`;
+}
+
+/* —— The drop —— */
+function buildDropEmail(release, siteUrl, unsubscribeUrl) {
+  const title = String(release.title || "").trim() || releaseLabel(release);
+  const standfirst = String(release.standfirst || "").replace(/\s+/g, " ").trim();
+  const shopUrl = `${siteUrl}/index.html?view=shop`;
+  const preheader = standfirst ? standfirst.slice(0, 140) : `${title} is live.`;
+  const cover = release.cover_image
+    ? `<tr><td style="padding:0;"><img src="${escapeHTML(release.cover_image)}" alt="${escapeHTML(title)}" width="578" style="display:block;width:100%;max-width:100%;height:auto;border:0;" /></td></tr>`
+    : "";
+  const inner = `${cover}
+            ${emailLabel(`${releaseLabel(release)} · live now`)}
+            ${emailTitle(title)}
+            ${standfirst ? emailParagraph(standfirst) : ""}
+            ${emailButton("Shop the drop", shopUrl)}`;
+  const text = `${releaseLabel(release)}: ${title}\n\n${standfirst ? `${standfirst}\n\n` : ""}Shop the drop: ${shopUrl}\n\n—\npoda — selective retail / market intelligence\nUnsubscribe: ${unsubscribeUrl}`;
+  return {
+    subject: releaseSubject(release),
+    preheader,
+    html: emailShell({ siteUrl, unsubscribeUrl, kicker: "Drop", preheader, inner }),
+    text
+  };
+}
+
+/* —— An Index set: what just dropped, with its images —— */
+const INDEX_EMAIL_IMAGES = 6;
+
+function studyImages(study) {
+  return (Array.isArray(study.images) ? study.images : []).map(u => String(u || "").trim()).filter(u => /^https?:\/\//i.test(u));
+}
+
+function studyUrl(study, siteUrl) {
+  return study.kind && study.slug
+    ? `${siteUrl}/index/${encodeURIComponent(study.slug)}`
+    : `${siteUrl}/study.html?id=${encodeURIComponent(study.id)}`;
+}
+
+function buildIndexEmail(release, study, siteUrl, unsubscribeUrl) {
+  const images = studyImages(study);
+  const shown = images.slice(0, INDEX_EMAIL_IMAGES);
+  const more = images.length - shown.length;
+  const title = String(study.title || "").trim() || "New in the Index";
+  const framing = String(study.framing || "").replace(/\s+/g, " ").trim();
+  const count = `${images.length} image${images.length === 1 ? "" : "s"}`;
+  const url = studyUrl(study, siteUrl);
+  const preheader = `Just dropped: ${count}. ${title}`;
+
+  // Two images to a row. A lone last image sits in the left cell.
+  let grid = "";
+  for (let i = 0; i < shown.length; i += 2) {
+    const cell = src => src
+      ? `<td width="50%" valign="top" style="padding:0 4px 8px;"><img src="${escapeHTML(src)}" alt="" width="270" style="display:block;width:100%;height:auto;border:0;" /></td>`
+      : `<td width="50%" style="padding:0 4px 8px;">&nbsp;</td>`;
+    grid += `<tr>${cell(shown[i])}${cell(shown[i + 1])}</tr>`;
+  }
+  const gridBlock = shown.length
+    ? `<tr><td style="padding:22px 28px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${grid}</table></td></tr>`
+    : "";
+  const moreBlock = more > 0
+    ? `<tr><td style="padding:2px 32px 0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#6b6a65;">+ ${more} more on the site</td></tr>`
+    : "";
+
+  const inner = `${emailLabel(`just dropped · ${count}`)}
+            ${emailTitle(title)}
+            ${framing ? emailParagraph(framing.length > 260 ? `${framing.slice(0, 260).trimEnd()}…` : framing) : ""}
+            ${gridBlock}
+            ${moreBlock}
+            ${emailButton("See the set", url)}`;
+  const text = `Just dropped: ${count}\n${title}\n\n${framing ? `${framing}\n\n` : ""}See the set: ${url}\n\n—\npoda — selective retail / market intelligence\nUnsubscribe: ${unsubscribeUrl}`;
+  return {
+    subject: releaseSubject(release, title),
+    preheader,
+    html: emailShell({ siteUrl, unsubscribeUrl, kicker: "Index", preheader, inner }),
+    text
+  };
+}
+
+/* —— The two reminders. The first line is what an inbox shows next to the subject. —— */
+const REMINDER_COPY = {
+  reminder_morning: { label: "Standby", preheader: "standby. we'll get those items to you by EOD." },
+  reminder_soon: { label: "30 minutes", preheader: "we'll get those items over to you real quick." }
+};
+
+function buildReminderEmail(kind, release, siteUrl, unsubscribeUrl) {
+  const copy = REMINDER_COPY[kind];
+  const zone = releaseZone(release);
+  const when = timeInZone(release.publish_at, zone);
+  const title = String(release.title || "").trim();
+  const heading = title ? `${releaseLabel(release)} · ${title}` : releaseLabel(release);
+  const line = `this drop is coming out at ${when}.`;
+  const folderUrl = `${siteUrl}/folder.html?id=${encodeURIComponent(release.id)}`;
+  const inner = `${emailLabel(copy.label)}
+            ${emailTitle(heading)}
+            ${emailParagraph(line)}
+            ${emailButton("See the folder", folderUrl)}`;
+  const text = `${copy.preheader}\n\n${heading}\n${line}\n\nSee the folder: ${folderUrl}\n\n—\npoda — selective retail / market intelligence\nUnsubscribe: ${unsubscribeUrl}`;
+  const subject = kind === "reminder_morning"
+    ? releaseSubject(release, `drops today at ${when}`)
+    : releaseSubject(release, "30 minutes");
+  return {
+    subject,
+    preheader: copy.preheader,
+    html: emailShell({ siteUrl, unsubscribeUrl, kicker: "Reminder", preheader: copy.preheader, inner }),
+    text
+  };
+}
+
+/* —— Sending —— */
+function activeRecipients(rows) {
+  return (rows || [])
+    .filter(row => row.data && row.data.status === "ACTIVE" && String(row.data.email || "").trim())
+    .map(row => ({ email: String(row.data.email).trim(), token: row.data.unsubscribeToken || null }));
+}
+
+async function deliverToSubscribers(env, recipients, siteUrl, make) {
+  const messages = recipients.map(r => {
+    const unsubscribeUrl = `${siteUrl}/unsubscribe.html?token=${encodeURIComponent(r.token || "")}`;
+    const built = make(unsubscribeUrl);
+    return {
+      from: FROM_ADDRESS,
+      to: [r.email],
+      reply_to: REPLY_TO,
+      subject: built.subject,
+      html: built.html,
+      text: built.text,
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+      }
+    };
+  });
+  let succeeded = 0;
+  let failed = 0;
+  for (const batch of chunk(messages, RESEND_BATCH_LIMIT)) {
+    try {
+      const result = await sendBatchViaResend(env, batch);
+      const data = result.ok && result.body && Array.isArray(result.body.data) ? result.body.data : [];
+      data.forEach(item => { if (item && item.id) succeeded++; else failed++; });
+      if (data.length < batch.length) failed += batch.length - data.length;
+    } catch (e) {
+      failed += batch.length;
+    }
+  }
+  const attempted = messages.length;
+  const status = failed === 0 ? "completed" : succeeded === 0 ? "failed" : "partial";
+  return { attempted, succeeded, failed, status };
+}
+
+// Emails already sent today (UTC), from both send logs.
+async function emailsSentToday(env, auth) {
+  const since = new Date();
+  since.setUTCHours(0, 0, 0, 0);
+  let total = 0;
+  for (const table of ["send_logs", "release_email_log"]) {
+    try {
+      const rows = await sbRest(env, auth, "GET", `${table}?created_at=gte.${encodeURIComponent(since.toISOString())}&select=attempted`);
+      total += (rows || []).reduce((n, r) => n + (Number(r.attempted) || 0), 0);
+    } catch (e) { /* a missing log counts as zero */ }
+  }
+  return total;
+}
+
+async function loadReleaseRow(env, auth, id) {
+  const rows = await sbRest(
+    env, auth, "GET",
+    `edits?id=eq.${encodeURIComponent(id)}&select=id,number,title,standfirst,status,publish_at,launched_at,drop_timezone,cover_image`
+  );
+  return rows && rows[0] ? rows[0] : null;
+}
+
+function imageFormatWarnings(images) {
+  const warnings = [];
+  const has = ext => images.some(u => new RegExp(`\\.${ext}(\\?|$)`, "i").test(u));
+  if (has("avif")) warnings.push("Some images are AVIF. Not every email app can show AVIF, so those may appear blank.");
+  if (has("webp")) warnings.push("Some images are WebP. Outlook for Windows cannot show WebP.");
+  return warnings;
+}
+
+async function handleReleaseSend(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+
+  let payload;
+  try { payload = await request.json(); } catch (e) { return json(400, { error: "Invalid request body." }); }
+  const kind = payload && payload.kind;
+  const editId = payload && payload.editId;
+  const studyId = payload && payload.studyId;
+  const mode = payload && payload.mode;
+  const confirm = payload && payload.confirm;
+  const override = !!(payload && payload.override);
+  if (!RELEASE_EMAIL_KINDS.includes(kind) || !editId || !["preview", "test", "broadcast"].includes(mode)) {
+    return json(400, { error: "A valid kind, editId and mode are required." });
+  }
+
+  const auth = await verifyAdmin(request, env, "send release emails");
+  if (!auth.ok) return json(auth.status, { error: auth.error });
+  const siteUrl = String(env.SITE_URL || "").replace(/\/$/, "");
+  if (!siteUrl) return json(500, { error: "SITE_URL is not set in Cloudflare." });
+  const a = { token: auth.token };
+
+  let release;
+  try { release = await loadReleaseRow(env, a, editId); } catch (e) { return json(502, { error: "Could not load the release." }); }
+  if (!release) return json(404, { error: "Release not found." });
+
+  const now = Date.now();
+  let study = null;
+  if (kind === "drop") {
+    if (release.status === "archived") return json(409, { error: "This release is archived, so there is no drop to announce." });
+    if (!isDropped(release, now)) return json(409, { error: "The drop has not opened yet. Send this once the products are live." });
+  } else if (kind === "index") {
+    if (!studyId) return json(400, { error: "studyId is required for an Index email." });
+    if (release.status === "draft") return json(409, { error: "Open the release to the public first, so the link works." });
+    try {
+      const rows = await sbRest(env, a, "GET", `studies?id=eq.${encodeURIComponent(studyId)}&select=id,data`);
+      if (rows && rows[0]) study = { id: rows[0].id, ...rows[0].data };
+    } catch (e) { return json(502, { error: "Could not load the Index set." }); }
+    if (!study) return json(404, { error: "Index set not found." });
+    if (study.relatedDropId !== release.id) return json(409, { error: "That Index set is not part of this release." });
+    if (study.status !== "published") return json(409, { error: "Publish the Index set first." });
+  } else if (!release.publish_at) {
+    return json(409, { error: "Set a drop date and time first." });
+  }
+
+  const make = unsubscribeUrl => {
+    if (kind === "drop") return buildDropEmail(release, siteUrl, unsubscribeUrl);
+    if (kind === "index") return buildIndexEmail(release, study, siteUrl, unsubscribeUrl);
+    return buildReminderEmail(kind, release, siteUrl, unsubscribeUrl);
+  };
+  const warnings = kind === "index" ? imageFormatWarnings(studyImages(study)) : [];
+
+  let subscribers = [];
+  try { subscribers = await sbRest(env, a, "GET", "subscribers?select=id,data"); } catch (e) { return json(502, { error: "Could not load subscribers." }); }
+  const recipients = activeRecipients(subscribers);
+  const limit = dailyEmailLimit(env);
+
+  if (mode === "preview") {
+    const built = make(`${siteUrl}/unsubscribe.html?token=preview`);
+    const usedToday = await emailsSentToday(env, a);
+    return json(200, {
+      ok: true,
+      subject: built.subject,
+      preheader: built.preheader,
+      html: built.html,
+      text: built.text,
+      recipients: recipients.length,
+      usedToday,
+      dailyLimit: Number.isFinite(limit) ? limit : null,
+      warnings
+    });
+  }
+
+  if (mode === "test") {
+    const built = make(`${siteUrl}/unsubscribe.html?token=test`);
+    let result;
+    try {
+      result = await sendViaResend(env, {
+        from: FROM_ADDRESS,
+        to: [auth.email],
+        reply_to: REPLY_TO,
+        subject: `[Test] ${built.subject}`,
+        html: built.html,
+        text: built.text
+      });
+    } catch (e) { return json(502, { error: "Could not reach Resend." }); }
+    if (!result.ok) return json(502, { error: "Resend rejected the test send.", detail: result.body });
+    return json(200, { ok: true, mode: "test", to: auth.email });
+  }
+
+  // Broadcast
+  if (kind.startsWith("reminder")) {
+    return json(400, { error: "Reminders go out on their schedule. Use Schedule on the release page." });
+  }
+  if (confirm !== "SEND") return json(400, { error: "Type SEND to confirm a broadcast." });
+  if (!recipients.length) return json(400, { error: "No active subscribers to send to." });
+
+  let prior = null;
+  try {
+    const rows = await sbRest(
+      env, a, "GET",
+      `release_email_log?edit_id=eq.${encodeURIComponent(release.id)}&kind=eq.${kind}` +
+      (study ? `&study_id=eq.${encodeURIComponent(study.id)}` : "") +
+      `&status=in.(completed,partial)&select=id,created_at,attempted,succeeded,failed&order=created_at.desc&limit=1`
+    );
+    prior = rows && rows[0] ? rows[0] : null;
+  } catch (e) {
+    if (e.missingTable) return json(503, { error: MIGRATION_HINT });
+    return json(502, { error: "Could not check earlier sends." });
+  }
+  if (prior && !override) {
+    return json(409, { error: "This has already been sent to subscribers.", priorSend: prior });
+  }
+
+  const used = await emailsSentToday(env, a);
+  if (used + recipients.length > limit) {
+    return json(409, {
+      error: `This would send ${recipients.length} emails and ${used} have gone out today. Your daily limit is ${limit}, so some would not be delivered. Wait until tomorrow, or raise RESEND_DAILY_LIMIT in Cloudflare after upgrading Resend.`
+    });
+  }
+
+  const sent = await deliverToSubscribers(env, recipients, siteUrl, make);
+  const subject = make(`${siteUrl}/unsubscribe.html?token=log`).subject;
+  try {
+    await sbRest(env, a, "POST", "release_email_log", {
+      edit_id: release.id,
+      study_id: study ? study.id : null,
+      kind,
+      subject,
+      attempted: sent.attempted,
+      succeeded: sent.succeeded,
+      failed: sent.failed,
+      status: sent.status,
+      admin_email: auth.email
+    }, "return=minimal");
+  } catch (e) {
+    console.error("release_email_log insert failed:", e && e.message);
+  }
+  return json(sent.status === "failed" ? 502 : 200, { ok: sent.status !== "failed", ...sent });
+}
+
+/* —— Reminders: planned from the drop time, sent by the cron trigger —— */
+function planReminders(release, nowMs) {
+  const dropMs = Date.parse(release.publish_at || "");
+  if (!Number.isFinite(dropMs)) return [];
+  const zone = releaseZone(release);
+  const lead = 2 * 60 * 1000;   // a reminder due sooner than this is too late to schedule
+  const p = zonedParts(new Date(dropMs), zone);
+
+  const morningAt = zonedWallToUtc(p.year, p.month, p.day, 9, 0, zone);
+  const morning = { kind: "morning", label: "Morning of the drop", sendAt: morningAt.toISOString(), feasible: true, why: "" };
+  if (morningAt.getTime() <= nowMs + lead) { morning.feasible = false; morning.why = "9:00 AM has already passed."; }
+  else if (morningAt.getTime() > dropMs - 60 * 60 * 1000) {
+    morning.feasible = false;
+    morning.why = "The drop is within an hour of 9:00 AM, so the 30 minute reminder covers it.";
+  }
+
+  const soonAt = new Date(dropMs - 30 * 60 * 1000);
+  const soon = { kind: "soon", label: "30 minutes before", sendAt: soonAt.toISOString(), feasible: true, why: "" };
+  if (soonAt.getTime() <= nowMs + lead) { soon.feasible = false; soon.why = "That time has already passed."; }
+
+  return [morning, soon].map(item => ({
+    ...item,
+    whenText: `${timeInZone(item.sendAt, zone)} on ${dayInZone(item.sendAt, zone)}`
+  }));
+}
+
+function remindersReady(env) {
+  return !!(env.SUPABASE_SERVICE_ROLE_KEY && env.RESEND_API_KEY && env.SUPABASE_URL && env.SITE_URL);
+}
+
+async function handleReleaseReminders(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+  let payload;
+  try { payload = await request.json(); } catch (e) { return json(400, { error: "Invalid request body." }); }
+  const editId = payload && payload.editId;
+  const action = payload && payload.action;
+  if (!editId || !["status", "schedule", "cancel"].includes(action)) return json(400, { error: "editId and a valid action are required." });
+
+  const auth = await verifyAdmin(request, env, "schedule reminders");
+  if (!auth.ok) return json(auth.status, { error: auth.error });
+  const a = { token: auth.token };
+
+  let release;
+  try { release = await loadReleaseRow(env, a, editId); } catch (e) { return json(502, { error: "Could not load the release." }); }
+  if (!release) return json(404, { error: "Release not found." });
+
+  let rows;
+  try {
+    rows = await sbRest(env, a, "GET", `release_reminders?edit_id=eq.${encodeURIComponent(editId)}&select=*&order=send_at`);
+  } catch (e) {
+    if (e.missingTable) return json(503, { error: MIGRATION_HINT });
+    return json(502, { error: "Could not load reminders." });
+  }
+
+  const now = Date.now();
+  const dropped = isDropped(release, now);
+  const plan = dropped ? [] : planReminders(release, now);
+
+  if (action === "status") {
+    let subscribers = [];
+    try { subscribers = activeRecipients(await sbRest(env, a, "GET", "subscribers?select=id,data")); } catch (e) { /* count stays 0 */ }
+    const limit = dailyEmailLimit(env);
+    return json(200, {
+      ok: true,
+      plan,
+      rows,
+      ready: remindersReady(env),
+      recipients: subscribers.length,
+      dailyLimit: Number.isFinite(limit) ? limit : null
+    });
+  }
+
+  if (action === "cancel") {
+    const kinds = Array.isArray(payload.kinds) && payload.kinds.length ? payload.kinds : ["morning", "soon"];
+    try {
+      await sbRest(
+        env, a, "PATCH",
+        `release_reminders?edit_id=eq.${encodeURIComponent(editId)}&status=eq.scheduled&kind=in.(${kinds.map(k => encodeURIComponent(k)).join(",")})`,
+        { status: "cancelled" }, "return=minimal"
+      );
+    } catch (e) { return json(502, { error: "Could not cancel the reminders." }); }
+    return json(200, { ok: true });
+  }
+
+  // schedule
+  if (payload.confirm !== "SEND") return json(400, { error: "Type SEND to confirm. These emails go out on their own at the times shown." });
+  if (!remindersReady(env)) {
+    return json(503, { error: "Reminders need SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY and SITE_URL set in Cloudflare, plus the cron trigger in wrangler.toml." });
+  }
+  if (dropped) return json(409, { error: "The drop is already open." });
+  if (!release.publish_at) return json(409, { error: "Set a drop date and time first." });
+  if (release.status === "draft" || release.status === "archived") return json(409, { error: "Open the release to the public first." });
+
+  const wanted = Array.isArray(payload.kinds) && payload.kinds.length ? payload.kinds : ["morning", "soon"];
+  const alreadySent = new Set(rows.filter(r => r.status === "sent" || r.status === "sending").map(r => r.kind));
+  try {
+    await sbRest(env, a, "DELETE", `release_reminders?edit_id=eq.${encodeURIComponent(editId)}&status=in.(scheduled,cancelled,skipped,failed)&kind=in.(${wanted.map(k => encodeURIComponent(k)).join(",")})`, undefined, "return=minimal");
+    const toInsert = plan
+      .filter(p => wanted.includes(p.kind) && p.feasible && !alreadySent.has(p.kind))
+      .map(p => ({ edit_id: editId, kind: p.kind, send_at: p.sendAt, drop_at: release.publish_at, status: "scheduled" }));
+    if (!toInsert.length) return json(409, { error: "None of those reminders can be scheduled: the times have passed or are already sent." });
+    await sbRest(env, a, "POST", "release_reminders", toInsert, "return=minimal");
+    return json(200, { ok: true, scheduled: toInsert.map(r => r.kind) });
+  } catch (e) {
+    if (e.missingTable) return json(503, { error: MIGRATION_HINT });
+    return json(502, { error: "Could not schedule the reminders." });
+  }
+}
+
+// Cron: send any reminder whose time has come. Runs as the Worker itself, with
+// the service key, since nobody is signed in. A reminder is claimed first, so
+// two overlapping runs cannot both send it.
+async function runDueReminders(env) {
+  if (!remindersReady(env)) return;
+  const auth = { service: true };
+  const siteUrl = String(env.SITE_URL).replace(/\/$/, "");
+  let due;
+  try {
+    due = await sbRest(env, auth, "GET", `release_reminders?status=eq.scheduled&send_at=lte.${encodeURIComponent(new Date().toISOString())}&select=*&order=send_at&limit=5`);
+  } catch (e) {
+    console.error("Reminder check failed:", e && e.message);
+    return;
+  }
+
+  for (const row of due || []) {
+    let claimed;
+    try {
+      claimed = await sbRest(env, auth, "PATCH", `release_reminders?id=eq.${row.id}&status=eq.scheduled`, { status: "sending" }, "return=representation");
+    } catch (e) { continue; }
+    if (!claimed || !claimed.length) continue;
+
+    const finish = (status, note, counts) => sbRest(env, auth, "PATCH", `release_reminders?id=eq.${row.id}`, {
+      status,
+      note: note || null,
+      sent_at: new Date().toISOString(),
+      ...(counts || {})
+    }, "return=minimal").catch(e => console.error("Reminder update failed:", e && e.message));
+
+    try {
+      const now = Date.now();
+      if (now - Date.parse(row.send_at) > 45 * 60 * 1000) { await finish("skipped", "Missed its time by more than 45 minutes."); continue; }
+
+      const release = await loadReleaseRow(env, auth, row.edit_id);
+      if (!release || release.status === "draft" || release.status === "archived"
+          || release.launched_at || !release.publish_at
+          || Date.parse(release.publish_at) !== Date.parse(row.drop_at)
+          || Date.parse(release.publish_at) <= now) {
+        await finish("skipped", "The drop changed, opened or was cancelled, so this reminder was not sent.");
+        continue;
+      }
+
+      const recipients = activeRecipients(await sbRest(env, auth, "GET", "subscribers?select=id,data"));
+      if (!recipients.length) { await finish("skipped", "No active subscribers."); continue; }
+
+      const used = await emailsSentToday(env, auth);
+      const limit = dailyEmailLimit(env);
+      if (used + recipients.length > limit) {
+        await finish("failed", `Daily email limit of ${limit} reached.`);
+        await alertAdmin(env, `Reminder not sent: ${releaseLabel(release)}`, [
+          `The ${row.kind === "morning" ? "morning" : "30 minute"} reminder for ${releaseLabel(release)} was not sent.`,
+          `${used} emails have gone out today and this one needed ${recipients.length}, over the daily limit of ${limit}.`,
+          "Upgrade Resend or raise RESEND_DAILY_LIMIT in Cloudflare."
+        ]);
+        continue;
+      }
+
+      const kind = row.kind === "morning" ? "reminder_morning" : "reminder_soon";
+      const sent = await deliverToSubscribers(env, recipients, siteUrl, unsub => buildReminderEmail(kind, release, siteUrl, unsub));
+      const subject = buildReminderEmail(kind, release, siteUrl, "").subject;
+      await sbRest(env, auth, "POST", "release_email_log", {
+        edit_id: release.id, kind, subject,
+        attempted: sent.attempted, succeeded: sent.succeeded, failed: sent.failed, status: sent.status,
+        admin_email: "scheduled"
+      }, "return=minimal").catch(e => console.error("release_email_log insert failed:", e && e.message));
+      await finish(sent.succeeded > 0 ? "sent" : "failed", null, { attempted: sent.attempted, succeeded: sent.succeeded, failed: sent.failed });
+      await alertAdmin(env, `Reminder sent: ${releaseLabel(release)}`, [
+        `The ${row.kind === "morning" ? "morning" : "30 minute"} reminder for ${releaseLabel(release)} went to ${sent.succeeded} of ${sent.attempted} subscribers.`
+      ]);
+    } catch (e) {
+      console.error("Reminder send failed:", e && e.message);
+      await finish("failed", "Unexpected error while sending.");
+    }
+  }
+}
+
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runDueReminders(env));
+  },
+
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
@@ -1579,6 +2266,8 @@ export default {
     }
 
     if (url.pathname === "/api/notes-send") return handleNotesSend(request, env);
+    if (url.pathname === "/api/release-send") return handleReleaseSend(request, env);
+    if (url.pathname === "/api/release-reminders") return handleReleaseReminders(request, env);
     if (url.pathname === "/api/unsubscribe") return handleUnsubscribe(request, env);
     if (url.pathname === "/api/submit-request") return handleSubmitRequest(request, env);
     if (url.pathname === "/api/send-invite") return handleSendInvite(request, env);

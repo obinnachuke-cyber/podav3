@@ -602,6 +602,16 @@
 }
 .send-result { margin-top: 4px; }
 
+/* The rendered email, exactly as subscribers get it (release emails). */
+.send-frame {
+  display: block;
+  width: 100%;
+  height: min(520px, 62vh);
+  margin: 4px 0 12px;
+  border: 1px solid var(--border);
+  background: #f4f3ef;
+}
+
 .modal-foot {
   position: sticky;
   bottom: 0;

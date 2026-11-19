@@ -46,6 +46,7 @@ If a column reads `false`, run that step. `admin_rows` must be at least 1.
 | 15 | `migrations/20261113_payouts_selftest.sql` | Checks step 14 and rolls itself back. Ends in a red error box on purpose. The last line should say 24 passed, 0 failed |
 | 16 | `migrations/20261114_index_clicks.sql` | Counts Instagram clicks on Index entries. Optional: without it the links work and the admin shows no click counts. Safe to run at any time |
 | 17 | `migrations/20261119_release_delete_any.sql` | Lets the admin delete any release, including live and archived ones, after typing its title. Replaces the step 9 guard. Orders are kept. Safe to run at any time |
+| 18 | `migrations/20261120_release_emails.sql` | Drop, Index and reminder emails: the send log and the timed reminders. Setup and rules: `RELEASE_EMAILS_SETUP.md`. Safe to run at any time |
 
 Steps 1 to 3 are first-time setup. If Step 0 shows `base_marketplace` true and
 `admin_rows` at least 1, skip them.
