@@ -833,10 +833,12 @@
     return data;
   }
 
-  // A release can be deleted only while it has never been public. The database
-  // enforces this too (migrations/20261109_release_delete_guard.sql), which
-  // also detaches its notes and lookbook sets and cascades placements, updates
-  // and activity. Zero deleted rows (no permission) is reported, not ignored.
+  // True while a release has never been public. Those get a plain confirm. Any
+  // other release can be deleted too, but the admin screen makes the admin type
+  // its title first. The database trigger (migrations/20261119_release_delete_any.sql)
+  // detaches the release's notes and lookbook sets and cascades placements,
+  // updates and activity; orders are kept. Zero deleted rows (no permission) is
+  // reported, not ignored.
   function canDeleteRelease(r) {
     return !!r && r.status === "draft" && !r.publish_at && !r.launched_at;
   }

@@ -1064,26 +1064,42 @@
         ${A().canDeleteRelease(r)
           ? `<p class="rel-note">This release has never been public, so it can be deleted. Its notes and index sets are kept and detached. Products stay in inventory. Its updates and activity log are removed.</p>
              <div class="rel-actions" style="margin-top:10px;"><button type="button" class="btn btn--danger" data-rel="delete-release">Delete release</button></div>`
-          : `<p class="rel-note">Only a draft that was never opened to the public, scheduled or launched can be deleted. Use <strong>Archive release</strong> for this one. Nothing is lost.</p>`}
+          : `<p class="rel-note">This release has been public, scheduled or archived. Deleting it takes it out of Shop and the Archive and its link stops working. Products stay in inventory, notes and index sets are kept and detached, and orders already placed are kept. Its updates and activity log are removed. <strong>Archive release</strong> keeps a record instead. You will be asked to type the title to confirm.</p>
+             <div class="rel-actions" style="margin-top:10px;"><button type="button" class="btn btn--danger" data-rel="delete-release">Delete release…</button></div>`}
       </section>`;
   }
 
-  // Delete a never-public draft. Notes and sets are detached (kept) by the
-  // database trigger; update images are tidied here, best effort.
+  // Delete a release. Notes and sets are detached (kept) by the database
+  // trigger; update images are tidied here, best effort. A release that was
+  // ever public needs its title typed first, so a stray click cannot remove it.
   async function deleteCurrentRelease() {
     const d = R.data;
     const r = d.release;
-    if (!A().canDeleteRelease(r)) { setNotice("Only a never-public draft can be deleted. Archive it instead.", true); return; }
     const parts = [];
     if (d.notes.length) parts.push(`${d.notes.length} note${d.notes.length === 1 ? "" : "s"} (kept, detached)`);
     if (d.studies.length) parts.push(`${d.studies.length} index set${d.studies.length === 1 ? "" : "s"} (kept, detached)`);
     if (d.placements.length) parts.push(`${d.placements.length} product${d.placements.length === 1 ? "" : "s"} (stay in inventory)`);
     if (d.updates.length) parts.push(`${d.updates.length} update${d.updates.length === 1 ? "" : "s"} (deleted)`);
     const summary = parts.length ? `\n\nIn this release: ${parts.join(", ")}.` : "";
-    if (!confirm(`Delete "${r.title || "Untitled"}" permanently? This cannot be undone.${summary}`)) return;
+    const name = r.title || "Untitled";
+    if (A().canDeleteRelease(r)) {
+      if (!confirm(`Delete "${name}" permanently? This cannot be undone.${summary}`)) return;
+    } else {
+      const word = r.title || "delete";
+      const typed = prompt(`"${name}" has been public, scheduled or archived. Deleting it is permanent and its link stops working.${summary}\n\nType ${r.title ? "the title" : "the word delete"} to confirm:\n${word}`);
+      if (typed === null) return;
+      if (typed.trim() !== word) { setNotice("That did not match, so nothing was deleted.", true); return; }
+    }
     try {
       await A().deleteRelease(r.id);
-    } catch (e) { setNotice(e.message || "Could not delete the release.", true); return; }
+    } catch (e) {
+      // The old database guard refuses releases that were ever public.
+      const old = /Archive it instead/i.test(e.message || "");
+      setNotice(old
+        ? "The database still blocks this. Run migrations/20261119_release_delete_any.sql in the Supabase SQL editor, then try again."
+        : (e.message || "Could not delete the release."), true);
+      return;
+    }
     // The release is gone; clean up update images and refresh local note/set state.
     for (const u of d.updates) {
       if (u.image_path) { try { await D().deleteNoteMedia(A().noteMediaUrl(u.image_path)); } catch (e) { /* best effort */ } }
