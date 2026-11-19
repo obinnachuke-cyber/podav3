@@ -1073,8 +1073,34 @@
   // trigger; update images are tidied here, best effort. A release that was
   // ever public needs its title typed first, so a stray click cannot remove it.
   async function deleteCurrentRelease() {
-    const d = R.data;
-    const r = d.release;
+    const gone = await confirmAndDelete(R.data.release, R.data);
+    if (!gone) return;
+    R.data = null;
+    R.tab = "contents";
+    setView("releases");
+  }
+
+  // The delete button on each row of All Releases. It loads what the release
+  // holds so the confirm text can list it, then runs the same flow.
+  async function deleteById(id) {
+    const r = (R.all || []).find(e => e.id === id);
+    if (!r) return;
+    let d;
+    try {
+      const [placements, updates] = await Promise.all([A().getPlacementsFull(id), A().getFolderUpdates(id)]);
+      d = {
+        release: r, placements, updates,
+        notes: noteState.notes.filter(n => n.folderId === id),
+        studies: studyState.studies.filter(s => s.relatedDropId === id)
+      };
+    } catch (e) { alert(e.message || "Could not load the release."); return; }
+    if (!(await confirmAndDelete(r, d))) return;
+    if (R.data && R.data.release && R.data.release.id === id) R.data = null;
+    renderAll();
+  }
+
+  // Confirm, delete, tidy up. Returns true once the release is gone.
+  async function confirmAndDelete(r, d) {
     const parts = [];
     const keptAs = "kept as private drafts";
     if (d.notes.length) parts.push(`${d.notes.length} note${d.notes.length === 1 ? "" : "s"} (${keptAs})`);
@@ -1084,12 +1110,12 @@
     const summary = parts.length ? `\n\nIn this release: ${parts.join(", ")}.` : "";
     const name = r.title || "Untitled";
     if (A().canDeleteRelease(r)) {
-      if (!confirm(`Delete "${name}" permanently? This cannot be undone.${summary}`)) return;
+      if (!confirm(`Delete "${name}" permanently? This cannot be undone.${summary}`)) return false;
     } else {
       const word = r.title || "delete";
       const typed = prompt(`"${name}" has been public, scheduled or archived. Deleting it is permanent and its link stops working.${summary}\n\nType ${r.title ? "the title" : "the word delete"} to confirm:\n${word}`);
-      if (typed === null) return;
-      if (typed.trim() !== word) { setNotice("That did not match, so nothing was deleted.", true); return; }
+      if (typed === null) return false;
+      if (typed.trim() !== word) { setNotice("That did not match, so nothing was deleted.", true); return false; }
     }
     try {
       await A().deleteRelease(r.id);
@@ -1099,7 +1125,7 @@
       setNotice(old
         ? "The database still blocks this. Run migrations/20261119_release_delete_any.sql in the Supabase SQL editor, then try again."
         : (e.message || "Could not delete the release."), true);
-      return;
+      return false;
     }
     // The release is gone; clean up update images and refresh local note/set state.
     for (const u of d.updates) {
@@ -1108,9 +1134,7 @@
     // The database made them private drafts too; mirror that here.
     noteState.notes.forEach(n => { if (n.folderId === r.id) { n.folderId = ""; n.status = "draft"; } });
     studyState.studies.forEach(s => { if (s.relatedDropId === r.id) { s.relatedDropId = ""; s.status = "draft"; } });
-    R.data = null;
-    R.tab = "contents";
-    setView("releases");
+    return true;
   }
 
   async function saveDetails(extra) {
@@ -1327,6 +1351,7 @@
       adminMain.innerHTML = `<p class="admin-empty">Could not load releases: ${esc(e.message || e)}</p>`;
       return;
     }
+    R.all = edits;   // kept so a row's Delete can find its release
     const pubById = Object.fromEntries(publicList.map(f => [f.id, f]));
     const nextNumber = edits.reduce((m, e) => Math.max(m, e.number || 0), 0) + 1;
 
@@ -1347,6 +1372,7 @@
           <div class="rel-actions">
             <button type="button" class="btn" data-rel="open-release-id" data-id="${esc(e.id)}">${e.is_working ? "Open workspace" : "Work on this"}</button>
             ${e.status !== "archived" ? `<button type="button" class="btn" data-rel="archive-id" data-id="${esc(e.id)}">Archive</button>` : ""}
+            <button type="button" class="btn btn--danger" data-rel="delete-id" data-id="${esc(e.id)}">Delete</button>
           </div>
         </div>`;
     };
@@ -1536,6 +1562,7 @@
         case "preview-mode": R.previewMode = el.dataset.mode; await renderWorkspace(); break;
         case "open-release-id": await openReleaseById(id); break;
         case "archive-id": await archiveById(id); break;
+        case "delete-id": await deleteById(id); break;
         case "open-legacy": setView("legacyItems"); break;
         default: break;
       }
