@@ -44,7 +44,7 @@ const INCLUDE = [
   "note.html",
   "policies.html",
   "build.html", // /build: the product case study, a simulated walkthrough only
-  "how-it-works.html", // /how-it-works: the seller page with a simulated walkthrough
+  "how-it-works.html", // /how-it-works: the seller click-through
   "sell.html",
   // "source.html" is kept in the repo but off the site for now: add it back here to publish it.
   "study.html",
@@ -57,6 +57,7 @@ const INCLUDE = [
   "howitworks.css",
 
   "casestudy.js",
+  "howitworks.js",
   "script.js",
   "tz.js",
   "finance.js",

@@ -1,5 +1,5 @@
 /* ============================================================
-   casestudy.js: the four step walkthrough on /build and /how-it-works.
+   casestudy.js: the four step walkthrough on /build.
    Everything here is simulated in the page. It loads no Supabase client,
    calls no /api route and starts no Stripe session, so no real account,
    upload, order, payment or payout can happen from these pages.

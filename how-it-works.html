@@ -6,185 +6,163 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <meta name="theme-color" content="#244CFF" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Sell with Poda</title>
-  <meta name="description" content="A curated consignment store. New selections every two weeks. See how selling with poda works." />
+  <title>How selling works — poda</title>
+  <meta name="description" content="poda is a curated resale and consignment store with new selections every two weeks. See how selling with poda works." />
   <link rel="canonical" href="https://podapodapoda.co/how-it-works" />
 
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="poda" />
-  <meta property="og:title" content="Sell with Poda" />
-  <meta property="og:description" content="A curated consignment store. New selections every two weeks." />
+  <meta property="og:title" content="How selling works — poda" />
+  <meta property="og:description" content="A curated resale and consignment store. New selections every two weeks." />
   <meta property="og:url" content="https://podapodapoda.co/how-it-works" />
   <meta property="og:image" content="https://podapodapoda.co/icon-512.png" />
   <meta property="og:image:alt" content="The poda mark" />
   <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Sell with Poda" />
-  <meta name="twitter:description" content="A curated consignment store. New selections every two weeks." />
+  <meta name="twitter:title" content="How selling works — poda" />
+  <meta name="twitter:description" content="A curated resale and consignment store. New selections every two weeks." />
   <meta name="twitter:image" content="https://podapodapoda.co/icon-512.png" />
 
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="casestudy.css" />
   <link rel="stylesheet" href="howitworks.css" />
 </head>
-<body class="cs-body">
+<body>
   <header class="site-header" id="siteHeader">
     <div class="site-header__inner"></div>
   </header>
 
-  <!-- One shared drawing of the example piece, reused in the steps. -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-    <symbol id="cs-jacket" viewBox="0 0 120 150">
-      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
-        <path d="M44 16 L60 28 L76 16 L100 28 L112 70 L96 76 L92 52 L92 136 L28 136 L28 52 L24 76 L8 70 L20 28 Z" />
-        <path d="M60 28 V136" />
-        <path d="M44 16 L50 40 L60 28 L70 40 L76 16" />
-        <path d="M36 100 H52 M68 100 H84" />
-      </g>
-    </symbol>
-  </svg>
+  <main class="portal-shell">
+    <h1 class="visually-hidden">How selling with poda works</h1>
 
-  <main>
-    <!-- 1. WALKTHROUGH -->
-    <section class="cs-section hw-main" aria-labelledby="demoTitle">
-      <div class="cs-wrap">
-        <h1 class="hw-h2" id="demoTitle">How it works.</h1>
-        <p class="hw-copy">A curated consignment store. New selections every two weeks.</p>
+    <!--
+      Seven short screens. howitworks.js shows one at a time. Without
+      JavaScript every screen simply stacks, so the page still reads.
 
-        <noscript><p class="cs-note">The walkthrough needs JavaScript. In short: you apply and get an account, you submit a piece, Poda selects it for a drop, it goes live, and you are paid when it sells.</p></noscript>
+      PHOTOGRAPHY: no photo of poda's own pieces ships with the repo, so the
+      slots below stay empty on purpose. To add one, put an image inside a
+      .hiw-figure, for example
+        <img class="hiw-photo" src="assets/hiw/drop.jpg" alt="Describe the piece" />
+      An empty --slot figure stays hidden, so screens read fine without it.
+      Use poda's own photography only, and nothing that reads as live inventory.
+    -->
+    <section class="hiw" id="hiw" aria-label="How selling with poda works">
+      <div class="apply-card">
+        <span class="apply-tab hiw-tab" aria-hidden="true" data-tab>poda</span>
+        <div class="apply-card__body">
 
-        <div class="cs-demo" id="demo" data-demo>
-          <ol class="cs-steps" aria-label="Walkthrough progress">
-            <li data-step class="is-current" aria-current="step"><span class="cs-steps__n">01</span><span class="cs-steps__t">Join</span></li>
-            <li data-step><span class="cs-steps__n">02</span><span class="cs-steps__t">Submit</span></li>
-            <li data-step><span class="cs-steps__n">03</span><span class="cs-steps__t">Poda selects</span></li>
-            <li data-step><span class="cs-steps__n">04</span><span class="cs-steps__t">Sell</span></li>
-          </ol>
+          <div class="apply-progress hiw-progress" aria-hidden="true">
+            <span class="apply-progress__no" data-count>01 / 07</span>
+            <span class="apply-progress__bar" data-bar></span>
+          </div>
 
-          <p class="cs-demo__meta"><span class="cs-tag cs-tag--demo">Demo</span> Simulated. Nothing here creates an account, uploads a piece or moves money.</p>
+          <div class="hiw-stage">
 
-          <div class="cs-stage">
-            <!-- STEP 1: join -->
-            <div class="cs-panel is-active" data-panel data-state="idle" data-title="Join">
-              <div class="cs-win">
-                <div class="cs-win__bar"><span>Poda</span><span>Alex</span></div>
-                <div class="cs-win__body">
-                  <article class="cs-item" data-card>
-                    <div class="cs-img"><img class="hw-mark" src="logo-blue.png" alt="" /></div>
-                    <div class="cs-item__main">
-                      <p class="cs-label">Seller: Alex</p>
-                      <h3 class="cs-item__title">Alex's closet</h3>
-                      <p class="cs-item__price">0 pieces</p>
-                      <p class="cs-item__status">Status
-                        <span class="cs-chip cs-chip--pending" data-when="idle">Application</span>
-                        <span class="cs-chip cs-chip--approved" data-when="done">Account created</span>
-                      </p>
-                      <div class="cs-item__act">
-                        <button type="button" class="cs-btn cs-btn--solid" data-advance data-primary>
-                          <span data-when="idle">Apply to sell</span><span data-when="done">Applied</span>
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                </div>
+            <!-- 1 -->
+            <div class="hiw-screen" data-screen data-title="poda">
+              <div class="hiw-text">
+                <h2 class="visually-hidden" tabindex="-1" data-focus>poda</h2>
+                <p class="hiw-lede">poda is a curated resale and consignment store bringing together independent brands, vintage sellers, and private closets.</p>
+                <p class="hiw-sub">new selections drop every two weeks.</p>
               </div>
-              <p class="cs-caption">Apply to sell. Approved sellers get an account.</p>
+              <figure class="hiw-figure">
+                <img class="hiw-figure__mark" src="logo-blue.png" alt="" />
+              </figure>
             </div>
 
-            <!-- STEP 2: submit -->
-            <div class="cs-panel" data-panel data-state="idle" data-title="Submit" inert>
-              <div class="cs-win">
-                <div class="cs-win__bar"><span>My closet</span><span>Alex</span></div>
-                <div class="cs-win__body">
-                  <article class="cs-item" data-card data-sends>
-                    <div class="cs-img"><svg viewBox="0 0 120 150" aria-hidden="true"><use href="#cs-jacket" /></svg></div>
-                    <div class="cs-item__main">
-                      <p class="cs-label">Seller: Alex</p>
-                      <h3 class="cs-item__title">Vintage Jacket</h3>
-                      <p class="cs-item__price">Asking price $200</p>
-                      <p class="cs-item__status">Status
-                        <span class="cs-chip cs-chip--draft" data-when="idle">Draft</span>
-                        <span class="cs-chip cs-chip--pending" data-when="done">In review</span>
-                      </p>
-                      <div class="cs-item__act">
-                        <button type="button" class="cs-btn cs-btn--solid" data-advance data-primary>
-                          <span data-when="idle">Submit piece</span><span data-when="done">Submitted</span>
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                </div>
+            <!-- 2 -->
+            <div class="hiw-screen" data-screen data-title="joining">
+              <div class="hiw-text">
+                <h2 class="visually-hidden" tabindex="-1" data-focus>joining</h2>
+                <p class="hiw-lede">poda works with a select group of sellers. we review each application to make sure it aligns with the store and its visual identity.</p>
+                <p class="hiw-sub">apply to be considered. if selected, you’ll receive a seller account.</p>
               </div>
-              <p class="cs-caption">Upload pieces for consideration.</p>
             </div>
 
-            <!-- STEP 3: Poda selects -->
-            <div class="cs-panel" data-panel data-state="idle" data-title="Poda selects" inert>
-              <div class="cs-win">
-                <div class="cs-win__bar"><span>Poda: review queue</span><span>1 waiting</span></div>
-                <div class="cs-win__body">
-                  <article class="cs-item" data-card>
-                    <div class="cs-img"><svg viewBox="0 0 120 150" aria-hidden="true"><use href="#cs-jacket" /></svg></div>
-                    <div class="cs-item__main">
-                      <p class="cs-label">Seller: Alex</p>
-                      <h3 class="cs-item__title">Vintage Jacket</h3>
-                      <p class="cs-item__price">$200</p>
-                      <p class="cs-item__status">Status
-                        <span class="cs-chip cs-chip--pending" data-when="idle">In review</span>
-                        <span class="cs-chip cs-chip--approved" data-when="done">Selected for a drop</span>
-                      </p>
-                      <div class="cs-item__act">
-                        <button type="button" class="cs-btn cs-btn--solid" data-advance data-primary>
-                          <span data-when="idle">Select</span><span data-when="done">Selected</span>
-                        </button>
-                        <button type="button" class="cs-btn cs-btn--danger" data-action="decline">Pass</button>
-                      </div>
-                      <p class="cs-hint" role="status" data-decline-note hidden>Not every piece is selected. Poda decides what goes into each drop. Select this one to continue the demo.</p>
-                    </div>
-                  </article>
+            <!-- 3 -->
+            <div class="hiw-screen" data-screen data-title="choose your path">
+              <div class="hiw-text">
+                <h2 class="visually-hidden" tabindex="-1" data-focus>choose your path</h2>
+                <p class="hiw-lede" id="hiwAsk">what best describes you?</p>
+                <div class="apply-choices hiw-choices" role="group" aria-labelledby="hiwAsk">
+                  <button type="button" class="apply-choice" data-choice="closet" aria-pressed="false"><span>private closet</span><span aria-hidden="true">→</span></button>
+                  <button type="button" class="apply-choice" data-choice="store" aria-pressed="false"><span>vintage / resale store</span><span aria-hidden="true">→</span></button>
+                  <button type="button" class="apply-choice" data-choice="brand" aria-pressed="false"><span>independent brand</span><span aria-hidden="true">→</span></button>
                 </div>
+                <p class="hiw-hint" data-hint>choose one to continue.</p>
               </div>
-              <p class="cs-caption">Poda reviews and selects pieces for upcoming drops.</p>
             </div>
 
-            <!-- STEP 4: sell -->
-            <div class="cs-panel" data-panel data-state="idle" data-title="Sell" inert>
-              <div class="cs-win">
-                <div class="cs-win__bar"><span>Poda storefront</span><span>Customer view</span></div>
-                <div class="cs-win__body">
-                  <div class="cs-shop">
-                    <div class="cs-ghost" aria-hidden="true"><div class="cs-img"></div><i></i><i></i><span>Another seller</span></div>
-                    <article class="cs-tile" data-card>
-                      <div class="cs-img"><svg viewBox="0 0 120 150" aria-hidden="true"><use href="#cs-jacket" /></svg></div>
-                      <h3 class="cs-item__title">Vintage Jacket</h3>
-                      <p class="cs-item__price">$200</p>
-                      <p class="hw-state"><span class="cs-chip cs-chip--approved" data-when="idle">Live</span><span class="cs-chip cs-chip--sold" data-when="done">Sold</span></p>
-                      <button type="button" class="cs-btn cs-btn--solid cs-btn--block" data-advance data-primary>
-                        <span data-when="idle">Simulate a sale</span><span data-when="done">Sale simulated</span>
-                      </button>
-                    </article>
-                    <div class="cs-ghost" aria-hidden="true"><div class="cs-img"></div><i></i><i></i><span>Another seller</span></div>
-                  </div>
-                  <p class="hw-result" data-when="done">Sold. Payout recorded for Alex.</p>
+            <!-- 4: shows only the list for the category picked on screen 3 -->
+            <div class="hiw-screen" data-screen data-title="how you can sell">
+              <div class="hiw-text">
+                <h2 class="visually-hidden" tabindex="-1" data-focus>how you can sell</h2>
+                <p class="hiw-lede">sell in a way that works for you.</p>
+                <div data-cat-list="closet">
+                  <p class="hiw-cat">private closet</p>
+                  <ul class="hiw-list">
+                    <li>a single piece from your closet</li>
+                    <li>a selection of pieces you no longer wear</li>
+                    <li>pieces you want to make available over time</li>
+                  </ul>
+                </div>
+                <div data-cat-list="store">
+                  <p class="hiw-cat">vintage / resale store</p>
+                  <ul class="hiw-list">
+                    <li>one-off vintage finds</li>
+                    <li>a selection from your current inventory</li>
+                    <li>pieces sourced for upcoming drops</li>
+                  </ul>
+                </div>
+                <div data-cat-list="brand">
+                  <p class="hiw-cat">independent brand</p>
+                  <ul class="hiw-list">
+                    <li>pieces from your current collection</li>
+                    <li>past-season or archive pieces</li>
+                    <li>samples and one-offs</li>
+                  </ul>
                 </div>
               </div>
-              <p class="cs-caption">Selected pieces go live. You're paid when they sell.</p>
-              <div class="cs-restart" data-when="done">
-                <button type="button" class="cs-btn" data-action="restart">Restart demo</button>
+            </div>
+
+            <!-- 5 -->
+            <div class="hiw-screen" data-screen data-title="selection">
+              <div class="hiw-text">
+                <h2 class="visually-hidden" tabindex="-1" data-focus>selection</h2>
+                <p class="hiw-lede">submit pieces through your seller account. poda reviews submissions and selects pieces for each biweekly drop.</p>
+                <p class="hiw-sub">you can submit one piece or build a larger selection over time.</p>
               </div>
+            </div>
+
+            <!-- 6 -->
+            <div class="hiw-screen" data-screen data-title="why poda">
+              <div class="hiw-text">
+                <h2 class="visually-hidden" tabindex="-1" data-focus>why poda</h2>
+                <p class="hiw-lede">poda pairs each drop with editorial and imagery that give the pieces context.</p>
+                <p class="hiw-sub">we have a deep sourcing network and connect sellers with people looking for pieces that align with what they offer.</p>
+              </div>
+              <figure class="hiw-figure hiw-figure--slot"></figure>
+            </div>
+
+            <!-- 7 -->
+            <div class="hiw-screen" data-screen data-title="the drop">
+              <div class="hiw-text">
+                <h2 class="visually-hidden" tabindex="-1" data-focus>the drop</h2>
+                <p class="hiw-lede">selected pieces are listed in the poda shop. when a piece sells, you handle shipment and receive your agreed payout.</p>
+                <p class="hiw-sub">pricing, commission, and fulfillment are agreed before a piece goes live.</p>
+                <div class="hiw-cta">
+                  <a class="btn btn--primary hiw-apply" href="sell.html">apply to sell →</a>
+                  <a class="apply-login" href="seller.html">Already a seller? Sign in.</a>
+                </div>
+              </div>
+              <figure class="hiw-figure hiw-figure--slot"></figure>
             </div>
           </div>
 
-          <p class="cs-sr" role="status" aria-live="polite" data-live></p>
-        </div>
-      </div>
-    </section>
+          <div class="apply-nav hiw-controls">
+            <button type="button" class="btn hiw-arrow" data-prev aria-label="Previous screen">←</button>
+            <button type="button" class="btn btn--primary hiw-arrow" data-next aria-label="Next screen">→</button>
+          </div>
 
-    <!-- 2. CLOSING -->
-    <section class="hw-close" aria-label="Join Poda">
-      <div class="cs-wrap">
-        <div class="cs-actions">
-          <a class="cs-btn cs-btn--solid" href="sell.html">Join Poda <span aria-hidden="true">↗</span></a>
-          <a class="hw-link" href="seller.html">Already a seller? Sign in.</a>
+          <p class="visually-hidden" role="status" aria-live="polite" data-live></p>
         </div>
       </div>
     </section>
@@ -192,7 +170,7 @@
 
   <footer class="site-footer portal-shell" data-variant="minimal"></footer>
 
-  <script src="casestudy.js"></script>
+  <script src="howitworks.js"></script>
   <script src="layout.js"></script>
 </body>
 </html>

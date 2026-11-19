@@ -1,31 +1,97 @@
 /* ============================================================
-   howitworks.css: the seller page (how-it-works.html).
-   Loads after style.css and casestudy.css. The walkthrough reuses the
-   .cs- components from /build; this file only adds the hero, headings
-   and closing, set in Anton like the Sell with poda page.
+   howitworks.css: the seller click-through (how-it-works.html).
+   Loads after style.css and reuses the application form's pieces: the tab,
+   the bg-box card, the progress bar, the choice buttons and .btn. This file
+   only adds the screen layout and the type for the copy.
    ============================================================ */
-.hw-h2 {
-  margin: 0 0 12px;
-  font-family: "Anton", Impact, "Haettenschweiler", "Arial Narrow Bold", sans-serif;
-  font-style: italic;
+.hiw { max-width: 760px; margin: 0 auto; padding: 56px 0 72px; }
+
+/* Brand name stays lowercase: the tab is not uppercased like the form's. */
+.hiw-tab { text-transform: none; font-size: 17px; letter-spacing: 0.04em; }
+.hiw .apply-card__body { padding: clamp(22px, 5vw, 40px); }
+.hiw-progress { margin-bottom: clamp(22px, 4vw, 34px); }
+.hiw .apply-progress__no { font-size: 12px; }
+
+/* Screens: one at a time once the script runs, stacked before that. */
+.hiw-stage { min-height: 320px; }
+.hiw:not(.is-live) .hiw-screen + .hiw-screen { margin-top: 40px; padding-top: 40px; border-top: 1px solid var(--border); }
+.hiw-screen { display: flex; flex-direction: column; gap: 24px; }
+.hiw-screen[hidden] { display: none; }
+.hiw-screen.is-in { animation: hiw-in 0.28s ease both; }
+@keyframes hiw-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.hiw-text { flex: 1; min-width: 0; }
+.hiw-lede {
+  margin: 0 0 18px;
+  font-family: var(--font-serif);
   font-weight: 400;
-  line-height: 0.98;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-  font-size: clamp(34px, 7vw, 52px);
+  font-size: clamp(22px, 4.8vw, 30px);
+  line-height: 1.22;
 }
-.hw-copy { margin: 0 0 28px; font-family: var(--font); font-size: 13px; line-height: 1.8; letter-spacing: 0.02em; color: var(--text-dim); }
-.hw-link { font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; color: var(--text); text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--border-light); }
-.hw-link:hover, .hw-link:focus-visible { color: var(--accent); text-decoration-color: var(--accent); outline: none; }
-.hw-link:focus-visible { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.hiw-sub { margin: 0; max-width: 46ch; font-family: var(--font); font-size: 13px; line-height: 1.8; letter-spacing: 0.02em; color: var(--text-dim); }
 
-.hw-mark { width: 44%; height: auto; }
-.hw-state { margin: 0 0 10px; text-align: center; }
-.hw-state .cs-chip { margin-left: 0; }
-.hw-result { margin: 18px 0 0; font-family: var(--font-serif); font-size: clamp(1.15rem, 3.2vw, 1.5rem); font-weight: 600; line-height: 1.25; text-align: center; }
+/* Photography slot. Screen 1 shows the mark. The other slots stay hidden
+   until a photo is added inside them. */
+.hiw-figure {
+  position: relative;
+  order: -1;
+  margin: 0;
+  aspect-ratio: 16 / 10;
+  max-height: 200px;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.hiw-figure__mark { width: 34%; max-width: 150px; height: auto; }
+.hiw-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hiw-figure:has(.hiw-photo) .hiw-figure__mark { display: none; }
+.hiw-figure--slot:not(:has(.hiw-photo)) { display: none; }
 
-/* Sold uses the dark chip. */
-.cs-chip--sold { background: var(--text); border-color: var(--text); color: var(--bg); }
+/* Category choice */
+.hiw-choices { margin-top: 6px; }
+.hiw-hint { margin: 14px 0 0; font-family: var(--font); font-size: 12px; letter-spacing: 0.04em; color: var(--text-dim); }
+.hiw-hint[hidden] { display: none; }
+.hiw .apply-choice.is-selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+.hiw .apply-choice.is-selected:hover { color: #fff; }
 
-.hw-close { padding-block: clamp(48px, 9vw, 96px); }
-.hw-close .cs-label { margin-bottom: 18px; }
+/* Screen 4: the chosen category's examples. The label only shows without JS. */
+.hiw-cat { margin: 0 0 6px; font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+.hiw.is-live .hiw-cat { display: none; }
+[data-cat-list][hidden] { display: none; }
+.hiw:not(.is-live) [data-cat-list] + [data-cat-list] { margin-top: 22px; }
+.hiw-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.hiw-list li { padding: 15px 0; border-bottom: 1px solid var(--border); font-family: var(--font); font-size: 14px; line-height: 1.5; letter-spacing: 0.01em; }
+
+/* Last screen */
+.hiw-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 20px 26px; margin-top: 30px; }
+.hiw-apply { display: inline-flex; align-items: center; text-decoration: none; }
+
+/* Arrows. A hidden arrow keeps its place so the other one does not jump. */
+.hiw-controls { margin-top: clamp(26px, 5vw, 40px); }
+.hiw-arrow { min-width: 64px; font-size: 18px; letter-spacing: 0; }
+.hiw-arrow[hidden] { display: block; visibility: hidden; }
+.hiw:not(.is-live) .hiw-controls { display: none; }
+.hiw:not(.is-live) .hiw-choices,
+.hiw:not(.is-live) .hiw-hint { display: none; }
+
+/* Visible focus on everything the visitor can reach. */
+.hiw .btn:focus-visible,
+.hiw .apply-choice:focus-visible,
+.hiw .apply-login:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.hiw .apply-choice.is-selected:focus-visible { outline-color: var(--text); }
+
+@media (min-width: 720px) {
+  .hiw-screen { flex-direction: row; align-items: center; gap: 40px; }
+  .hiw-figure { order: 0; flex: 0 0 38%; aspect-ratio: 4 / 5; max-height: none; }
+  .hiw-stage { min-height: 360px; }
+}
+@media (max-width: 480px) {
+  .hiw { padding-top: 40px; }
+  .hiw-apply { width: 100%; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hiw-screen.is-in { animation: none; }
+  .hiw .apply-choice { transition: none; }
+}
