@@ -9,7 +9,8 @@
 -- release that has been public, so the status check here is no longer needed.
 --
 -- Deleting a release still:
---   * detaches its notes and lookbook sets (they are kept, not deleted),
+--   * detaches its notes and lookbook sets and turns them into private drafts
+--     (they are kept, not deleted, and no longer visible to visitors),
 --   * cascades to its placements (products stay in inventory), updates and
 --     activity log through the existing foreign keys,
 --   * keeps every order: orders.edit_id is "on delete set null".
@@ -24,13 +25,15 @@ returns trigger
 language plpgsql
 as $$
 begin
-  -- Keep attached notes and sets; just release them from this folder.
+  -- Keep attached notes and sets, release them from this folder and make them
+  -- private drafts. A published note with no folder is public on its own, so
+  -- without the draft step it would stay visible after the folder is gone.
   update public.notes
-     set data = jsonb_set(data, '{folderId}', '""')
+     set data = jsonb_set(jsonb_set(data, '{folderId}', '""'), '{status}', '"draft"')
    where data->>'folderId' = old.id::text;
 
   update public.studies
-     set data = jsonb_set(data, '{relatedDropId}', '""')
+     set data = jsonb_set(jsonb_set(data, '{relatedDropId}', '""'), '{status}', '"draft"')
    where data->>'relatedDropId' = old.id::text;
 
   return old;

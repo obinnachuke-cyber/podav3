@@ -1062,9 +1062,9 @@
       <section class="rel-block">
         <div class="section-bar"><span class="section-bar__title">Delete release</span></div>
         ${A().canDeleteRelease(r)
-          ? `<p class="rel-note">This release has never been public, so it can be deleted. Its notes and index sets are kept and detached. Products stay in inventory. Its updates and activity log are removed.</p>
+          ? `<p class="rel-note">This release has never been public, so it can be deleted. Its notes and index sets are kept as private drafts. Products stay in inventory. Its updates and activity log are removed.</p>
              <div class="rel-actions" style="margin-top:10px;"><button type="button" class="btn btn--danger" data-rel="delete-release">Delete release</button></div>`
-          : `<p class="rel-note">This release has been public, scheduled or archived. Deleting it takes it out of Shop and the Archive and its link stops working. Products stay in inventory, notes and index sets are kept and detached, and orders already placed are kept. Its updates and activity log are removed. <strong>Archive release</strong> keeps a record instead. You will be asked to type the title to confirm.</p>
+          : `<p class="rel-note">This release has been public, scheduled or archived. Deleting it takes it out of Shop and the Archive and its link stops working. Products stay in inventory, notes and index sets are kept as private drafts so visitors no longer see them, and orders already placed are kept. Its updates and activity log are removed. <strong>Archive release</strong> keeps a record instead. You will be asked to type the title to confirm.</p>
              <div class="rel-actions" style="margin-top:10px;"><button type="button" class="btn btn--danger" data-rel="delete-release">Delete release…</button></div>`}
       </section>`;
   }
@@ -1076,8 +1076,9 @@
     const d = R.data;
     const r = d.release;
     const parts = [];
-    if (d.notes.length) parts.push(`${d.notes.length} note${d.notes.length === 1 ? "" : "s"} (kept, detached)`);
-    if (d.studies.length) parts.push(`${d.studies.length} index set${d.studies.length === 1 ? "" : "s"} (kept, detached)`);
+    const keptAs = "kept as private drafts";
+    if (d.notes.length) parts.push(`${d.notes.length} note${d.notes.length === 1 ? "" : "s"} (${keptAs})`);
+    if (d.studies.length) parts.push(`${d.studies.length} index set${d.studies.length === 1 ? "" : "s"} (${keptAs})`);
     if (d.placements.length) parts.push(`${d.placements.length} product${d.placements.length === 1 ? "" : "s"} (stay in inventory)`);
     if (d.updates.length) parts.push(`${d.updates.length} update${d.updates.length === 1 ? "" : "s"} (deleted)`);
     const summary = parts.length ? `\n\nIn this release: ${parts.join(", ")}.` : "";
@@ -1104,8 +1105,9 @@
     for (const u of d.updates) {
       if (u.image_path) { try { await D().deleteNoteMedia(A().noteMediaUrl(u.image_path)); } catch (e) { /* best effort */ } }
     }
-    noteState.notes.forEach(n => { if (n.folderId === r.id) n.folderId = ""; });
-    studyState.studies.forEach(s => { if (s.relatedDropId === r.id) s.relatedDropId = ""; });
+    // The database made them private drafts too; mirror that here.
+    noteState.notes.forEach(n => { if (n.folderId === r.id) { n.folderId = ""; n.status = "draft"; } });
+    studyState.studies.forEach(s => { if (s.relatedDropId === r.id) { s.relatedDropId = ""; s.status = "draft"; } });
     R.data = null;
     R.tab = "contents";
     setView("releases");
