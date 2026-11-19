@@ -17,7 +17,7 @@
    ============================================================ */
 
 const RESEND_BATCH_LIMIT = 100;
-const FROM_ADDRESS = "Poda <notes@podapodapoda.co>";
+const FROM_ADDRESS = "poda <notes@podapodapoda.co>";
 const REPLY_TO = "notes@podapodapoda.co";
 
 function json(status, body) {
