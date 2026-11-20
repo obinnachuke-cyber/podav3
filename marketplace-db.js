@@ -952,7 +952,7 @@
   // are frozen when the order is made.
   async function updateOrder(id, patch) {
     const row = {};
-    ["shipped_at", "carrier", "tracking_number", "payout_status", "payout_paid_at", "status", "refunded_at"].forEach(k => {
+    ["shipped_at", "delivered_at", "carrier", "tracking_number", "payout_status", "payout_paid_at", "status", "refunded_at"].forEach(k => {
       if (patch[k] !== undefined) row[k] = patch[k];
     });
     const { data, error } = await client().from("orders").update(row).eq("id", id).select().single();

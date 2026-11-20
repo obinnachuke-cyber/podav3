@@ -3147,7 +3147,7 @@ async function renderOrders() {
         </div>
       </details>`;
     const shippedLine = o.shipped_at
-      ? `<p class="app-card__meta">Shipped ${escapeHTML(new Date(o.shipped_at).toLocaleDateString())}${o.carrier ? ` · ${escapeHTML(o.carrier)}` : ""}${o.tracking_number ? ` ${escapeHTML(o.tracking_number)}` : ""}${o.shipped_email_sent_at ? " · buyer emailed" : " · buyer not emailed"}</p>`
+      ? `<p class="app-card__meta">Shipped ${escapeHTML(new Date(o.shipped_at).toLocaleDateString())}${o.carrier ? ` · ${escapeHTML(o.carrier)}` : ""}${o.tracking_number ? ` ${escapeHTML(o.tracking_number)}` : ""}${o.shipped_email_sent_at ? " · buyer emailed" : " · buyer not emailed"}${o.delivered_at ? ` · Delivered ${escapeHTML(new Date(o.delivered_at).toLocaleDateString())}` : ""}</p>`
       : "";
     return `
       <article class="app-card${o.conflict && paid ? " app-card--declined" : ""}" data-order="${escapeHTML(o.id)}">
@@ -3165,7 +3165,10 @@ async function renderOrders() {
         ${paid || o.status === "refunded" ? `
         <div class="app-card__actions">
           ${normal ? (o.shipped_at
-            ? `<button type="button" class="btn" data-order-act="unship">Undo shipped</button>
+            ? `${o.delivered_at
+                 ? `<button type="button" class="btn" data-order-act="undeliver">Undo delivered</button>`
+                 : `<button type="button" class="btn btn--primary" data-order-act="deliver">Mark delivered</button>
+                    <button type="button" class="btn" data-order-act="unship">Undo shipped</button>`}
                ${o.buyer_email ? `<button type="button" class="btn" data-order-act="resend">Email buyer again</button>` : ""}`
             : shipForm) : ""}
           ${normal && o.payout_status === "unpaid" ? `<button type="button" class="btn btn--primary" data-order-act="pay">Mark seller paid</button>` : ""}
@@ -3267,6 +3270,8 @@ async function renderOrders() {
       // so marking shipped works even before the tracking migration is run.
       ship: { shipped_at: now, ...(typedCarrier || typedTracking ? { carrier: typedCarrier || null, tracking_number: typedTracking || null } : {}) },
       unship: { shipped_at: null },
+      deliver: { delivered_at: now },
+      undeliver: { delivered_at: null },
       pay: { payout_status: "paid", payout_paid_at: now },
       unpay: { payout_status: "unpaid", payout_paid_at: null },
       refund: { status: "refunded", refunded_at: now },
@@ -3301,9 +3306,10 @@ async function renderOrders() {
    so a batch is paid in full or not at all, and a mistake can be voided.
    poda still sends the money by hand; this records that it was sent.
    ============================================================ */
-// Days after an order ships before its seller counts as ready to pay. It
-// matches the 7-day window in policies.html for a piece not as described.
-const PAYOUT_HOLD_DAYS = 7;
+// Days after an order is delivered before its seller counts as ready to pay.
+// Delivery is recorded with Mark delivered in Orders. Change it with the
+// not-as-described window in policies.html.
+const PAYOUT_HOLD_DAYS = 3;
 const PAYOUT_METHODS = ["Zelle", "Venmo", "PayPal", "Bank transfer", "Cash", "Check", "Other"];
 let payoutsRange = "month";        // month | lastMonth | last30 | all
 let payoutsOpenSeller = null;      // the seller whose Pay out panel is open
@@ -3364,7 +3370,7 @@ async function renderPayouts() {
     const items = rows.map(o => {
       const st = F.payoutState(o, PAYOUT_HOLD_DAYS, now);
       const ready = st.state === "ready";
-      const label = ready ? "Ready" : st.state === "window" ? `In window until ${dateOf(new Date(st.eligibleAt).toISOString())}` : "Not shipped";
+      const label = ready ? "Ready" : st.state === "window" ? `In window until ${dateOf(new Date(st.eligibleAt).toISOString())}` : "Not delivered";
       return `
         <label class="fin-pay__row">
           <input type="checkbox" data-pay-order="${escapeHTML(o.id)}" data-cents="${Number(o.seller_payout_cents) || 0}" data-ready="${ready ? 1 : 0}"${ready ? " checked" : ""} />
@@ -3473,9 +3479,9 @@ async function renderPayouts() {
 
       <h3 class="fin-h">Owed to sellers <span>right now</span></h3>
       <div class="fin-grid">
-        ${card("Ready to pay", money(owed.ready), `Shipped over ${PAYOUT_HOLD_DAYS} days ago`, owed.ready > 0 ? "fin-card--net" : "")}
-        ${card("In the return window", money(owed.window), "Shipped, still waiting it out")}
-        ${card("Not shipped yet", money(owed.notShipped))}
+        ${card("Ready to pay", money(owed.ready), `Delivered over ${PAYOUT_HOLD_DAYS} days ago`, owed.ready > 0 ? "fin-card--net" : "")}
+        ${card("In the return window", money(owed.window), "Delivered, still waiting it out")}
+        ${card("Not delivered yet", money(owed.notShipped), "Mark delivered in Orders")}
         ${card("Paid out", money(sum.paidOut), period)}
         ${owed.clawback > 0 ? card("To recover from sellers", money(owed.clawback), "Refunded after the seller was paid", "fin-card--warn") : ""}
         ${sum.refundedCount ? card("Refunds", money(sum.refundedCents), `${plural(sum.refundedCount, "order")} in ${period.toLowerCase()}`) : ""}
@@ -3485,7 +3491,7 @@ async function renderPayouts() {
       <h3 class="fin-h">By seller</h3>
       ${list.length ? `
       <div class="table-wrap"><table class="admin-table">
-        <thead><tr><th>Seller</th><th>Sales</th><th>Ready</th><th>In window</th><th>Not shipped</th><th>Paid out</th><th>To recover</th><th></th></tr></thead>
+        <thead><tr><th>Seller</th><th>Sales</th><th>Ready</th><th>In window</th><th>Not delivered</th><th>Paid out</th><th>To recover</th><th></th></tr></thead>
         <tbody>${list.map(sellerRow).join("")}</tbody>
       </table></div>` : `<p class="admin-empty">No seller sales yet.</p>`}
 
@@ -3511,7 +3517,7 @@ async function renderPayouts() {
           <li><b>Stripe fees</b> come out of poda's share. Sellers are never charged them. Sales made before fees were recorded have none, which the card shows.</li>
           <li><b>Net to poda</b> is what poda keeps, plus shipping collected, minus Stripe fees. The real cost of shipping is not tracked, so it is not taken off.</li>
           <li>A <b>refunded</b> order stops being a sale. It appears on its own line, never in the totals.</li>
-          <li>A seller is <b>ready to pay</b> once their order shipped and ${PAYOUT_HOLD_DAYS} days have passed, the same window buyers have to report a piece not as described. Until then it is <b>in the return window</b>, or <b>not shipped</b>.</li>
+          <li>A seller is <b>ready to pay</b> once their order was marked delivered and ${PAYOUT_HOLD_DAYS} days have passed with no issue raised. Until then it is <b>in the return window</b>, or <b>not delivered</b>. Check Stripe for a dispute before you pay.</li>
           <li><b>To recover</b> is money paid to a seller for an order that was refunded afterwards.</li>
         </ul>
       </details>`;
@@ -3644,7 +3650,7 @@ function buildSupplierForm(s, isNew) {
           ${selectField("Type", "type", s.type, SUPPLIER_TYPES)}
           ${numberField("Commission to poda (bps)", "commission_bps", s.commission_bps, { placeholder: "2500 = 25%" })}
           ${isNew ? "" : selectField("Status", "status", s.status, SUPPLIER_STATUSES)}
-          ${textField("Contact email", "contact_email", s.contact_email, { placeholder: "optional" })}
+          ${textField("Contact email", "contact_email", s.contact_email, { placeholder: "required: sale and shipping emails go here" })}
           ${textareaField("Notes", "notes", s.notes)}
         </div>
       </section>
@@ -3695,6 +3701,11 @@ async function saveSupplier(existingId) {
   const statusField = form.querySelector('[name="status"]');
 
   if (!name) { errorBox.textContent = "Name is required."; errorBox.hidden = false; return; }
+  // Every seller needs an email: it is where sale, shipping and payout emails go.
+  // poda's own pieces have no seller to notify, so that type is exempt.
+  if (type !== "poda" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+    errorBox.textContent = "A valid contact email is required. Sale and shipping emails go to it."; errorBox.hidden = false; return;
+  }
   if (!Number.isFinite(bps) || bps < 0 || bps > 10000) {
     errorBox.textContent = "Commission must be a number between 0 and 10000 (basis points)."; errorBox.hidden = false; return;
   }

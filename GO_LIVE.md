@@ -9,8 +9,10 @@ Decisions behind this list: `LAUNCH_DECISIONS.md`. How checkout works:
 
 ## Before anything: deploy the latest code
 
-1. Commit and push to `main`.
-2. Cloudflare, Workers and Pages, `podav3`, Deployments: wait for the newest
+1. In the Supabase SQL editor, run `migrations/20261121_order_delivery.sql`.
+   It adds the delivery date the payout window needs.
+2. Commit and push to `main`.
+3. Cloudflare, Workers and Pages, `podav3`, Deployments: wait for the newest
    deploy to show success.
 
 ## Part 1. Finish testing in the sandbox
@@ -43,16 +45,17 @@ deliveries shows what the site answered.
 
 These need your answer. Ask Claude to apply any change.
 
-- **Shipping fee.** `SHIPPING_FLAT_CENTS` in `wrangler.toml` is still `"1500"`,
-  which is $15.00.
-- **Who ships.** The code assumes the seller ships and is emailed the buyer's
-  address. If poda ships instead, set `NOTIFY_SELLERS = "false"`.
-- **Return shipping.** Who pays when a piece is not as described.
+- **Shipping fee.** Decided: $15.00 flat per order, `SHIPPING_FLAT_CENTS = "1500"`.
+- **Who ships.** Decided: sellers ship directly within 3 business days.
+  `NOTIFY_SELLERS = "true"`.
+- **Return shipping.** Decided: the seller pays on an accepted return. It is in
+  `policies.html` and `terms.html`.
 - **Sales tax.** Ask an accountant before taxable sales. Off for now.
 - **Make sure every seller has a contact email** on their record in Admin,
-  Supply, Sellers. Without one they are not told their piece sold.
-- **Legal pages.** Have a lawyer read `terms.html` and `privacy.html`, and add
-  your business name and address to both.
+  Supply, Sellers. The form now requires one. Open each existing seller and
+  save it with an email. Without one they are not told their piece sold.
+- **Legal pages.** Send Claude your business name and address: they are not on
+  `terms.html` or `privacy.html` yet. Then have a lawyer read both.
 - **Resend plan.** The free plan sends 100 emails a day, shared by every email
   poda sends. Move to Pro before a drop to many subscribers.
 
@@ -95,8 +98,9 @@ sandbox keys makes the payment form fail.
 
 ## After launch
 
+- When the carrier shows a piece delivered, press **Mark delivered** in Orders.
 - Pay sellers yourself, then record it in Admin, Supply, Payouts. A seller is
-  ready to pay 7 days after the piece ships.
+  ready to pay 3 days after delivery. Check Stripe for a dispute first.
 - Each morning you get an email if a paid order is not shipped after 3 days.
 - A dispute email gives you a deadline. Answer in Stripe before it.
 - Keep Resend under its daily limit on drop days.

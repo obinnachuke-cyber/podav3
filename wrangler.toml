@@ -38,8 +38,9 @@ SHIPPING_FLAT_CENTS = "1500"
 STRIPE_PUBLISHABLE_KEY = "pk_test_51UaMMgElGXZ0uveXsiQ4Qmlfegq7giPs6GJm1Rbt2pfqQpr04jz7oFT3rLciAKRLMcsQa2aW4G59H1UfeLJOyKzT002CBIVo4A"
 
 # When a piece sells, the seller is emailed the buyer's shipping address and
-# asked to reply with tracking. Set to "false" if poda ships pieces itself.
-# NOTIFY_SELLERS = "false"
+# asked to ship within 3 business days and reply with tracking. Sellers ship
+# directly to buyers. Set to "false" only if poda ships pieces itself.
+NOTIFY_SELLERS = "true"
 
 # Sales tax. "false" adds no tax. Change to "true" only after Stripe Tax is set
 # up in the Stripe dashboard (see CHECKOUT_SETUP.md, Sales tax) and an

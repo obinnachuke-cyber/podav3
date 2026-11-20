@@ -19,8 +19,9 @@
      Real shipping costs are not tracked, so they are not subtracted.
    - A refunded order stops being a sale. It is listed on its own line.
    - A seller is owed the seller share of each unpaid sale. It is READY to pay
-     once the order shipped and the return window has passed, IN THE WINDOW
-     while that wait runs, and NOT SHIPPED until it goes out.
+     once the order was delivered and the return window has passed, IN THE
+     WINDOW while that wait runs, and NOT DELIVERED until the admin marks it
+     delivered. (The bucket keeps the name notShipped in the code.)
    - A refund after the seller was paid is money to recover from them.
    ============================================================ */
 (function (root) {
@@ -83,12 +84,13 @@
     return s;
   }
 
-  // Where an unpaid sale stands: ready, in the return window, or not shipped.
+  // Where an unpaid sale stands: ready, in the return window, or not delivered
+  // yet. Delivery is the admin's Mark delivered; shipping alone starts nothing.
   // Returns null for anything that is not an unpaid sale owed to a seller.
   function payoutState(o, holdDays, now) {
     if (!isSale(o) || o.payout_status !== "unpaid") return null;
-    if (!o.shipped_at) return { state: "not_shipped", eligibleAt: null };
-    const eligibleAt = time(o.shipped_at) + (Number(holdDays) || 0) * DAY_MS;
+    if (!o.delivered_at) return { state: "not_shipped", eligibleAt: null };
+    const eligibleAt = time(o.delivered_at) + (Number(holdDays) || 0) * DAY_MS;
     return { state: now >= eligibleAt ? "ready" : "window", eligibleAt };
   }
 
@@ -97,7 +99,7 @@
   // One entry per seller: what is owed in each state, what has been paid, and
   // anything refunded after they were paid.
   function balances(orders, options) {
-    const { holdDays = 7, now = Date.now() } = options || {};
+    const { holdDays = 3, now = Date.now() } = options || {};
     const bySeller = new Map();
     const row = o => {
       const id = o.supplier_id;

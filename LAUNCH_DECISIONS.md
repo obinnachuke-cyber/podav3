@@ -20,8 +20,8 @@ code: only you know them.
 
 | # | Decision | Status |
 |---|---|---|
-| B1 | The seller ships the piece to the buyer. Sellers are emailed the ship-to address on each sale. Switch off with `NOTIFY_SELLERS = "false"` if poda ships instead. | Built, confirm |
-| B2 | Flat US fee stays $15.00 until you set `SHIPPING_FLAT_CENTS` in `wrangler.toml`. | You |
+| B1 | Sellers ship directly to buyers within 3 business days and send tracking. poda holds no inventory. `NOTIFY_SELLERS = "true"`. | Decided, built |
+| B2 | Flat $15.00 per order for now. Per-seller shipping comes later, with carts. | Decided |
 | B3 | One flat fee for everything. | Decided |
 | B4 | US only. | Decided |
 | B5 | The seller replies with tracking, you enter it in Orders, the buyer is emailed. A daily email lists orders not shipped after 3 days. | Built |
@@ -32,14 +32,14 @@ code: only you know them.
 | # | Decision | Status |
 |---|---|---|
 | C1 | Your state and accountant. | You |
-| C2 | Tax stays off until an accountant says what to collect. Then set up Stripe Tax and set `STRIPE_TAX_ENABLED = "true"`. The code is ready. | You |
+| C2 | Tax stays off. First find where poda must register and collect, with an accountant, then set up Stripe Tax for those states only and set `STRIPE_TAX_ENABLED = "true"`. The code is ready. Flag for accountant review before launch. | You |
 
 ## D. Seller payouts
 
 | # | Decision | Status |
 |---|---|---|
-| D1 | Payouts stay manual: you send the money, then record it in Supply, Payouts. Stripe Connect is not worth building until there are many sellers. | Decided |
-| D2 | A seller is ready to pay 7 days after the piece ships. Sellers are told this in their sale email. | Built |
+| D1 | Target: Stripe Connect, separate charges and transfers, with a manual approval step before each transfer. Not built. Until then payouts stay manual: you send the money, then record it in Supply, Payouts. | Decided, not built |
+| D2 | A seller is ready to pay 3 days after delivery, with no issue raised. You press Mark delivered in Orders. Sellers are told this in their sale email. | Built |
 | D3 | Sellers get an email on each sale with their share. A sales tab in the closet is not built. | Built, tab not built |
 | D4 | Stripe's fee comes out of poda's share, never the seller's. | Decided |
 | D5 | Commission stays per seller in the admin. poda's own pieces have no seller share. | Decided |
@@ -48,8 +48,8 @@ code: only you know them.
 
 | # | Decision | Status |
 |---|---|---|
-| E1 | `policies.html` stays as written: final sale, except not as described within 7 days of delivery. | Decided |
-| E2 | Who pays return shipping is not promised. The policy says poda tells the buyer how to send it back. Decide before the first return. | You |
+| E1 | Final sale, except a piece materially not as described, damaged by poor packaging or the wrong piece, reported within 7 days of delivery. No buyer's remorse returns, subject to applicable law. | Built |
+| E2 | The seller pays return shipping on an accepted return. poda manages the refund. | Built |
 | E3 | **Refund buyer in Stripe** button on every paid order. Full refund, order marked, seller share reversed in Payouts. | Built |
 | E4 | A dispute emails you the deadline, amount, order and a Stripe link. | Built |
 | E5 | A refunded piece stays off the shop. Restock it by hand in the admin if it comes back. | Decided |
@@ -58,7 +58,7 @@ code: only you know them.
 
 | # | Decision | Status |
 |---|---|---|
-| F1 | One piece per payment. No cart. | Decided |
+| F1 | Target: multi-item, multi-seller carts in one checkout, with orders from several sellers flagged for manual shipping review. Not built: one piece per payment today. | Decided, not built |
 | F2 | Guest checkout only. | Decided |
 | F3 | No promo codes. | Decided |
 | F4 | No phone number collected. | Decided |
@@ -88,7 +88,7 @@ code: only you know them.
 | # | Decision | Status |
 |---|---|---|
 | I1 | `terms.html` and `privacy.html` are drafts, linked in the footer. Have a lawyer read them before launch. | Drafted, you review |
-| I2 | Add your business name and address to both pages. | You |
+| I2 | Your business name and address are missing from both pages. poda has not invented them. Send them and Claude adds them. | You |
 | I3 | Detail view now says payments are by Stripe and poda never sees the card. | Done |
 
 ## J. Alerts and records

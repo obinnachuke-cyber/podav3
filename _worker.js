@@ -1775,11 +1775,12 @@ function buildSellerSaleEmail(siteUrl, sale, buyer, supplierName) {
     ${emailRows(rows)}
     <p style="margin:0 0 6px 0;"><strong>Ship it to</strong><br>${escapeHTML(shipTo)}</p>
     <p style="margin:14px 0 0 0;"><strong>What to do next</strong><br>
-      Pack the piece and send it to the address above. Reply to this email with the carrier and
-      tracking number as soon as it ships, and we email the buyer their tracking.</p>
+      Pack the piece well and ship it to the address above within 3 business days. Reply to this
+      email with the carrier and tracking number as soon as it ships, and we email the buyer their tracking.</p>
     <p style="margin:14px 0 0 0;"><strong>When you are paid</strong><br>
-      We pay your share once the piece has shipped and 7 days have passed, the window the buyer has to
-      report a piece not as described.</p>`);
+      We pay your share 3 days after the piece is delivered, as long as no issue has been raised.
+      If a piece is not as described, arrives damaged from poor packaging or is the wrong item, the buyer
+      is refunded and you cover the return shipping.</p>`);
 
   const text = [
     `${first ? `${first}, ` : ""}${piece} just sold on poda.`,
@@ -1788,9 +1789,9 @@ function buildSellerSaleEmail(siteUrl, sale, buyer, supplierName) {
     "",
     `Ship it to: ${shipTo}`,
     "",
-    "Pack the piece and send it to the address above. Reply to this email with the carrier and tracking number as soon as it ships, and we email the buyer their tracking.",
+    "Pack the piece well and ship it to the address above within 3 business days. Reply to this email with the carrier and tracking number as soon as it ships, and we email the buyer their tracking.",
     "",
-    "We pay your share once the piece has shipped and 7 days have passed, the window the buyer has to report a piece not as described.",
+    "We pay your share 3 days after the piece is delivered, as long as no issue has been raised. If a piece is not as described, arrives damaged from poor packaging or is the wrong item, the buyer is refunded and you cover the return shipping.",
     "",
     "poda, selective retail."
   ].join("\n");

@@ -204,9 +204,10 @@ owed. Run `migrations/20261113_payouts.sql` first, then its self-test.
   added show no fee. The card says how many sales have one.
 - **Net to poda** is what poda keeps, plus shipping collected, minus Stripe
   fees. Real shipping cost is not tracked, so it is not taken off.
-- A seller is **ready to pay** 7 days after the order ships, the same window
-  buyers have in `policies.html`. The number is `PAYOUT_HOLD_DAYS` in
-  `admin.js`. Change both places together.
+- A seller is **ready to pay** 3 days after the order is marked delivered. In
+  Orders, press **Mark delivered** when the carrier confirms delivery. Run
+  `migrations/20261121_order_delivery.sql` first. Check Stripe for a dispute
+  before you pay. The number is `PAYOUT_HOLD_DAYS` in `admin.js`.
 - **Pay out…** records a payout for the orders you tick. Send the money first,
   then record it. A mistake can be voided, which puts the orders back to unpaid.
 - **Record refund** on an order, after you refund the buyer in Stripe, removes
