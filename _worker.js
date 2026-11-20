@@ -877,10 +877,6 @@ const STRIPE_SESSION_SECONDS = 31 * 60;
 // API version used to create embedded sessions.
 const STRIPE_EMBEDDED_API_VERSION = "2024-06-20";
 
-// How long poda takes to ship after a sale. Used in the Stripe page, the
-// confirmation email and policies.html, so change all three together.
-const POLICY_SHIP_DAYS = 5;
-
 // Names only, never values. A 503 reports which setting is missing so a
 // mistake in the Cloudflare dashboard is quick to find.
 function checkoutMissing(env) {
@@ -1017,7 +1013,7 @@ async function handleCheckout(request, env) {
     // Shown beside the Pay button, so the terms are in front of the buyer.
     custom_text: {
       submit: {
-        message: `Final sale unless a piece is not as described. Ships within ${POLICY_SHIP_DAYS} business days. Full policies: ${site}/policies.html`
+        message: `Final sale unless a piece is not as described. Full policies: ${site}/policies.html`
       }
     }
   };
@@ -1150,7 +1146,7 @@ async function alertAdmin(env, subject, lines) {
 }
 
 // Tells the admin a piece sold, with who to ship to and what the seller is owed.
-async function notifyAdminOfSale(env, sale, buyer) {
+async function notifyAdminOfSale(env, sale, buyer, sellerResult) {
   if (!env.RESEND_API_KEY || !env.ADMIN_EMAIL) return;
   const money = cents => new Intl.NumberFormat("en-US", {
     style: "currency", currency: sale.currency || "USD"
@@ -1173,6 +1169,11 @@ async function notifyAdminOfSale(env, sale, buyer) {
     "",
     `Buyer: ${buyer.name || "no name"} <${buyer.email || "no email"}>`,
     `Ship to: ${addressLine(buyer.address)}`,
+    ...({
+      sent: ["The seller was emailed the ship-to address and told to reply with tracking."],
+      no_email: ["The seller was NOT emailed: their seller record has no contact email. Send them the ship-to address yourself."],
+      failed: ["The seller email failed. Send them the ship-to address yourself."]
+    }[sellerResult] || []),
     "",
     `Record it and mark the seller paid: ${String(env.SITE_URL || "").replace(/\/$/, "")}/admin.html (Supply, Orders)`
   ];
@@ -1254,7 +1255,7 @@ function buildConfirmationEmail(siteUrl, sale, buyer, totalCents) {
     ${emailRows(rows)}
     <p style="margin:0 0 6px 0;"><strong>Shipping to</strong><br>${escapeHTML(address)}</p>
     <p style="margin:14px 0 0 0;"><strong>What happens next</strong><br>
-      We ship within ${POLICY_SHIP_DAYS} business days and email you tracking the moment it goes out.
+      We email you tracking the moment it goes out.
       Every piece is final sale unless it arrives not as described. The details are in
       <a href="${siteUrl}/policies.html" style="color:#244CFF;">Shipping and returns</a>.</p>`);
 
@@ -1266,7 +1267,7 @@ function buildConfirmationEmail(siteUrl, sale, buyer, totalCents) {
     "",
     `Shipping to: ${address}`,
     "",
-    `We ship within ${POLICY_SHIP_DAYS} business days and email you tracking when it goes out.`,
+    "We email you tracking when it goes out.",
     `Every piece is final sale unless it arrives not as described: ${siteUrl}/policies.html`,
     "",
     "poda, selective retail. Questions? Reply to this email."
@@ -1370,6 +1371,10 @@ async function handleStripeWebhook(request, env, ctx) {
 
   let event;
   try { event = JSON.parse(raw); } catch (e) { return json(400, { error: "bad_body" }); }
+  // Refunds and disputes are about a charge, not a checkout session.
+  if (event && (event.type === "charge.refunded" || event.type === "charge.dispute.created")) {
+    return handleChargeEvent(env, event);
+  }
   const session = event && event.data && event.data.object;
   const orderId = session && session.metadata && session.metadata.order_id;
   // Not a checkout this site started: acknowledge and ignore.
@@ -1421,7 +1426,9 @@ async function handleStripeWebhook(request, env, ctx) {
     // the order is confirmed.
     if (done.body && done.body.newly_paid) {
       const task = (async () => {
-        await notifyAdminOfSale(env, done.body, buyer);
+        // The seller first, so the admin's email can say whether they were told.
+        const sellerResult = await emailSellerOfSale(env, done.body, buyer);
+        await notifyAdminOfSale(env, done.body, buyer, sellerResult);
         if (!done.body.conflict) await emailBuyerConfirmation(env, done.body, buyer, session.amount_total);
         await recordStripeFee(env, session.id, orderId);
       })();
@@ -1513,6 +1520,269 @@ async function handleOrderShipped(request, env) {
     return json(502, { error: "The email was sent, but saving the order failed. Mark it shipped by hand.", emailed: true });
   }
   return json(200, { ok: true, emailed: true, shipped_at: order.shipped_at || now });
+}
+
+/* ============================================================
+   Refunds, disputes, seller sale emails and the ship-by reminder.
+
+   /api/order-refund   admin only. Refunds the buyer in full through Stripe,
+                       then marks the order refunded. A refund made by hand in
+                       the Stripe dashboard is caught by the charge.refunded
+                       webhook below, so the admin screen never drifts.
+   ============================================================ */
+
+async function stripeGet(env, path) {
+  const res = await fetch(`https://api.stripe.com${path}`, {
+    headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` }
+  });
+  const body = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, body };
+}
+
+async function handleOrderRefund(request, env) {
+  if (request.method !== "POST") return json(405, { error: "Method not allowed." });
+  if (!checkoutConfigured(env)) return notReady(env);
+
+  let payload;
+  try {
+    const raw = await request.text();
+    if (raw.length > 2000) return json(413, { error: "Request too large." });
+    payload = JSON.parse(raw);
+  } catch (e) {
+    return json(400, { error: "Invalid request body." });
+  }
+  const orderId = String((payload && payload.order_id) || "");
+  if (!UUID_RE.test(orderId)) return json(400, { error: "A valid order is required." });
+
+  const auth = await verifyAdmin(request, env, "refund orders");
+  if (!auth.ok) return json(auth.status, { error: auth.error, detail: auth.detail });
+
+  let rows;
+  try {
+    rows = await supabaseSelect(env, auth.token, "orders",
+      `id=eq.${encodeURIComponent(orderId)}&select=id,status,stripe_session_id,payout_status`);
+  } catch (e) {
+    return json(502, { error: "Could not load the order." });
+  }
+  const order = rows && rows[0];
+  if (!order) return json(404, { error: "Order not found." });
+  if (order.status === "refunded") return json(200, { ok: true, already: true });
+  if (order.status !== "paid") return json(409, { error: "Only a paid order can be refunded." });
+  if (!order.stripe_session_id) return json(409, { error: "This order has no Stripe payment on record. Refund it in Stripe, then use Record refund." });
+
+  // The refund goes against the payment behind the checkout session.
+  const session = await stripeGet(env, `/v1/checkout/sessions/${encodeURIComponent(order.stripe_session_id)}`);
+  const paymentIntent = session.ok && session.body && session.body.payment_intent;
+  if (!paymentIntent) return json(502, { error: "Stripe could not find the payment for this order." });
+
+  // A full refund: the price, the shipping and any tax. Stripe keeps its own
+  // processing fee on a refunded payment, so poda absorbs that fee.
+  const refund = await stripeApi(env, "/v1/refunds", {
+    payment_intent: paymentIntent,
+    metadata: { order_id: order.id }
+  }, `refund-${order.id}`);
+  const stripeError = refund.body && refund.body.error;
+  if (!refund.ok && !(stripeError && stripeError.code === "charge_already_refunded")) {
+    console.error("Stripe refund failed:", refund.status, stripeError && stripeError.message);
+    return json(502, { error: `Stripe would not refund this: ${(stripeError && stripeError.message) || "no detail"}` });
+  }
+
+  const now = new Date().toISOString();
+  try {
+    await supabasePatch(env, auth.token, "orders", `id=eq.${encodeURIComponent(orderId)}`, { status: "refunded", refunded_at: now });
+  } catch (e) {
+    return json(502, { error: "Stripe refunded the buyer, but saving the order failed. Use Record refund to mark it.", refunded: true });
+  }
+  return json(200, { ok: true, refunded_at: now, clawback: order.payout_status === "paid" });
+}
+
+// The order a Stripe payment belongs to. The id travels in the payment's
+// metadata, set when checkout starts. A payment poda did not start has none.
+async function orderIdForPayment(env, paymentIntent) {
+  const id = typeof paymentIntent === "string" ? paymentIntent : paymentIntent && paymentIntent.id;
+  if (!id) return { orderId: null };
+  const found = await stripeGet(env, `/v1/payment_intents/${encodeURIComponent(id)}`);
+  if (!found.ok) return { failed: true };
+  const orderId = found.body && found.body.metadata && found.body.metadata.order_id;
+  return { orderId: orderId && UUID_RE.test(orderId) ? orderId : null };
+}
+
+// charge.refunded and charge.dispute.created. A 500 makes Stripe retry, so a
+// lookup that failed is never silently dropped.
+async function handleChargeEvent(env, event) {
+  const obj = event.data.object;
+  const { orderId, failed } = await orderIdForPayment(env, obj.payment_intent);
+  if (failed) return json(500, { error: "lookup_failed" });
+  if (!orderId) return json(200, { received: true });
+
+  const pieceOf = o => [o.brand, o.title].filter(Boolean).join(" ");
+  const adminLink = String(env.SITE_URL || "").replace(/\/$/, "") + "/admin.html";
+  const stripeBase = event.livemode ? "https://dashboard.stripe.com" : "https://dashboard.stripe.com/test";
+
+  try {
+    if (event.type === "charge.refunded") {
+      if (obj.refunded !== true) {
+        // Only part of the payment came back. The order stays a sale, since the
+        // site tracks whole orders, so say so rather than guess.
+        const orders = await sbRest(env, { service: true }, "GET", `orders?id=eq.${orderId}&select=title,brand`);
+        const piece = orders && orders[0] ? pieceOf(orders[0]) : orderId;
+        await alertAdmin(env, `Partial refund: ${piece}`, [
+          "Part of a payment was refunded in Stripe. The order still counts as a full sale on the site.",
+          "If the whole order should be refunded, refund the rest in Stripe and it will be recorded.",
+          "",
+          `Order: ${orderId}`,
+          `Refunded so far: ${((obj.amount_refunded || 0) / 100).toFixed(2)} ${String(obj.currency || "").toUpperCase()}`
+        ]);
+        return json(200, { received: true });
+      }
+      // Only a paid order changes. One refunded through the admin is already
+      // marked, so the update matches nothing and nobody is told twice.
+      const changed = await sbRest(env, { service: true }, "PATCH", `orders?id=eq.${orderId}&status=eq.paid`,
+        { status: "refunded", refunded_at: new Date().toISOString() }, "return=representation");
+      if (changed && changed.length) {
+        const o = changed[0];
+        await alertAdmin(env, `Refunded: ${pieceOf(o)}`, [
+          "A refund made in Stripe was recorded on the order.",
+          "",
+          `Piece: ${pieceOf(o)}`,
+          `Buyer: ${o.buyer_email || "unknown"}`,
+          o.payout_status === "paid"
+            ? "The seller was already paid for this order. Recover that money from them: it shows under Payouts as money to recover."
+            : "The seller was not paid yet, so there is nothing to recover.",
+          "Stripe keeps its processing fee on a refunded payment.",
+          "",
+          `Open Orders: ${adminLink}`
+        ]);
+      }
+      return json(200, { received: true });
+    }
+
+    if (event.type === "charge.dispute.created") {
+      const orders = await sbRest(env, { service: true }, "GET",
+        `orders?id=eq.${orderId}&select=title,brand,buyer_email,buyer_name,payout_status,suppliers(name)`);
+      const o = (orders && orders[0]) || {};
+      const due = obj.evidence_details && obj.evidence_details.due_by
+        ? new Date(obj.evidence_details.due_by * 1000).toUTCString()
+        : "not given";
+      await alertAdmin(env, `Dispute opened: ${pieceOf(o) || orderId}`, [
+        "A buyer disputed a payment with their bank. Answer it in Stripe before the deadline or the money is lost.",
+        "",
+        `Respond by: ${due}`,
+        `Reason: ${obj.reason || "not given"}`,
+        `Amount: ${((obj.amount || 0) / 100).toFixed(2)} ${String(obj.currency || "").toUpperCase()}`,
+        "",
+        `Piece: ${pieceOf(o) || "unknown"}`,
+        `Seller: ${(o.suppliers && o.suppliers.name) || "unknown"}`,
+        `Buyer: ${[o.buyer_name, o.buyer_email].filter(Boolean).join(" · ") || "unknown"}`,
+        "",
+        `Respond in Stripe: ${stripeBase}/disputes/${obj.id}`,
+        "Useful evidence: the order confirmation, the tracking number and delivery proof, and the listing photos and condition notes.",
+        `Order: ${adminLink}`
+      ]);
+      return json(200, { received: true });
+    }
+  } catch (e) {
+    console.error("Charge event failed:", event.type, e && e.message);
+    return json(500, { error: "charge_event_failed" });
+  }
+  return json(200, { received: true });
+}
+
+/* ---- Telling the seller their piece sold ---- */
+
+function buildSellerSaleEmail(siteUrl, sale, buyer, supplierName) {
+  const piece = oneLine([sale.brand, sale.title].filter(Boolean).join(" "));
+  const first = oneLine(supplierName).split(/\s+/)[0];
+  const rows = [
+    [piece, moneyText(sale.price_cents, sale.currency)],
+    ["Your share", moneyText(sale.seller_payout_cents, sale.currency), true]
+  ];
+  const address = addressLine(buyer.address);
+  const shipTo = [oneLine(buyer.name), address].filter(Boolean).join(", ");
+
+  const html = buyerEmailShell(siteUrl, "Your piece sold", `
+    <p style="margin:0 0 8px 0;">${first ? `${escapeHTML(first)}, ` : ""}${escapeHTML(piece)} just sold on poda.</p>
+    ${emailRows(rows)}
+    <p style="margin:0 0 6px 0;"><strong>Ship it to</strong><br>${escapeHTML(shipTo)}</p>
+    <p style="margin:14px 0 0 0;"><strong>What to do next</strong><br>
+      Pack the piece and send it to the address above. Reply to this email with the carrier and
+      tracking number as soon as it ships, and we email the buyer their tracking.</p>
+    <p style="margin:14px 0 0 0;"><strong>When you are paid</strong><br>
+      We pay your share once the piece has shipped and 7 days have passed, the window the buyer has to
+      report a piece not as described.</p>`);
+
+  const text = [
+    `${first ? `${first}, ` : ""}${piece} just sold on poda.`,
+    "",
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    "",
+    `Ship it to: ${shipTo}`,
+    "",
+    "Pack the piece and send it to the address above. Reply to this email with the carrier and tracking number as soon as it ships, and we email the buyer their tracking.",
+    "",
+    "We pay your share once the piece has shipped and 7 days have passed, the window the buyer has to report a piece not as described.",
+    "",
+    "poda, selective retail."
+  ].join("\n");
+
+  return { subject: `Your piece sold: ${piece}`, html, text };
+}
+
+// Returns what happened, so the admin's sale email can say whether the seller
+// has the ship-to address. Set NOTIFY_SELLERS to "false" to switch this off.
+async function emailSellerOfSale(env, sale, buyer) {
+  if (String(env.NOTIFY_SELLERS || "true").toLowerCase() === "false") return "off";
+  if (!env.RESEND_API_KEY || sale.conflict || sale.payout_status === "none") return "skipped";
+  let seller;
+  try {
+    const rows = await sbRest(env, { service: true }, "GET", `orders?id=eq.${sale.order_id}&select=suppliers(name,contact_email)`);
+    seller = rows && rows[0] && rows[0].suppliers;
+  } catch (e) {
+    console.error("Seller lookup failed:", e && e.message);
+    return "failed";
+  }
+  const to = seller && String(seller.contact_email || "").trim();
+  if (!to) return "no_email";
+  const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
+  const { subject, html, text } = buildSellerSaleEmail(siteUrl, sale, buyer, seller.name);
+  try {
+    const sent = await sendViaResend(env, {
+      from: FROM_ADDRESS,
+      to: [to],
+      reply_to: env.CONTACT_EMAIL || REPLY_TO,
+      subject, html, text
+    });
+    return sent.ok ? "sent" : "failed";
+  } catch (e) {
+    return "failed";
+  }
+}
+
+/* ---- Ship-by reminder ----
+   The cron job runs every five minutes. Once a day, in the 14:00 UTC window
+   (9 or 10 in the morning in New York), it emails the admin every paid order
+   still not shipped after SHIP_REMINDER_DAYS days. */
+const SHIP_REMINDER_DAYS = 3;
+
+async function runShipReminders(env, now = new Date()) {
+  if (!env.SUPABASE_SERVICE_ROLE_KEY || !env.RESEND_API_KEY || !env.ADMIN_EMAIL) return;
+  if (now.getUTCHours() !== 14 || now.getUTCMinutes() >= 5) return;
+  const cutoff = encodeURIComponent(new Date(now.getTime() - SHIP_REMINDER_DAYS * 86400000).toISOString());
+  const rows = await sbRest(env, { service: true }, "GET",
+    `orders?status=eq.paid&conflict=eq.false&shipped_at=is.null&paid_at=lt.${cutoff}` +
+    `&select=title,brand,buyer_name,paid_at,suppliers(name)&order=paid_at.asc&limit=50`);
+  if (!rows || !rows.length) return;
+  const adminLink = String(env.SITE_URL || "").replace(/\/$/, "") + "/admin.html";
+  await alertAdmin(env, `${rows.length} paid ${rows.length === 1 ? "order has" : "orders have"} not shipped`, [
+    `These orders were paid more than ${SHIP_REMINDER_DAYS} days ago and are not marked shipped.`,
+    "",
+    ...rows.map(o => {
+      const days = Math.floor((now.getTime() - new Date(o.paid_at).getTime()) / 86400000);
+      return `- ${[o.brand, o.title].filter(Boolean).join(" ")} · ${(o.suppliers && o.suppliers.name) || "unknown seller"} · buyer ${o.buyer_name || "unknown"} · paid ${days} days ago`;
+    }),
+    "",
+    `Open Orders: ${adminLink} (Supply, Orders, Needs action)`
+  ]);
 }
 
 /* ============================================================
@@ -2318,6 +2588,7 @@ async function runDueReminders(env) {
 export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runDueReminders(env));
+    ctx.waitUntil(runShipReminders(env).catch(e => console.error("Ship reminder failed:", e && e.message)));
   },
 
   async fetch(request, env, ctx) {
@@ -2341,6 +2612,7 @@ export default {
     if (url.pathname === "/api/checkout-cancel") return handleCheckoutCancel(request, env);
     if (url.pathname === "/api/stripe-webhook") return handleStripeWebhook(request, env, ctx);
     if (url.pathname === "/api/order-shipped") return handleOrderShipped(request, env);
+    if (url.pathname === "/api/order-refund") return handleOrderRefund(request, env);
 
     // /join/<code> is the short invite link. The URL stays as typed; the
     // seller page reads the code from the path.

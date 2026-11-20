@@ -3170,7 +3170,8 @@ async function renderOrders() {
             : shipForm) : ""}
           ${normal && o.payout_status === "unpaid" ? `<button type="button" class="btn btn--primary" data-order-act="pay">Mark seller paid</button>` : ""}
           ${normal && o.payout_status === "paid" ? `<button type="button" class="btn" data-order-act="unpay">Seller paid · Undo</button>` : ""}
-          ${normal ? `<button type="button" class="btn app-decline" data-order-act="refund-paid">Record refund</button>` : ""}
+          ${paid ? `<button type="button" class="btn app-decline" data-order-act="refund-stripe">Refund buyer in Stripe</button>` : ""}
+          ${normal ? `<button type="button" class="btn app-decline" data-order-act="refund-paid">Record refund made elsewhere</button>` : ""}
           ${paid && o.conflict ? `<button type="button" class="btn app-decline" data-order-act="refund">Mark refunded</button>` : ""}
         </div>` : ""}
       </article>`;
@@ -3232,6 +3233,25 @@ async function renderOrders() {
           tracking_number: tracking || null,
           shipped_email_sent_at: now
         });
+      } else {
+        alert(result.error);
+      }
+      draw();
+      return;
+    }
+
+    // Refund the buyer through Stripe, then mark the order. The Worker does
+    // both, so a failed refund leaves the order untouched.
+    if (act === "refund-stripe") {
+      const total = money(order.amount_total_cents || (order.price_cents + (order.shipping_cents || 0)), order.currency);
+      const owedBack = order.payout_status === "paid"
+        ? `\n\nThe seller has already been paid ${money(order.seller_payout_cents, order.currency)} for this order, so you will need to recover that from them. It will show under Payouts as money to recover.`
+        : "";
+      if (!confirm(`Refund ${total} to ${order.buyer_email || "the buyer"} in Stripe?\n\nThe whole payment goes back to their card, including shipping and any tax. Stripe keeps its processing fee. This cannot be undone.${owedBack}`)) return;
+      el.querySelectorAll("button").forEach(b => { b.disabled = true; });
+      const result = await refundOrderInStripe(order.id);
+      if (result.ok) {
+        Object.assign(order, { status: "refunded", refunded_at: result.refunded_at || now });
       } else {
         alert(result.error);
       }
@@ -3568,6 +3588,25 @@ async function renderPayouts() {
 
 // Asks the Worker to email the buyer that the order shipped, and to save the
 // tracking on the order. The Worker reads the buyer from the database itself.
+async function refundOrderInStripe(orderId) {
+  try {
+    const session = await window.PodaDB.getSession();
+    const res = await fetch("/api/order-refund", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${session ? session.access_token : ""}`
+      },
+      body: JSON.stringify({ order_id: orderId })
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.ok && body.ok) return { ok: true, refunded_at: body.refunded_at };
+    return { ok: false, error: body.error || `The server returned ${res.status}.` };
+  } catch (e) {
+    return { ok: false, error: "Could not reach the server." };
+  }
+}
+
 async function emailOrderShipped(orderId, carrier, trackingNumber) {
   try {
     const session = await window.PodaDB.getSession();

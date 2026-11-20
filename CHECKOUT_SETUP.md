@@ -70,6 +70,8 @@ The webhook is how Stripe tells the site a payment went through.
    - `checkout.session.completed`
    - `checkout.session.async_payment_succeeded`
    - `checkout.session.expired`
+   - `charge.refunded`: a refund made in Stripe marks the order refunded here
+   - `charge.dispute.created`: emails you when a buyer disputes a payment
 4. After saving, open the endpoint and copy the **Signing secret**. It starts
    with `whsec_`. Add it to Cloudflare as `STRIPE_WEBHOOK_SECRET`.
 5. Deploy the site again so the new secrets are picked up.
@@ -130,8 +132,29 @@ retries it for up to three days.
 - **Paying sellers.** You pay sellers yourself. In Orders, use **Mark seller
   paid** after you send the money. Shipping is not part of the seller's share.
 - **Late payment.** If someone pays just after their hold ran out and another
-  buyer already took the piece, the order shows **Refund needed**. Refund the
-  buyer in Stripe, then press **Mark refunded**.
+  buyer already took the piece, the order shows **Refund needed**. Press
+  **Refund buyer in Stripe**.
+- **Refunds.** On any paid order, **Refund buyer in Stripe** sends the whole
+  payment back to the buyer's card, including shipping and tax, then marks the
+  order refunded. Stripe keeps its processing fee on a refunded payment, so
+  poda absorbs it. A refund made in the Stripe dashboard instead is caught by
+  the `charge.refunded` webhook and marks the order refunded within seconds,
+  and you get an email. A part refund is not recorded as a refund: you get an
+  email, and the order stays a full sale until the rest is refunded. If the
+  seller was already paid, the refund shows under Payouts as money to recover.
+- **Disputes.** When a buyer disputes a charge with their bank, you get an
+  email with the deadline, the amount, the order and a link to respond in
+  Stripe. Missing the deadline loses the money. Send the order confirmation,
+  tracking and proof of delivery, and the listing photos and condition notes.
+- **Sellers are told.** When a piece sells, the seller gets an email with the
+  piece, their share, the buyer's name and shipping address, and a request to
+  reply with the carrier and tracking number. You then enter the tracking in
+  Orders and the buyer is emailed. The sale email to you says whether the
+  seller was told. A seller with no contact email on their record is not
+  emailed, and your email says so. Set `NOTIFY_SELLERS = "false"` in
+  `wrangler.toml` to switch these emails off.
+- **Ship-by reminder.** Every morning, about 9 in New York, you get one email
+  listing paid orders not shipped after 3 days. No email on days with none.
 - **Shipping.** Only US addresses are collected. When an order goes out, open
   it in Orders, choose **Mark shipped**, pick the carrier, type the tracking
   number, and press **Mark shipped and email buyer**. The buyer gets an email
@@ -145,7 +168,7 @@ poda sends the buyer two emails itself, from the same address as the Market
 Notes, with replies going to your contact email:
 
 1. **Order confirmation**, the moment payment is confirmed: the piece, price,
-   shipping, tax if any, the total, where it ships, and when to expect it.
+   shipping, tax if any, the total, where it ships, and that tracking follows.
 2. **Shipped**, when you press the button in Orders: the carrier, the tracking
    number and a tracking link.
 
@@ -156,14 +179,13 @@ emails, Successful payments in live mode if you also want that.
 ## What buyers are told
 
 - **On Stripe's page**, beside the Pay button: final sale unless not as
-  described, and ships within 5 business days.
+  described.
 - **On each piece**, in the detail view: the same line, with a link.
 - **`policies.html`**, linked in the footer: shipping, returns, authenticity,
   how consignment works, payments and contact. These pages state what poda
   promises buyers. **Read them before launch** and change anything that is not
-  true for your business. The 5 business days appears in `_worker.js`,
-  `folders.js` and `policies.html`, and the 7-day window for a piece that is
-  not as described is in `policies.html`. Change each place together.
+  true for your business. The 7-day window for a piece that is not as
+  described is in `policies.html`. No shipping time is promised anywhere.
 
 ## Payouts dashboard
 

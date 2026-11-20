@@ -1422,8 +1422,6 @@
      the public view already returns. ?piece=<id> opens one directly, so a
      piece can be shared.
      ============================================================ */
-  // How long poda takes to ship. Keep in step with _worker.js and policies.html.
-  const POLICY_SHIP_DAYS = 5;
 
   const AVAILABILITY_NOTES = {
     held: "Someone is checking out with this piece right now. It may be available again in a few minutes.",
@@ -1486,7 +1484,7 @@
         ${detailSpecs(product)}
         ${product.condition_notes ? `<p class="pd-text"><b>Condition notes</b>${esc(product.condition_notes)}</p>` : ""}
         ${product.copy ? `<p class="pd-text"><b>About this piece</b>${esc(product.copy)}</p>` : ""}
-        <p class="pd-policy">Ships within ${POLICY_SHIP_DAYS} business days. Final sale unless a piece is not as described.
+        <p class="pd-policy">Final sale unless a piece is not as described. Payments by Stripe: poda never sees your card number.
           <a href="policies.html">Shipping and returns</a></p>
       </div>`;
   }

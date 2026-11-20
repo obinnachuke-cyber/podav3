@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#244CFF" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="poda" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Privacy — poda</title>
+  <meta name="description" content="What poda collects, why, and who handles it." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header" id="siteHeader">
+    <div class="site-header__inner"></div>
+  </header>
+
+  <!-- DRAFT. Written from how the site works today, not by a lawyer. Have it
+       reviewed before relying on it. If analytics, ads or new services are
+       added later, update the lists below. -->
+  <main class="portal-shell">
+    <article class="policies">
+      <p class="policies__index" aria-label="On this page">
+        <a href="#collect">What we collect</a>
+        <a href="#use">How we use it</a>
+        <a href="#share">Who handles it</a>
+        <a href="#choices">Your choices</a>
+        <a href="#contact">Contact</a>
+      </p>
+      <p class="about__text">Effective November 20, 2026. This explains what poda collects when you use the site, subscribe or buy a piece.</p>
+
+      <section class="page-section" id="collect">
+        <div class="section-bar"><span class="section-bar__label">01</span><span class="section-bar__title">What we collect</span></div>
+        <p class="about__text"><b>Subscribing:</b> your email address.</p>
+        <p class="about__text"><b>Buying:</b> your name, email address, shipping address and the order itself. Your card details are entered with Stripe and never reach poda.</p>
+        <p class="about__text"><b>Selling with poda:</b> what you put in an application or a seller account, including your contact details and photos of pieces.</p>
+        <p class="about__text"><b>Visiting:</b> poda does not use advertising trackers. When you follow an Index link to Instagram we count the click, without your identity. Signed-in sellers have a session stored in their browser so they stay signed in.</p>
+      </section>
+
+      <section class="page-section" id="use">
+        <div class="section-bar"><span class="section-bar__label">02</span><span class="section-bar__title">How we use it</span></div>
+        <p class="about__text">To process and ship your order, send you the emails about it, answer your questions, run seller accounts and payouts, and keep the site secure. Subscribers get emails about drops, the Index and Market Notes. Every one of them has an unsubscribe link.</p>
+        <p class="about__text">poda does not sell your personal information.</p>
+      </section>
+
+      <section class="page-section" id="share">
+        <div class="section-bar"><span class="section-bar__label">03</span><span class="section-bar__title">Who handles it</span></div>
+        <p class="about__text">poda uses a few services to run the site, and each sees only what its job needs.</p>
+        <p class="about__text"><b>Stripe</b> takes payments and holds card details. <b>Supabase</b> stores accounts, orders and subscribers. <b>Cloudflare</b> serves the site. <b>Resend</b> sends our emails.</p>
+        <p class="about__text">When you buy a piece from a seller, we give that seller your name and shipping address so they can send it to you. We may also share information when the law requires it.</p>
+      </section>
+
+      <section class="page-section" id="choices">
+        <div class="section-bar"><span class="section-bar__label">04</span><span class="section-bar__title">Your choices</span></div>
+        <p class="about__text">Unsubscribe from any email with the link at the bottom of it. To see, correct or delete the information poda holds about you, email us. We keep order records as long as needed for accounting, tax and disputes.</p>
+        <p class="about__text">We may update this page. The date at the top shows the latest version.</p>
+      </section>
+
+      <section class="page-section" id="contact" style="border-bottom:none;">
+        <div class="section-bar"><span class="section-bar__label">05</span><span class="section-bar__title">Contact</span></div>
+        <p class="about__text">Privacy questions? <a class="product-link" id="contactLink" href="https://instagram.com/podacapital" target="_blank" rel="noopener">Message poda on Instagram →</a></p>
+      </section>
+    </article>
+  </main>
+
+  <footer class="site-footer portal-shell"></footer>
+
+  <script src="supabase-config.js"></script>
+  <script src="layout.js"></script>
+  <script>
+    // Use the contact email from supabase-config.js when there is one.
+    (function () {
+      const email = window.PODA_CONTACT_EMAIL;
+      const link = document.getElementById("contactLink");
+      if (email && link) {
+        link.href = "mailto:" + email;
+        link.removeAttribute("target");
+        link.textContent = email;
+      }
+    })();
+  </script>
+</body>
+</html>

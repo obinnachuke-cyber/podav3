@@ -42,6 +42,8 @@ const INCLUDE = [
   "market-notes.html",
   "note.html",
   "policies.html",
+  "terms.html",
+  "privacy.html",
   "build.html", // /build: the product case study, a simulated walkthrough only
   "how-it-works.html", // /how-it-works: the seller click-through
   "sell.html",

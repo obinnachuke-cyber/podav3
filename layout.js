@@ -32,7 +32,9 @@
 
   // Footer only, so the header stays short.
   const FOOTER_EXTRA = [
-    { href: "policies.html", label: "Shipping & returns" }
+    { href: "policies.html", label: "Shipping & returns" },
+    { href: "terms.html", label: "Terms" },
+    { href: "privacy.html", label: "Privacy" }
   ];
 
   const SOCIAL = [
