@@ -200,11 +200,11 @@
           </li>
           <li class="cs-cap">
             <div class="cs-cap__top"><span class="cs-label">03 / Commerce</span><span class="cs-tag cs-tag--partial">Partial</span></div>
-            <p>Stripe checkout for one piece at a time, with an inventory hold during payment; it is switched off in the current config and a multi-item cart is not built.</p>
+            <p>Stripe checkout for one piece at a time, with an inventory hold during payment. Stripe webhooks mark orders paid, refunded or disputed, and the buyer and I are emailed at each step. It is tested end to end in a Stripe sandbox and switched off in the live config. A multi-item cart is not built.</p>
           </li>
           <li class="cs-cap">
             <div class="cs-cap__top"><span class="cs-label">04 / Financial Logic</span><span class="cs-tag cs-tag--built">Built</span></div>
-            <p>Commission rates are set for each supplier and saved on every order, while payouts are recorded by hand and not automated.</p>
+            <p>Commission rates are set for each supplier and saved on every order. A payouts dashboard shows what each seller is owed once a piece ships, with each Stripe fee taken out of Poda's share. I send the money and record the payout there. Stripe does not pay sellers automatically.</p>
           </li>
         </ul>
         <p class="cs-note"><span class="cs-tag cs-tag--built">Built</span> works in the repository. <span class="cs-tag cs-tag--partial">Partial</span> is built but incomplete or switched off.</p>
