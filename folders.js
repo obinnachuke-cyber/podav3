@@ -1624,6 +1624,86 @@
     msg.textContent = text;
   }
 
+  // Free the held piece now instead of waiting for the hold to run out.
+  function cancelHold(orderId) {
+    if (!orderId) return;
+    fetch("/api/checkout-cancel", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ order_id: orderId }),
+      keepalive: true
+    }).catch(() => { /* the hold runs out by itself */ });
+  }
+
+  // Stripe.js is loaded only when someone clicks Buy, so it never slows the page.
+  let stripeJsPromise = null;
+  function loadStripeJs() {
+    if (window.Stripe) return Promise.resolve(window.Stripe);
+    if (!stripeJsPromise) {
+      stripeJsPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://js.stripe.com/v3/";
+        script.onload = () => (window.Stripe ? resolve(window.Stripe) : reject(new Error("Stripe missing")));
+        script.onerror = () => { stripeJsPromise = null; reject(new Error("Stripe.js blocked")); };
+        document.head.appendChild(script);
+      });
+    }
+    return stripeJsPromise;
+  }
+
+  // The payment form, inside a panel on top of the site. Closing it without
+  // paying releases the piece. Paying sends the buyer on to thanks.html.
+  async function openPayModal(data) {
+    const Stripe = await loadStripeJs();
+    const stripe = Stripe(data.publishable_key);
+
+    const overlay = document.createElement("div");
+    overlay.className = "pay-modal";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Checkout");
+    overlay.innerHTML = `
+      <div class="pay-modal__panel">
+        <button type="button" class="pay-modal__close" aria-label="Close checkout">Close</button>
+        <div class="pay-modal__mount"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.body.classList.add("pay-modal-open");
+
+    let checkout = null;
+    let finished = false;
+    const close = () => {
+      if (finished) return;
+      finished = true;
+      document.removeEventListener("keydown", onKey);
+      try { if (checkout) checkout.destroy(); } catch (e) { /* already gone */ }
+      overlay.remove();
+      document.body.classList.remove("pay-modal-open");
+      // A paid order is untouched by this: only a pending one has a session to expire.
+      cancelHold(data.order_id);
+    };
+    const onKey = event => { if (event.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    overlay.querySelector(".pay-modal__close").addEventListener("click", close);
+    overlay.addEventListener("click", event => { if (event.target === overlay) close(); });
+
+    try {
+      checkout = await stripe.initEmbeddedCheckout({
+        fetchClientSecret: async () => data.client_secret,
+        // Once paid, the page is about to move to thanks.html. Stop treating
+        // a close as a cancel.
+        onComplete: () => { finished = true; document.removeEventListener("keydown", onKey); }
+      });
+      checkout.mount(overlay.querySelector(".pay-modal__mount"));
+    } catch (error) {
+      finished = true;
+      document.removeEventListener("keydown", onKey);
+      overlay.remove();
+      document.body.classList.remove("pay-modal-open");
+      throw error;
+    }
+  }
+
   function bindBuy() {
     document.addEventListener("click", async event => {
       const btn = event.target.closest("[data-buy]");
@@ -1643,13 +1723,28 @@
           body: JSON.stringify({ product_id: btn.dataset.buy })
         });
         const data = await res.json().catch(() => ({}));
-        if (res.ok && data.url) {
+        if (res.ok && data.client_secret && data.publishable_key) {
+          // The payment form opens inside the site. Put the button back first:
+          // the buyer may close the form and want to try again.
+          btn.disabled = false;
+          btn.textContent = label;
+          try {
+            await openPayModal(data);
+            return;
+          } catch (error) {
+            console.error("Could not open the payment form:", error);
+            cancelHold(data.order_id);
+            outcome = "fallback";
+            detail = "stripe.js did not load";
+          }
+        } else if (res.ok && data.url) {
           window.location.assign(data.url);   // leave the button as it is while the page changes
           return;
+        } else {
+          outcome = data.error || "fallback";
+          const missing = Array.isArray(data.missing) && data.missing.length ? `, missing ${data.missing.join(" ")}` : "";
+          detail = `${res.status} ${data.error || "no reply from the server"}${missing}`;
         }
-        outcome = data.error || "fallback";
-        const missing = Array.isArray(data.missing) && data.missing.length ? `, missing ${data.missing.join(" ")}` : "";
-        detail = `${res.status} ${data.error || "no reply from the server"}${missing}`;
       } catch (error) {
         console.error("Checkout request failed:", error);
         detail = "network error";

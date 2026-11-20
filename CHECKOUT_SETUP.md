@@ -23,6 +23,10 @@ Orders tab. Do these steps in order. Test mode first, live mode last.
 1. Create or open your Stripe account at dashboard.stripe.com. Stay in
    **Test mode** (the toggle at the top right).
 2. Developers, API keys: copy the **Secret key**. It starts with `sk_test_`.
+   Also copy the **Publishable key**, which starts with `pk_test_`. It is
+   public by design and goes in `wrangler.toml` as `STRIPE_PUBLISHABLE_KEY`
+   (step 4). With it set, the payment form opens inside poda in a panel over
+   the page. Without it, buyers are sent to Stripe's own page instead.
 3. Settings, Customer emails: turn on **Successful payments**, so every buyer
    gets a receipt from Stripe.
 4. Settings, Branding: add your logo and colors. This is what buyers see on
@@ -45,6 +49,10 @@ type **Secret**:
 | `STRIPE_SECRET_KEY` | Stripe, Developers, API keys, the `sk_test_` key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase, Project Settings, API Keys, the **Secret key** that starts with `sb_secret_`. It sits below the Publishable key on that page. The older `service_role` key also works. Keep the variable name as written. |
 | `STRIPE_WEBHOOK_SECRET` | Step 5 below |
+
+`STRIPE_PUBLISHABLE_KEY` is not a secret. Put it in `wrangler.toml` under
+`[vars]`, next to `SHIPPING_FLAT_CENTS`, as `STRIPE_PUBLISHABLE_KEY = "pk_test_..."`.
+Do not also add it in the Cloudflare dashboard under the same name.
 
 `RESEND_API_KEY` and `ADMIN_EMAIL` are already set. Checkout uses them to email
 you each sale.
@@ -79,21 +87,22 @@ When the test works and Stripe is in live mode, show Buy to everyone: in
 `true` and deploy. To go back to Inquire at any time, set it to `false` and
 deploy again.
 
-1. Open the Shop with `?checkout_test=1` and click **Buy** on a piece. You should land on Stripe's page
-   showing the piece, the shipping line and a US address form.
+1. Open the Shop with `?checkout_test=1` and click **Buy** on a piece. A
+   payment panel opens over the page showing the piece, the shipping line and a
+   US address form.
 2. Pay with the test card `4242 4242 4242 4242`, any future date, any CVC,
    any US address.
-3. You return to the Order confirmed page. Within a few seconds:
+3. The page moves to the Order confirmed page. Within a few seconds:
    - the piece reads **Sold** on the Shop
    - Admin, Supply, Orders shows the sale, the buyer and address, and the
      seller's share
    - you receive a "Sold:" email
    - the buyer's email address receives "Your poda order", poda's own
      confirmation. Use an address you can read when you test.
-4. Test the hold: click Buy on a piece and leave the Stripe page open. In a
+4. Test the hold: click Buy on a piece and leave the panel open. In a
    second browser the same piece reads **Held**.
-5. Test cancel: click Buy, then the back arrow on Stripe's page. You land on
-   the site with "Checkout cancelled" and the piece is available again.
+5. Test cancel: click Buy, then **Close** on the panel, or press Escape. The
+   piece is available again straight away.
 
 To see what Stripe sent, use Stripe, Developers, Webhooks, your endpoint,
 Recent deliveries. A red delivery means the site returned an error, and Stripe
@@ -102,7 +111,9 @@ retries it for up to three days.
 ## 7. Going live
 
 1. In Stripe, finish account activation and switch off Test mode.
-2. Copy the live `sk_live_` secret key into `STRIPE_SECRET_KEY`.
+2. Copy the live `sk_live_` secret key into `STRIPE_SECRET_KEY`, and put the
+   live `pk_live_` publishable key in `wrangler.toml` as `STRIPE_PUBLISHABLE_KEY`.
+   The two keys must come from the same mode.
 3. Create the same webhook endpoint again in live mode. It has its own signing
    secret. Put it in `STRIPE_WEBHOOK_SECRET`.
 4. Deploy, then buy one real piece yourself and refund it from Stripe.

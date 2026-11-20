@@ -857,7 +857,9 @@ async function handleApplicationDecision(request, env) {
 /* ============================================================
    Checkout — Stripe Checkout, one piece at a time.
 
-   /api/checkout          POST { product_id }  -> { url }  (the Stripe page)
+   /api/checkout          POST { product_id }  -> { client_secret, publishable_key }
+                          for the in-site form, or { url } for Stripe's own page
+                          when STRIPE_PUBLISHABLE_KEY is not set
    /api/checkout-cancel   POST { order_id }    releases the hold early
    /api/stripe-webhook    POST from Stripe     marks the sale, frees expired holds
 
@@ -871,6 +873,9 @@ async function handleApplicationDecision(request, env) {
 // (32 minutes) is a little longer, so the piece is never free while a
 // Stripe page can still take payment.
 const STRIPE_SESSION_SECONDS = 31 * 60;
+
+// API version used to create embedded sessions.
+const STRIPE_EMBEDDED_API_VERSION = "2024-06-20";
 
 // How long poda takes to ship after a sale. Used in the Stripe page, the
 // confirmation email and policies.html, so change all three together.
@@ -910,12 +915,13 @@ function stripeForm(obj, prefix, out) {
   return pairs;
 }
 
-async function stripeApi(env, path, params, idempotencyKey) {
+async function stripeApi(env, path, params, idempotencyKey, apiVersion) {
   const headers = {
     Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
     "content-type": "application/x-www-form-urlencoded"
   };
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+  if (apiVersion) headers["Stripe-Version"] = apiVersion;
   const res = await fetch(`https://api.stripe.com${path}`, {
     method: "POST",
     headers,
@@ -983,11 +989,19 @@ async function handleCheckout(request, env) {
   const site = String(env.SITE_URL).replace(/\/$/, "");
   const currency = String(order.currency || "USD").toLowerCase();
   const shipping = parseInt(env.SHIPPING_FLAT_CENTS, 10);
+  // With STRIPE_PUBLISHABLE_KEY set, the payment form opens inside the site
+  // (Stripe Embedded Checkout). Without it, the buyer is sent to Stripe's own
+  // page as before, so deploying this before adding the key breaks nothing.
+  const embedded = !!env.STRIPE_PUBLISHABLE_KEY;
   const params = {
     mode: "payment",
     client_reference_id: order.order_id,
-    success_url: `${site}/thanks.html`,
-    cancel_url: `${site}/index.html?checkout=cancelled&order=${order.order_id}`,
+    ...(embedded
+      ? { ui_mode: "embedded", return_url: `${site}/thanks.html` }
+      : {
+          success_url: `${site}/thanks.html`,
+          cancel_url: `${site}/index.html?checkout=cancelled&order=${order.order_id}`
+        }),
     expires_at: Math.floor(Date.now() / 1000) + STRIPE_SESSION_SECONDS,
     line_items: [{
       quantity: 1,
@@ -1027,11 +1041,17 @@ async function handleCheckout(request, env) {
 
   let session;
   try {
-    session = await stripeApi(env, "/v1/checkout/sessions", params, `checkout-${order.order_id}`);
+    // The version is pinned for embedded sessions: Stripe renamed the
+    // ui_mode value "embedded" in newer API versions, and this one accepts it.
+    session = await stripeApi(
+      env, "/v1/checkout/sessions", params, `checkout-${order.order_id}`,
+      embedded ? STRIPE_EMBEDDED_API_VERSION : undefined
+    );
   } catch (e) {
     session = { ok: false, status: 0, body: {} };
   }
-  if (!session.ok || !session.body.url) {
+  const reply = embedded ? session.body.client_secret : session.body.url;
+  if (!session.ok || !reply) {
     // No payment page, so no hold: free the piece straight away.
     try { await sbRpc(env, "release_order", { p_order: order.order_id }); } catch (e) { /* the hold lapses by itself */ }
     const why = session.body && session.body.error && session.body.error.message;
@@ -1041,7 +1061,9 @@ async function handleCheckout(request, env) {
 
   // Remember the session so a cancel can expire it. Not fatal if it fails.
   try { await sbRpc(env, "attach_order_session", { p_order: order.order_id, p_session: session.body.id }); } catch (e) { /* ignore */ }
-  return json(200, { url: session.body.url, order_id: order.order_id });
+  return embedded
+    ? json(200, { client_secret: session.body.client_secret, publishable_key: env.STRIPE_PUBLISHABLE_KEY, order_id: order.order_id })
+    : json(200, { url: session.body.url, order_id: order.order_id });
 }
 
 // The buyer came back from Stripe without paying: free the piece now instead

@@ -4293,6 +4293,46 @@ button.card-link {
   letter-spacing: 0.06em;
 }
 
+/* Payment form: Stripe Embedded Checkout in a panel over the site */
+body.pay-modal-open { overflow: hidden; }
+.pay-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 12px;
+  overflow-y: auto;
+  background: rgba(21, 21, 26, 0.55);
+}
+.pay-modal__panel {
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  min-height: 320px;
+  padding: 44px 0 0;
+  background: #ffffff;
+}
+.pay-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pay-modal__mount { min-height: 280px; }
+@media (max-width: 640px) {
+  .pay-modal { padding: 0; }
+  .pay-modal__panel { max-width: none; min-height: 100%; }
+}
+
 /* Policies page */
 .policies { max-width: 760px; padding: 24px 0 64px; }
 .policies__index { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 0 0 8px; font-family: var(--font); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
