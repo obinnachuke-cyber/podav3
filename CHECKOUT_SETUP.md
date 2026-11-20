@@ -137,7 +137,10 @@ retries it for up to three days.
 - **Refunds.** On any paid order, **Refund buyer in Stripe** sends the whole
   payment back to the buyer's card, including shipping and tax, then marks the
   order refunded. Stripe keeps its processing fee on a refunded payment, so
-  poda absorbs it. A refund made in the Stripe dashboard instead is caught by
+  poda absorbs it. The buyer is emailed that the refund went through, with the
+  amount. If the order has no buyer email or the email fails, the screen tells
+  you to write to them. You are not emailed about a refund you press yourself.
+  A refund made in the Stripe dashboard instead is caught by
   the `charge.refunded` webhook and marks the order refunded within seconds,
   and you get an email. A part refund is not recorded as a refund: you get an
   email, and the order stays a full sale until the rest is refunded. If the

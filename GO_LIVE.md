@@ -26,9 +26,11 @@ Stay in the Stripe sandbox for this part. Open the site with `?checkout_test=1`.
 4. In Orders, press **Mark shipped…**, pick a carrier, type any tracking number
    and press **Mark shipped and email buyer**. Check the buyer got the email.
 5. Buy a second piece and press **Refund buyer in Stripe** on it. Confirm the
-   order reads Refunded and Stripe shows the refund.
+   order reads Refunded, Stripe shows the refund and the buyer address gets
+   **Your poda order was refunded**. You get no email for this one.
 6. Buy a third piece and refund it from the Stripe dashboard instead. Within a
-   few seconds the order should read Refunded and you get a **Refunded:** email.
+   few seconds the order should read Refunded, the buyer gets **Your poda order
+   was refunded** and you get a **Refunded:** email.
 7. Test the hold: press Buy, leave the panel open, and look at the same piece
    in a second browser. It reads **Held**. Close the panel and it frees up.
 8. Test a dispute: pay with card `4000 0000 0000 0259`. After a minute Stripe

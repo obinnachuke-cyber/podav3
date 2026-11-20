@@ -1305,6 +1305,59 @@ function buildShippedEmail(siteUrl, order, carrier, tracking) {
   return { subject: `Your poda order has shipped: ${piece}`, html, text };
 }
 
+// Sent when an order is fully refunded, from either refund route. The refund
+// amount is the whole payment: price, shipping and any tax.
+function buildRefundEmail(siteUrl, order) {
+  const piece = oneLine([order.brand, order.title].filter(Boolean).join(" "));
+  const first = oneLine(order.buyer_name).split(/\s+/)[0];
+  const total = order.amount_total_cents || ((order.price_cents || 0) + (order.shipping_cents || 0));
+  const rows = [[piece, moneyText(order.price_cents, order.currency)]];
+  if ((order.shipping_cents || 0) > 0) rows.push(["Shipping", moneyText(order.shipping_cents, order.currency)]);
+  const tax = total - (order.price_cents || 0) - (order.shipping_cents || 0);
+  if (tax > 0) rows.push(["Tax", moneyText(tax, order.currency)]);
+  rows.push(["Total refunded", moneyText(total, order.currency), true]);
+
+  const html = buyerEmailShell(siteUrl, "Your order has been refunded", `
+    <p style="margin:0 0 8px 0;">${first ? `Hi ${escapeHTML(first)}, we` : "We"} refunded your order to the card you paid with.</p>
+    ${emailRows(rows)}
+    <p style="margin:14px 0 0 0;">Your bank decides when the money shows on your statement. It often takes 5 to 10 business days.
+      If you have questions, reply to this email.</p>`);
+
+  const text = [
+    first ? `Hi ${first}, we refunded your order to the card you paid with.` : "We refunded your order to the card you paid with.",
+    "",
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    "",
+    "Your bank decides when the money shows on your statement. It often takes 5 to 10 business days.",
+    "If you have questions, reply to this email.",
+    "",
+    "poda, selective retail."
+  ].join("\n");
+
+  return { subject: `Your poda order was refunded: ${piece}`, html, text };
+}
+
+// Returns "sent", "no_email", "off" or "failed". Never throws: a refund that
+// already happened must not turn into an error because an email failed.
+async function emailBuyerRefund(env, order) {
+  if (!env.RESEND_API_KEY) return "off";
+  if (!order || !order.buyer_email) return "no_email";
+  const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
+  const { subject, html, text } = buildRefundEmail(siteUrl, order);
+  try {
+    const sent = await sendViaResend(env, {
+      from: FROM_ADDRESS,
+      to: [order.buyer_email],
+      reply_to: env.CONTACT_EMAIL || REPLY_TO,
+      subject, html, text
+    });
+    return sent.ok ? "sent" : "failed";
+  } catch (e) {
+    console.error("Refund email failed:", e && e.message);
+    return "failed";
+  }
+}
+
 async function emailBuyerConfirmation(env, sale, buyer, totalCents) {
   if (!env.RESEND_API_KEY) return;
   const siteUrl = String(env.SITE_URL || "https://podapodapoda.co").replace(/\/$/, "");
@@ -1560,7 +1613,7 @@ async function handleOrderRefund(request, env) {
   let rows;
   try {
     rows = await supabaseSelect(env, auth.token, "orders",
-      `id=eq.${encodeURIComponent(orderId)}&select=id,status,stripe_session_id,payout_status`);
+      `id=eq.${encodeURIComponent(orderId)}&select=id,status,stripe_session_id,payout_status,brand,title,price_cents,shipping_cents,amount_total_cents,currency,buyer_email,buyer_name`);
   } catch (e) {
     return json(502, { error: "Could not load the order." });
   }
@@ -1593,7 +1646,9 @@ async function handleOrderRefund(request, env) {
   } catch (e) {
     return json(502, { error: "Stripe refunded the buyer, but saving the order failed. Use Record refund to mark it.", refunded: true });
   }
-  return json(200, { ok: true, refunded_at: now, clawback: order.payout_status === "paid" });
+  // The buyer hears about it from poda too, not only from Stripe's receipt.
+  const buyerEmail = await emailBuyerRefund(env, order);
+  return json(200, { ok: true, refunded_at: now, clawback: order.payout_status === "paid", buyer_email: buyerEmail });
 }
 
 // The order a Stripe payment belongs to. The id travels in the payment's
@@ -1641,11 +1696,15 @@ async function handleChargeEvent(env, event) {
         { status: "refunded", refunded_at: new Date().toISOString() }, "return=representation");
       if (changed && changed.length) {
         const o = changed[0];
+        const buyerEmail = await emailBuyerRefund(env, o);
         await alertAdmin(env, `Refunded: ${pieceOf(o)}`, [
           "A refund made in Stripe was recorded on the order.",
           "",
           `Piece: ${pieceOf(o)}`,
           `Buyer: ${o.buyer_email || "unknown"}`,
+          buyerEmail === "sent" ? "The buyer was emailed that the refund went through."
+            : buyerEmail === "no_email" ? "The order has no buyer email, so the buyer was not emailed. Write to them yourself."
+            : "The refund email to the buyer did not send. Write to them yourself.",
           o.payout_status === "paid"
             ? "The seller was already paid for this order. Recover that money from them: it shows under Payouts as money to recover."
             : "The seller was not paid yet, so there is nothing to recover.",

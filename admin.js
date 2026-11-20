@@ -3252,6 +3252,9 @@ async function renderOrders() {
       const result = await refundOrderInStripe(order.id);
       if (result.ok) {
         Object.assign(order, { status: "refunded", refunded_at: result.refunded_at || now });
+        // Say plainly whether the buyer was told, since the refund is done either way.
+        if (result.buyer_email === "no_email") alert("Refunded. This order has no buyer email, so the buyer was not emailed. Write to them yourself.");
+        else if (result.buyer_email === "failed") alert("Refunded, but the email to the buyer did not send. Write to them yourself.");
       } else {
         alert(result.error);
       }
@@ -3600,7 +3603,7 @@ async function refundOrderInStripe(orderId) {
       body: JSON.stringify({ order_id: orderId })
     });
     const body = await res.json().catch(() => ({}));
-    if (res.ok && body.ok) return { ok: true, refunded_at: body.refunded_at };
+    if (res.ok && body.ok) return { ok: true, refunded_at: body.refunded_at, buyer_email: body.buyer_email };
     return { ok: false, error: body.error || `The server returned ${res.status}.` };
   } catch (e) {
     return { ok: false, error: "Could not reach the server." };
