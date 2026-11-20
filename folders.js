@@ -1741,7 +1741,8 @@
         } else {
           outcome = data.error || "fallback";
           const missing = Array.isArray(data.missing) && data.missing.length ? `, missing ${data.missing.join(" ")}` : "";
-          detail = `${res.status} ${data.error || "no reply from the server"}${missing}`;
+          const why = data.why ? `: ${data.why}` : "";
+          detail = `${res.status} ${data.error || "no reply from the server"}${missing}${why}`;
         }
       } catch (error) {
         console.error("Checkout request failed:", error);

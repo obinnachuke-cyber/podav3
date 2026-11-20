@@ -1052,7 +1052,9 @@ async function handleCheckout(request, env) {
     try { await sbRpc(env, "release_order", { p_order: order.order_id }); } catch (e) { /* the hold lapses by itself */ }
     const why = session.body && session.body.error && session.body.error.message;
     console.error("Stripe session failed:", session.status, why || "");
-    return json(502, { error: "payment_unavailable" });
+    // `why` is Stripe's own message, already masked by Stripe. The site shows it
+    // only in a tab opened with ?checkout_test=1.
+    return json(502, { error: "payment_unavailable", why: String(why || (session.status ? `Stripe answered ${session.status} with no client secret` : "could not reach Stripe")).slice(0, 300) });
   }
 
   // Remember the session so a cancel can expire it. Not fatal if it fails.
