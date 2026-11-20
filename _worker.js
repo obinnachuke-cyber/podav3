@@ -913,7 +913,7 @@ function stripeForm(obj, prefix, out) {
 
 async function stripeApi(env, path, params, idempotencyKey, apiVersion) {
   const headers = {
-    Authorization: `Bearer ${env.STRIPE_SECRET_KEY}`,
+    Authorization: `Bearer ${String(env.STRIPE_SECRET_KEY).trim()}`,
     "content-type": "application/x-www-form-urlencoded"
   };
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
@@ -1399,7 +1399,7 @@ async function recordStripeFee(env, sessionId, orderId) {
   try {
     const query = new URLSearchParams({ "expand[]": "payment_intent.latest_charge.balance_transaction" });
     const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}?${query}`, {
-      headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` }
+      headers: { Authorization: `Bearer ${String(env.STRIPE_SECRET_KEY).trim()}` }
     });
     if (!res.ok) return;
     const body = await res.json().catch(() => null);
@@ -1421,7 +1421,8 @@ async function handleStripeWebhook(request, env, ctx) {
   }
 
   const raw = await request.text();
-  const valid = await verifyStripeSignature(raw, request.headers.get("stripe-signature"), env.STRIPE_WEBHOOK_SECRET);
+  // trim: a space or line break pasted after the secret would fail every check.
+  const valid = await verifyStripeSignature(raw, request.headers.get("stripe-signature"), String(env.STRIPE_WEBHOOK_SECRET).trim());
   if (!valid) return json(400, { error: "bad_signature" });
 
   let event;
@@ -1588,7 +1589,7 @@ async function handleOrderShipped(request, env) {
 
 async function stripeGet(env, path) {
   const res = await fetch(`https://api.stripe.com${path}`, {
-    headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` }
+    headers: { Authorization: `Bearer ${String(env.STRIPE_SECRET_KEY).trim()}` }
   });
   const body = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, body };
