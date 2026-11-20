@@ -1135,13 +1135,15 @@ async function alertAdmin(env, subject, lines) {
   if (!env.RESEND_API_KEY || !env.ADMIN_EMAIL) return;
   const text = lines.join("\n");
   try {
-    await sendViaResend(env, {
+    const sent = await sendViaResend(env, {
       from: FROM_ADDRESS,
       to: [env.ADMIN_EMAIL],
       subject,
       html: `<pre style="font-family:inherit;white-space:pre-wrap;word-wrap:break-word;">${escapeHTML(text)}</pre>`,
       text
     });
+    // Resend answers an error instead of throwing, so say so in the logs.
+    if (!sent.ok) console.error("Alert email refused:", sent.status, JSON.stringify(sent.body).slice(0, 200));
   } catch (e) {
     console.error("Alert email failed:", e && e.message);
   }
@@ -1181,13 +1183,15 @@ async function notifyAdminOfSale(env, sale, buyer, sellerResult) {
   ];
   const text = lines.join("\n");
   try {
-    await sendViaResend(env, {
+    const sent = await sendViaResend(env, {
       from: FROM_ADDRESS,
       to: [env.ADMIN_EMAIL],
       subject,
       html: `<pre style="font-family:inherit;white-space:pre-wrap;word-wrap:break-word;">${escapeHTML(text)}</pre>`,
       text
     });
+    // Resend answers an error instead of throwing, so say so in the logs.
+    if (!sent.ok) console.error("Alert email refused:", sent.status, JSON.stringify(sent.body).slice(0, 200));
   } catch (e) {
     console.error("Sale email failed:", e && e.message);
   }
@@ -1671,7 +1675,10 @@ async function handleChargeEvent(env, event) {
   const obj = event.data.object;
   const { orderId, failed } = await orderIdForPayment(env, obj.payment_intent);
   if (failed) return json(500, { error: "lookup_failed" });
-  if (!orderId) return json(200, { received: true });
+  // A refund for a payment poda did not start is none of the site's business.
+  // A dispute is different: it costs money whatever started the payment, so it
+  // always reaches the admin, matched to an order or not.
+  if (!orderId && event.type !== "charge.dispute.created") return json(200, { received: true });
 
   const pieceOf = o => [o.brand, o.title].filter(Boolean).join(" ");
   const adminLink = String(env.SITE_URL || "").replace(/\/$/, "") + "/admin.html";
@@ -1720,14 +1727,15 @@ async function handleChargeEvent(env, event) {
     }
 
     if (event.type === "charge.dispute.created") {
-      const orders = await sbRest(env, { service: true }, "GET",
-        `orders?id=eq.${orderId}&select=title,brand,buyer_email,buyer_name,payout_status,suppliers(name)`);
+      const orders = orderId ? await sbRest(env, { service: true }, "GET",
+        `orders?id=eq.${orderId}&select=title,brand,buyer_email,buyer_name,payout_status,suppliers(name)`) : [];
       const o = (orders && orders[0]) || {};
       const due = obj.evidence_details && obj.evidence_details.due_by
         ? new Date(obj.evidence_details.due_by * 1000).toUTCString()
         : "not given";
-      await alertAdmin(env, `Dispute opened: ${pieceOf(o) || orderId}`, [
+      await alertAdmin(env, `Dispute opened: ${pieceOf(o) || orderId || "unmatched payment"}`, [
         "A buyer disputed a payment with their bank. Answer it in Stripe before the deadline or the money is lost.",
+        ...(orderId ? [] : ["poda could not match this payment to an order, so the piece and seller below are unknown. Find the payment in Stripe."]),
         "",
         `Respond by: ${due}`,
         `Reason: ${obj.reason || "not given"}`,
