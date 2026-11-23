@@ -35,7 +35,7 @@ SHIPPING_FLAT_CENTS = "1500"
 # is public by design, so it is safe in this file. Add it here, uncommented, and
 # the payment form opens inside the site. Left out, buyers are sent to Stripe's
 # own page. It must come from the same Stripe mode as STRIPE_SECRET_KEY.
-STRIPE_PUBLISHABLE_KEY = "pk_test_51UaMMgElGXZ0uveXsiQ4Qmlfegq7giPs6GJm1Rbt2pfqQpr04jz7oFT3rLciAKRLMcsQa2aW4G59H1UfeLJOyKzT002CBIVo4A"
+STRIPE_PUBLISHABLE_KEY = "pk_live_51UaTE2IEmBbTLcUS9snWo7YYxJx36h5DsFXl6ciFXeEqzrZedlI8BONp3jcoMCpEkK0PfnTu8YUNU8pCnr6F9iCh00HHogPWnj"
 
 # When a piece sells, the seller is emailed the buyer's shipping address and
 # asked to ship within 3 business days and reply with tracking. Sellers ship
