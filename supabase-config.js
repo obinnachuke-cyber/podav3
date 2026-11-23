@@ -26,4 +26,4 @@ window.PODA_INSTAGRAM = "podacapital";
 // —— Checkout switch. While false, product cards show "Inquire →" as before.
 // Set it to true only after CHECKOUT_SETUP.md is done: the database migration,
 // the Stripe secrets, and the webhook. Buy buttons then replace Inquire.
-window.PODA_CHECKOUT_ENABLED = false;
+window.PODA_CHECKOUT_ENABLED = true;
