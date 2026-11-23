@@ -3177,6 +3177,11 @@ async function renderOrders() {
           ${normal ? `<button type="button" class="btn app-decline" data-order-act="refund-paid">Record refund made elsewhere</button>` : ""}
           ${paid && o.conflict ? `<button type="button" class="btn app-decline" data-order-act="refund">Mark refunded</button>` : ""}
         </div>` : ""}
+        ${inCheckout(o) ? `
+        <p class="app-card__meta">Held until ${escapeHTML(new Date(o.hold_expires_at).toLocaleTimeString())}. The hold frees itself then.</p>
+        <div class="app-card__actions">
+          <button type="button" class="btn app-decline" data-order-act="release">Release hold now</button>
+        </div>` : ""}
       </article>`;
   };
 
@@ -3270,6 +3275,7 @@ async function renderOrders() {
       // so marking shipped works even before the tracking migration is run.
       ship: { shipped_at: now, ...(typedCarrier || typedTracking ? { carrier: typedCarrier || null, tracking_number: typedTracking || null } : {}) },
       unship: { shipped_at: null },
+      release: { status: "expired" },
       deliver: { delivered_at: now },
       undeliver: { delivered_at: null },
       pay: { payout_status: "paid", payout_paid_at: now },
@@ -3280,6 +3286,8 @@ async function renderOrders() {
     const patch = patches[act];
     if (!patch) return;
     if (act === "pay" && !confirm(`Mark ${order.suppliers ? order.suppliers.name : "the seller"} paid ${money(order.seller_payout_cents, order.currency)}? Only do this after you have sent the money.`)) return;
+    // Frees a piece held by a buyer who left. Only the unpaid hold is cancelled.
+    if (act === "release" && !confirm("Free this piece now?\n\nOnly do this if the buyer did not pay. Check Stripe, Transactions, first. A buyer still on the payment page could pay after this, and that payment would need a refund.")) return;
     if (act === "refund" && !confirm("Mark this order refunded? Only do this after you have refunded the buyer in Stripe.")) return;
     if (act === "refund-paid") {
       const owedBack = order.payout_status === "paid"
