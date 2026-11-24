@@ -1632,12 +1632,14 @@
     showTabs([
       { key: "review", label: "Review Queue" },
       { key: "inventory", label: "Inventory" },
+      { key: "mine", label: "My inventory" },
       { key: "suppliers", label: "Suppliers" },
       { key: "applications", label: "Applications" },
       { key: "orders", label: "Orders" },
       { key: "payouts", label: "Payouts" }
     ], R.supplyTab, renderSupply);
     const drawn = R.supplyTab === "inventory" ? renderMarketplaceInventory()
+      : R.supplyTab === "mine" ? window.PodaInventoryUpload.render()
       : R.supplyTab === "suppliers" ? renderSuppliers()
       : R.supplyTab === "applications" ? renderApplications()
       : R.supplyTab === "orders" ? renderOrders()

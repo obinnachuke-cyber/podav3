@@ -64,6 +64,7 @@ const INCLUDE = [
   "finance.js",
   "release.js",
   "pickboard.js",
+  "inventory-upload.js",
   "layout.js",
   "shell.js",
   "folders.js",
