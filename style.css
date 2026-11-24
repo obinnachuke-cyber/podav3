@@ -949,17 +949,15 @@ input {
 }
 
 .catalog-card__image {
-  aspect-ratio: 3 / 4;   /* portrait — taller than wide */
+  aspect-ratio: 4 / 5;   /* matches the 1600x2000 product photos */
   width: 100%;
   overflow: hidden;
-  background: var(--image-bg);
-  border: 1px solid var(--border);
-  transition: border-color 0.15s ease;
+  background: transparent;   /* no box: the photo sits on the page white */
+  border: 0;
 }
 
 .catalog-card__img-link:hover .catalog-card__image,
 .catalog-card__img-link:focus-visible .catalog-card__image {
-  border-color: var(--text);
   outline: none;
 }
 
@@ -982,6 +980,7 @@ input {
 }
 
 .catalog-card__image--empty {
+  background: var(--image-bg);
   display: grid;
   place-items: center;
   color: var(--text-faint);
