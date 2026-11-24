@@ -1,0 +1,847 @@
+{
+ "src": "C:/path/to/photos",
+ "out": "C:/path/to/poda_inventory",
+ "file_pattern": "IMG_0{n}.HEIC",
+ "rotations": {
+  "184": 90,
+  "185": 0,
+  "186": 0,
+  "187": 0,
+  "188": 0,
+  "189": 0,
+  "190": 0,
+  "191": 0,
+  "192": 180,
+  "193": 180,
+  "194": 180,
+  "195": 0,
+  "196": 0,
+  "197": 90,
+  "198": 90,
+  "199": 90,
+  "200": 0,
+  "201": 90,
+  "202": 0,
+  "203": 90,
+  "204": 90,
+  "205": 90,
+  "206": 90,
+  "207": 90,
+  "208": 90,
+  "209": 270,
+  "210": 270,
+  "211": 270,
+  "212": 270,
+  "213": 270,
+  "214": 0,
+  "215": 90,
+  "216": 180,
+  "217": 180,
+  "218": 180,
+  "219": 90,
+  "220": 90,
+  "221": 180,
+  "222": 180,
+  "223": 90,
+  "225": 180,
+  "226": 180,
+  "227": 180,
+  "228": 90,
+  "229": 90,
+  "232": 180,
+  "233": 0,
+  "234": 90,
+  "235": 0,
+  "236": 180,
+  "237": 180,
+  "238": 0,
+  "239": 0,
+  "240": 0,
+  "241": 0,
+  "242": 0,
+  "243": 0,
+  "244": 0,
+  "245": 270,
+  "246": 270,
+  "247": 0,
+  "248": 0,
+  "249": 0,
+  "250": 0,
+  "251": 0,
+  "252": 0,
+  "253": 0,
+  "254": 180,
+  "255": 180,
+  "256": 180,
+  "257": 270,
+  "258": 0,
+  "259": 270,
+  "260": 270,
+  "261": 90,
+  "262": 90,
+  "263": 90,
+  "264": 90,
+  "265": 0,
+  "266": 0,
+  "267": 0,
+  "268": 180,
+  "269": 180,
+  "270": 180,
+  "271": 180,
+  "272": 180,
+  "273": 180,
+  "274": 180,
+  "275": 180,
+  "276": 180,
+  "277": 90,
+  "278": 90,
+  "279": 90,
+  "280": 90,
+  "281": 90,
+  "282": 90,
+  "283": 90
+ },
+ "no_deskew": [
+  220,
+  236
+ ],
+ "items": {
+  "001_nike_hoodie_grey": {
+   "mode": "model",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     186,
+     "cut"
+    ],
+    [
+     "02_back",
+     187,
+     "cut"
+    ],
+    [
+     "04_label",
+     188,
+     "crop"
+    ],
+    [
+     "06_front_alt",
+     185,
+     "cut"
+    ],
+    [
+     "07_front_alt",
+     184,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Nike (label and swoosh)",
+    "name": "Full-zip hoodie, likely Tech Fleece",
+    "color": "Heather grey",
+    "notes": "Label reads XL (TG/FG), made in China. Tech Fleece line is inferred from the fabric: confirm."
+   }
+  },
+  "002_jaded_london_jeans_navy": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     193,
+     "cut"
+    ],
+    [
+     "02_back",
+     190,
+     "cut"
+    ],
+    [
+     "04_label",
+     194,
+     "crop"
+    ],
+    [
+     "06_front_alt",
+     192,
+     "cut"
+    ],
+    [
+     "07_back_alt",
+     189,
+     "cut"
+    ],
+    [
+     "08_back_alt",
+     191,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Jaded London (label)",
+    "name": "Wide-leg jeans, UK flag back pocket",
+    "color": "Dark navy rinse",
+    "notes": "Label: W38, made in Turkey. 04_label is shot upside-down on the garment, rotated to read."
+   }
+  },
+  "003_adidas_originals_vest_navy": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     196,
+     "cut"
+    ],
+    [
+     "02_back",
+     197,
+     "cut"
+    ],
+    [
+     "06_inside_front",
+     198,
+     "cut"
+    ],
+    [
+     "07_inside_back",
+     199,
+     "cut"
+    ],
+    [
+     "08_front_alt",
+     195,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "adidas Originals (trefoil and patch, no label shot)",
+    "name": "Reversible vest, zip front",
+    "color": "Navy and teal with pink zip; black fleece reverse",
+    "notes": "Reversible is inferred from the two sides shown (06 and 07 are the fleece side). No size or care label photographed."
+   }
+  },
+  "004_icecream_pants_tan": {
+   "mode": "isnet",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     200,
+     "cut"
+    ],
+    [
+     "02_back",
+     201,
+     "cut"
+    ],
+    [
+     "03_detail",
+     202,
+     "crop"
+    ]
+   ],
+   "meta": {
+    "brand": "Icecream (patch)",
+    "name": "Drawstring pants, running-dog embroidery",
+    "color": "Tan",
+    "notes": "Hang tag attached on 03_detail: confirm whether new with tags. Size not photographed."
+   }
+  },
+  "005_adidas_originals_fleece_charcoal": {
+   "mode": "dark2",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     206,
+     "cut"
+    ],
+    [
+     "02_back",
+     207,
+     "cut"
+    ],
+    [
+     "06_front_alt",
+     204,
+     "cut"
+    ],
+    [
+     "07_front_alt",
+     205,
+     "cut"
+    ],
+    [
+     "08_front_alt",
+     203,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "adidas Originals (trefoil and patch, no label shot)",
+    "name": "Fleece quarter-zip with zip pocket",
+    "color": "Charcoal with pink and neon piping",
+    "notes": "No size or care label photographed."
+   }
+  },
+  "006_superdry_hoodie_green": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     209,
+     "cut"
+    ],
+    [
+     "02_back",
+     210,
+     "cut"
+    ],
+    [
+     "06_front_alt",
+     208,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Superdry Orange Label (label on 02_back)",
+    "name": "Full-zip hoodie",
+    "color": "Dark green",
+    "notes": "02_back is the back view with the inside tag showing. No size photographed."
+   }
+  },
+  "007_reckless_hoodie_green": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     213,
+     "cut"
+    ],
+    [
+     "06_front_alt",
+     211,
+     "cut"
+    ],
+    [
+     "07_front_alt",
+     212,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Reckless Los Angeles (chest graphic)",
+    "name": "Pullover hoodie with red panel",
+    "color": "Dark green with red",
+    "notes": "Brand taken from the printed graphic, no care label photographed. No back shot."
+   }
+  },
+  "008_nike_hoodie_olive": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     216,
+     "cut"
+    ],
+    [
+     "02_back",
+     222,
+     "cut"
+    ],
+    [
+     "04_label",
+     217,
+     "crop"
+    ],
+    [
+     "06_label_alt",
+     218,
+     "crop"
+    ],
+    [
+     "07_front_alt",
+     214,
+     "cut"
+    ],
+    [
+     "08_front_alt",
+     215,
+     "cut"
+    ],
+    [
+     "09_back_alt",
+     221,
+     "cut"
+    ],
+    [
+     "10_back_alt",
+     220,
+     "cut"
+    ],
+    [
+     "11_back_alt",
+     219,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Nike (label)",
+    "name": "Full-zip hoodie, likely Tech Fleece",
+    "color": "Olive",
+    "notes": "Label: XL, made in Vietnam. Tech Fleece inferred from the fabric: confirm. 10_back_alt is not straightened (asymmetric sleeves)."
+   }
+  },
+  "009_corduroy_pants_navy": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     226,
+     "cut"
+    ],
+    [
+     "02_back",
+     229,
+     "cut"
+    ],
+    [
+     "03_detail",
+     227,
+     "crop"
+    ],
+    [
+     "06_front_alt",
+     223,
+     "cut"
+    ],
+    [
+     "07_front_alt",
+     225,
+     "cut"
+    ],
+    [
+     "08_back_alt",
+     228,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Not identified (EE monogram on button and patch)",
+    "name": "Corduroy five-pocket pants",
+    "color": "Navy",
+    "notes": "Size 38 on 03_detail. Brand not identifiable from the monogram: add from a care label."
+   }
+  },
+  "010_peer_pressure_tee_black": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     232,
+     "cut"
+    ],
+    [
+     "02_back",
+     233,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Not identified (front graphic reads 'peer pressure')",
+    "name": "Graphic tee",
+    "color": "Faded black",
+    "notes": "No label photographed. Glow-print graphic: colour shown as photographed."
+   }
+  },
+  "011_21_savage_tee_white": {
+   "mode": "white",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     234,
+     "cut"
+    ],
+    [
+     "02_back",
+     235,
+     "cut"
+    ],
+    [
+     "04_label",
+     238,
+     "crop"
+    ],
+    [
+     "06_back_alt",
+     236,
+     "cut"
+    ],
+    [
+     "07_back_alt",
+     237,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Not identified (21 Savage tour merch, label '2' with dagger)",
+    "name": "Tour tee, 'It's All a Blur' back print",
+    "color": "White",
+    "notes": "Label: L. White tee on a white sheet: weakest cutouts in the library, check 02, 06 and 07 at 100%. 06_back_alt has a ragged collar edge and is not straightened."
+   }
+  },
+  "012_houston_astros_cap_navy": {
+   "mode": "model",
+   "deskew": false,
+   "photos": [
+    [
+     "01_front",
+     243,
+     "cut"
+    ],
+    [
+     "04_label",
+     242,
+     "crop"
+    ],
+    [
+     "06_side",
+     241,
+     "cut"
+    ],
+    [
+     "07_front_alt",
+     239,
+     "cut"
+    ],
+    [
+     "08_front_alt",
+     240,
+     "cut"
+    ],
+    [
+     "09_front_alt",
+     244,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "New Era (inside label, 9FIFTY)",
+    "name": "Houston Astros snapback",
+    "color": "Navy",
+    "notes": "Postseason patch on side: year not legible, confirm. Caps are not straightened."
+   }
+  },
+  "013_jackson_reed_tee_green": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     245,
+     "cut"
+    ],
+    [
+     "02_back",
+     246,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Not identified",
+    "name": "Graphic tee, 'Jackson Reed 2022'",
+    "color": "Dark green",
+    "notes": "No label photographed."
+   }
+  },
+  "014_west_coast_choppers_tee_red": {
+   "mode": "sat",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     247,
+     "cut"
+    ],
+    [
+     "02_back",
+     248,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "West Coast Choppers (graphic text)",
+    "name": "Graphic tee, eagle back print",
+    "color": "Red",
+    "notes": "Brand taken from the printed graphic. No label photographed. Front script is low-contrast."
+   }
+  },
+  "015_bdg_cargo_pants_green": {
+   "mode": "model",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     249,
+     "cut"
+    ],
+    [
+     "02_back",
+     251,
+     "cut"
+    ],
+    [
+     "04_label",
+     250,
+     "crop"
+    ],
+    [
+     "06_back_alt",
+     252,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "BDG (tag)",
+    "name": "Cargo pants",
+    "color": "Olive green",
+    "notes": "Waist tag: 36. Hang tag attached: confirm whether new with tags."
+   }
+  },
+  "016_ecko_unltd_longsleeve_red": {
+   "mode": "sat",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     254,
+     "cut"
+    ],
+    [
+     "02_back",
+     256,
+     "cut"
+    ],
+    [
+     "04_label",
+     255,
+     "crop"
+    ],
+    [
+     "06_front_alt",
+     253,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Ecko Unltd (label)",
+    "name": "Long-sleeve graphic tee",
+    "color": "Red",
+    "notes": "Label: 2X-Large."
+   }
+  },
+  "017_black_zip_hoodie": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     257,
+     "cut"
+    ],
+    [
+     "02_back",
+     259,
+     "cut"
+    ],
+    [
+     "04_label",
+     258,
+     "crop"
+    ],
+    [
+     "06_back_alt",
+     260,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Not identified",
+    "name": "Full-zip hoodie",
+    "color": "Black",
+    "notes": "Care label size looks like XL on 04_label but is partly illegible: confirm. No brand visible."
+   }
+  },
+  "018_mulesoft_track_jacket_blue": {
+   "mode": "sat",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     261,
+     "cut"
+    ],
+    [
+     "02_back",
+     264,
+     "cut"
+    ],
+    [
+     "06_front_alt",
+     262,
+     "cut"
+    ],
+    [
+     "07_front_alt",
+     263,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Not identified (MuleSoft company print)",
+    "name": "Track jacket with white sleeve stripes",
+    "color": "Bright blue",
+    "notes": "The print is the employer logo, not the maker: brand of the jacket is unknown. No label photographed."
+   }
+  },
+  "019_levis_514_jeans_black": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     266,
+     "cut"
+    ],
+    [
+     "02_back",
+     268,
+     "cut"
+    ],
+    [
+     "03_detail",
+     267,
+     "crop"
+    ],
+    [
+     "04_label",
+     269,
+     "crop"
+    ],
+    [
+     "06_front_alt",
+     265,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Levi's (patch, tab, button)",
+    "name": "514 jeans, W34 L36",
+    "color": "Washed black",
+    "notes": "Patch reads 514, W34 L36. 06_front_alt is a second front frame."
+   }
+  },
+  "020_pacsun_track_jacket_black": {
+   "mode": "dark",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     270,
+     "cut"
+    ],
+    [
+     "02_back",
+     274,
+     "cut"
+    ],
+    [
+     "04_label",
+     273,
+     "crop"
+    ],
+    [
+     "06_front_alt",
+     271,
+     "cut"
+    ],
+    [
+     "07_front_alt",
+     272,
+     "cut"
+    ],
+    [
+     "08_back_alt",
+     275,
+     "cut"
+    ],
+    [
+     "09_back_spread",
+     276,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "PacSun Los Angeles (label)",
+    "name": "Track jacket, full zip, side stripes",
+    "color": "Black with red and cream stripes",
+    "notes": "Label: L. 02, 08 and 09 identified as backs because they have no zipper: confirm."
+   }
+  },
+  "021_buffalo_jeans_blue": {
+   "mode": "model",
+   "deskew": true,
+   "photos": [
+    [
+     "01_front",
+     278,
+     "cut"
+    ],
+    [
+     "02_back",
+     281,
+     "cut"
+    ],
+    [
+     "04_label",
+     279,
+     "crop"
+    ],
+    [
+     "06_front_alt",
+     277,
+     "cut"
+    ],
+    [
+     "07_front_alt",
+     280,
+     "cut"
+    ],
+    [
+     "08_front_alt",
+     283,
+     "cut"
+    ],
+    [
+     "09_back_alt",
+     282,
+     "cut"
+    ]
+   ],
+   "meta": {
+    "brand": "Buffalo David Bitton (label)",
+    "name": "Jeans, flared or bootcut leg",
+    "color": "Faded medium blue",
+    "notes": "Label: 38, 99% cotton 1% spandex, RN 85706. Fit name not on label. Hem tear on 02_back is real wear. Fine hem threads are partly lost in cutouts."
+   }
+  }
+ }
+}
