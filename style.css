@@ -3045,38 +3045,10 @@ button.card-link {
    remaining viewport height below the header, like a real desktop. */
 .home-desktop {
   min-height: calc(100vh - var(--header-h));
-  display: block;
-  padding: 0;
-}
-/* The folders sit below the opening image, centred in a screen of their own. */
-.home-desktop .home-folders {
-  margin: 0 auto;
-  padding: clamp(48px, 9vh, 96px) clamp(20px, 5vw, 48px) clamp(56px, 10vh, 110px);
-}
-
-/* Opening image: full width, the logo centred over it. Desktop stops a little
-   short of the screen height so the top of the folders shows and invites a
-   scroll; on a phone it is shorter and cropped toward the monitors. */
-.home-hero {
-  position: relative;
-  width: 100%;
-  height: calc(100svh - var(--header-h) - 84px);
-  min-height: 420px;
-  overflow: hidden;
-  background: #1a1a1a;
-}
-.home-hero__img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 50% 55%;
-}
-@media (max-width: 640px) {
-  .home-hero { height: 58svh; min-height: 340px; }
-  .home-hero__img { object-position: 38% 50%; }
-  .home-desktop .home-folders { padding-top: 36px; padding-bottom: 56px; }
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px clamp(20px, 5vw, 48px);
 }
 
 /* Home "desktop" — one folder tile per biweekly release (rendered by
