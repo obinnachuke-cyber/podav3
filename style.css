@@ -3060,8 +3060,8 @@ button.card-link {
 .home-hero {
   position: relative;
   width: 100%;
-  height: calc(100svh - var(--header-h) - 84px);
-  min-height: 420px;
+  height: calc(100svh - 84px);
+  min-height: 460px;
   overflow: hidden;
   background: #1a1a1a;
 }
@@ -3073,6 +3073,23 @@ button.card-link {
   object-fit: cover;
   object-position: 50% 55%;
 }
+/* On the folder homepage the header lies over the image: no bar, no small logo
+   (the big one is in the image), just the links in white. */
+.site-header[data-variant="minimal"] {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: transparent;
+  border-bottom: 0;
+}
+.site-header[data-variant="minimal"] .site-logo { visibility: hidden; }
+.site-header[data-variant="minimal"] .site-header__utility a {
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+}
+.site-header[data-variant="minimal"] .site-header__utility a:hover,
+.site-header[data-variant="minimal"] .site-header__utility a:focus-visible { color: #fff; opacity: 0.75; }
+
 /* A light veil so the white logo reads on any frame. */
 .home-hero::after {
   content: "";
@@ -3091,7 +3108,7 @@ button.card-link {
   transform: translate(-50%, -50%);
 }
 @media (max-width: 640px) {
-  .home-hero { height: 58svh; min-height: 340px; }
+  .home-hero { height: 64svh; min-height: 380px; }
   .home-hero__img { object-position: 38% 50%; }
   .home-hero__logo { width: min(64vw, 260px); }
   .home-desktop .home-folders { padding-top: 36px; padding-bottom: 56px; }
