@@ -688,7 +688,7 @@ const MODES = {
     ig:    { label: "Instagram", max: 10, w: 1080, h: 1350, shape: "4:5" },
     depop: { label: "Depop",     max: 8,  w: 1200, h: 1200, shape: "square" }
   };
-  const IG_FIXED_TAGS = ["thrifted", "secondhand", "vintage", "preloved", "thriftfinds"];
+  const IG_FIXED_TAGS = ["thrifted", "secondhand"];
 
   // One photo -> a 1080x1350 JPEG: the whole garment, centred on white, never cropped.
   async function renderSlide(url, IG_W, IG_H) {
@@ -705,17 +705,17 @@ const MODES = {
     return new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error("Could not prepare a photo.")), "image/jpeg", 0.92));
   }
 
-  // Short, lowercase, no price, no link (the link lives in the bio).
+  // Short, lowercase, no price, no link: the line points to the bio.
   function buildCaption(p, mode) {
     if (mode === "depop") return buildDepop(p);
     const lc = s => String(s || "").trim().toLowerCase();
     const detail = [p.size ? "size " + lc(p.size) : "", lc(p.condition)].filter(Boolean).join(" · ");
     const tag = s => lc(s).replace(/[^a-z0-9]+/g, "");
     const tags = [];
-    [p.brand, p.category, p.color].forEach(v => { const t = tag(v); if (t) tags.push(t); });
+    [p.brand, p.color].forEach(v => { const t = tag(v); if (t) tags.push(t); });
     IG_FIXED_TAGS.forEach(t => tags.push(t));
     const uniq = [...new Set(tags)].map(t => "#" + t).join(" ");
-    return [lc(p.title), detail, "", "dm to buy", "--", uniq].filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "")).join("\n").replace(/^\n+/, "");
+    return [lc(p.title), detail, "", "link in bio to shop", "--", uniq].filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "")).join("\n").replace(/^\n+/, "");
   }
 
 // Depop: a plain, searchable description. Hashtags live inside it and Depop counts 5.
