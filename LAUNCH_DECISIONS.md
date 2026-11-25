@@ -21,7 +21,7 @@ code: only you know them.
 | # | Decision | Status |
 |---|---|---|
 | B1 | Sellers ship directly to buyers within 3 business days and send tracking. poda holds no inventory. `NOTIFY_SELLERS = "true"`. | Decided, built |
-| B2 | Flat $15.00 per order for now. Per-seller shipping comes later, with carts. | Decided |
+| B2 | Flat $7.00 per order for now. Per-seller shipping comes later, with carts. | Decided |
 | B3 | One flat fee for everything. | Decided |
 | B4 | US only. | Decided |
 | B5 | The seller replies with tracking, you enter it in Orders, the buyer is emailed. A daily email lists orders not shipped after 3 days. | Built |

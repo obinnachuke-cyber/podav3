@@ -27,9 +27,9 @@ SITE_URL = "https://podapodapoda.co"
 # Same value as PODA_CONTACT_EMAIL in supabase-config.js — keep both in sync.
 CONTACT_EMAIL = "twopoda@gmail.com"
 
-# The flat US shipping fee added at checkout, in cents: "1500" is $15.00.
+# The flat US shipping fee added at checkout, in cents: "700" is $7.00.
 # CHANGE THIS to your real shipping cost. Set it to "0" for free shipping.
-SHIPPING_FLAT_CENTS = "1500"
+SHIPPING_FLAT_CENTS = "700"
 
 # Stripe publishable key (pk_test_... while testing, pk_live_... when live). It
 # is public by design, so it is safe in this file. Add it here, uncommented, and

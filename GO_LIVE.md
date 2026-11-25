@@ -45,7 +45,7 @@ deliveries shows what the site answered.
 
 These need your answer. Ask Claude to apply any change.
 
-- **Shipping fee.** Decided: $15.00 flat per order, `SHIPPING_FLAT_CENTS = "1500"`.
+- **Shipping fee.** Decided: $7.00 flat per order, `SHIPPING_FLAT_CENTS = "700"`.
 - **Who ships.** Decided: sellers ship directly within 3 business days.
   `NOTIFY_SELLERS = "true"`.
 - **Return shipping.** Decided: the seller pays on an accepted return. It is in

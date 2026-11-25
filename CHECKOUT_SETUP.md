@@ -35,9 +35,9 @@ Orders tab. Do these steps in order. Test mode first, live mode last.
 ## 3. Your shipping fee
 
 Open `wrangler.toml` and set `SHIPPING_FLAT_CENTS` to your real flat US
-shipping cost in cents: `"1500"` is $15.00. Set `"0"` for free shipping. It is
+shipping cost in cents: `"700"` is $7.00. Set `"0"` for free shipping. It is
 added to every order, it goes to poda, and it is not shared with the seller.
-The file ships with 1500 as a placeholder.
+The file ships with 700 ($7.00).
 
 ## 4. Secrets in Cloudflare
 
