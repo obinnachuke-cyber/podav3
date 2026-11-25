@@ -682,11 +682,16 @@
      route for a personal account, so the hand-off is: Share (phone share
      sheet) or Download, then paste the copied caption.
      ============================================================ */
-  const IG_MAX = 10, IG_W = 1080, IG_H = 1350;
+  // Per destination: slide limit and size. Instagram carousels are 4:5; Depop shows
+// listings as squares, so its photos are square (nothing gets cropped off).
+const MODES = {
+    ig:    { label: "Instagram", max: 10, w: 1080, h: 1350, shape: "4:5" },
+    depop: { label: "Depop",     max: 8,  w: 1200, h: 1200, shape: "square" }
+  };
   const IG_FIXED_TAGS = ["thrifted", "secondhand", "vintage", "preloved", "thriftfinds"];
 
   // One photo -> a 1080x1350 JPEG: the whole garment, centred on white, never cropped.
-  async function renderSlide(url) {
+  async function renderSlide(url, IG_W, IG_H) {
     const res = await fetch(url, { mode: "cors" });
     if (!res.ok) throw new Error("Could not load a photo.");
     const bmp = await createImageBitmap(await res.blob());
@@ -701,7 +706,8 @@
   }
 
   // Short, lowercase, no price, no link (the link lives in the bio).
-  function buildCaption(p) {
+  function buildCaption(p, mode) {
+    if (mode === "depop") return buildDepop(p);
     const lc = s => String(s || "").trim().toLowerCase();
     const detail = [p.size ? "size " + lc(p.size) : "", lc(p.condition)].filter(Boolean).join(" · ");
     const tag = s => lc(s).replace(/[^a-z0-9]+/g, "");
@@ -710,6 +716,28 @@
     IG_FIXED_TAGS.forEach(t => tags.push(t));
     const uniq = [...new Set(tags)].map(t => "#" + t).join(" ");
     return [lc(p.title), detail, "", "dm to buy", "--", uniq].filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "")).join("\n").replace(/^\n+/, "");
+  }
+
+// Depop: a plain, searchable description. Hashtags live inside it and Depop counts 5.
+  function buildDepop(p) {
+    const lc = s => String(s || "").trim().toLowerCase();
+    const tag = s => lc(s).replace(/[^a-z0-9]+/g, "");
+    const lines = [lc(p.title), ""];
+    [["brand", p.brand], ["size", p.size], ["colour", p.color], ["condition", p.condition], ["measurements", p.measurements]]
+      .forEach(([k, v]) => { if (lc(v)) lines.push(`${k}: ${lc(v)}`); });
+    if (lc(p.condition_notes)) lines.push("", lc(p.condition_notes));
+    if (lc(p.description)) lines.push("", lc(p.description));
+    const tags = [...new Set([tag(p.brand), tag(p.category), "thrifted", "vintage", "secondhand", tag(p.color)].filter(Boolean))]
+      .slice(0, 5).map(t => "#" + t).join(" ");
+    lines.push("", "message me with any questions.", "", tags);
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n");
+  }
+
+  // Depop's form fields, each one copyable.
+  function depopFields(p) {
+    const price = p.price_cents == null ? "" : (p.price_cents / 100).toFixed(p.price_cents % 100 ? 2 : 0);
+    return [["Brand", p.brand], ["Category", p.category], ["Size", p.size], ["Colour", p.color],
+      ["Condition", p.condition], ["Price (USD)", price]].filter(([, v]) => v);
   }
 
   function igRevoke() {
@@ -722,7 +750,7 @@
   }
 
   function igHTML() {
-    const g = I.ig, p = g.product;
+    const g = I.ig, p = g.product, m = MODES[g.mode];
     const slides = g.slides.map((s, i) => `
       <div class="inv-photo">
         <img src="${esc(s.url)}" alt="" />
@@ -735,21 +763,27 @@
       </div>`).join("");
     modalContent.innerHTML = `
       <div class="modal-head">
-        <h2 class="modal-title">Share to Instagram: ${esc(p.title || "Item")}</h2>
+        <h2 class="modal-title">Share: ${esc(p.title || "Item")}</h2>
         <button type="button" class="modal-close" data-inv="ig-close" aria-label="Close">×</button>
       </div>
       <div class="modal-body">
+        <div class="inv-actions" style="margin-top:0;">
+          ${Object.keys(MODES).map(k => `<button type="button" class="btn${k === g.mode ? " btn--primary" : ""}" data-inv="ig-mode" data-mode="${k}">${MODES[k].label}</button>`).join("")}
+        </div>
         <p class="field-error" id="igError" ${g.error ? "" : "hidden"}>${esc(g.error || "")}</p>
-        <p class="rel-note">${g.slides.length} slide${g.slides.length === 1 ? "" : "s"}, 4:5 on white${g.more ? `, first ${IG_MAX} of ${IG_MAX + g.more} photos (Instagram's limit)` : ""}. Reorder or drop slides, then share or download them.</p>
+        <p class="rel-note">${g.slides.length} slide${g.slides.length === 1 ? "" : "s"}, ${m.shape} on white${g.more ? `, first ${m.max} of ${m.max + g.more} photos (${m.label}'s limit)` : ""}. Reorder or drop slides, then ${g.mode === "depop" ? "download them and add them to your Depop listing" : "share or download them"}.</p>
         <div class="inv-strip">${slides || `<p class="rel-note">No photos to share.</p>`}</div>
-        <div class="field field--full" style="margin-top:14px;"><label for="igCaption">Caption</label>
-          <textarea id="igCaption" rows="9">${esc(g.caption)}</textarea></div>
+        <div class="field field--full" style="margin-top:14px;"><label for="igCaption">${g.mode === "depop" ? "Description (hashtags are inside it)" : "Caption"}</label>
+          <textarea id="igCaption" rows="${g.mode === "depop" ? 12 : 9}">${esc(g.caption)}</textarea></div>
+        ${g.mode === "depop" ? `<div class="field field--full"><label>Listing fields: tap to copy</label>
+          <div class="inv-actions" style="margin:0;">${depopFields(p).map(([k, v]) => `<button type="button" class="btn" data-inv="ig-copyval" data-val="${esc(v)}">${esc(k)}: ${esc(v)}</button>`).join("")}</div></div>` : ""}
         <p class="rel-note" id="igOk" hidden style="margin:0;"></p>
       </div>
       <div class="modal-foot">
-        <button type="button" class="btn" data-inv="ig-copy">Copy caption</button>
+        <button type="button" class="btn" data-inv="ig-copy">${g.mode === "depop" ? "Copy description" : "Copy caption"}</button>
         <button type="button" class="btn" data-inv="ig-download" ${g.slides.length ? "" : "disabled"}>Download photos</button>
         <button type="button" class="btn btn--primary" data-inv="ig-share" ${g.slides.length ? "" : "disabled"}>Share photos</button>
+        ${g.mode === "depop" ? `<a class="btn" href="https://www.depop.com/products/create/" target="_blank" rel="noopener">Open Depop</a>` : ""}
       </div>`;
     modalOverlay.hidden = false;
     document.body.style.overflow = "hidden";
@@ -762,18 +796,20 @@
     if (!bad) setTimeout(() => { el.hidden = true; }, 3000);
   }
 
-  async function openShare(product) {
+  async function openShare(product, mode) {
     igRevoke();
+    mode = mode || "ig";
+    const m = MODES[mode];
     const imgs = sortedImages(product);
-    I.ig = { product, slides: [], caption: buildCaption(product), error: "", more: Math.max(0, imgs.length - IG_MAX) };
+    I.ig = { product, mode, slides: [], caption: buildCaption(product, mode), error: "", more: Math.max(0, imgs.length - m.max) };
     modalContent.innerHTML = `<div class="modal-body"><p class="admin-empty">Getting the photos ready…</p></div>`;
     modalOverlay.hidden = false;
     document.body.style.overflow = "hidden";
     const slug = (product.title || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "item";
     let failed = 0;
-    for (const im of imgs.slice(0, IG_MAX)) {
+    for (const im of imgs.slice(0, m.max)) {
       try {
-        const blob = await renderSlide(A().productImageUrl(im.path));
+        const blob = await renderSlide(A().productImageUrl(im.path), m.w, m.h);
         I.ig.slides.push({ blob, url: URL.createObjectURL(blob), name: "" });
       } catch (e) { failed++; }
     }
@@ -790,24 +826,33 @@
   async function copyText(text) {
     try { await navigator.clipboard.writeText(text); return true; }
     catch (e) {
-      const t = document.getElementById("igCaption");
-      if (!t) return false;
-      t.select();
-      try { return document.execCommand("copy"); } catch (x) { return false; }
+      // Older or locked-down browsers: copy through a throwaway textarea.
+      const t = document.createElement("textarea");
+      t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (x) { ok = false; }
+      t.remove();
+      return ok;
     }
   }
 
-  async function igAction(act, idx) {
+  async function igAction(act, idx, el) {
     syncIgCaption();
     const g = I.ig;
-    if (act === "ig-left" || act === "ig-right") {
+    if (act === "ig-mode") {
+      await openShare(g.product, el.dataset.mode);
+    } else if (act === "ig-copyval") {
+      const ok = await copyText(el.dataset.val);
+      igFlash(ok ? "Copied." : "Could not copy that one.", !ok);
+    } else if (act === "ig-left" || act === "ig-right") {
       const j = idx + (act === "ig-left" ? -1 : 1);
       if (j >= 0 && j < g.slides.length) { [g.slides[idx], g.slides[j]] = [g.slides[j], g.slides[idx]]; }
       igHTML();
     } else if (act === "ig-drop") {
       URL.revokeObjectURL(g.slides[idx].url); g.slides.splice(idx, 1); igHTML();
     } else if (act === "ig-copy") {
-      igFlash((await copyText(g.caption)) ? "Caption copied." : "Could not copy: select the text and copy it by hand.", false);
+      igFlash((await copyText(g.caption)) ? (g.mode === "depop" ? "Description copied." : "Caption copied.") : "Could not copy: select the text and copy it by hand.", false);
     } else if (act === "ig-download") {
       const files = igFiles();
       for (const f of files) {
@@ -819,12 +864,12 @@
       }
       igFlash(`Downloaded ${files.length} photo${files.length === 1 ? "" : "s"}.`, false);
     } else if (act === "ig-share") {
-      const files = igFiles();
+      const files = igFiles(); const m = MODES[g.mode];
       if (!(navigator.canShare && navigator.canShare({ files }))) {
-        igFlash("This browser can't share photos straight to apps. Use Download photos, then add them in Instagram.", true); return;
+        igFlash(`This browser can't share photos straight to apps. Use Download photos, then add them in ${m.label}.`, true); return;
       }
-      await copyText(g.caption); // caption is on the clipboard, ready to paste into Instagram
-      try { await navigator.share({ files }); igFlash("Shared. The caption is copied: paste it in Instagram.", false); }
+      await copyText(g.caption); // text is on the clipboard, ready to paste
+      try { await navigator.share({ files }); igFlash(`Shared. The ${g.mode === "depop" ? "description" : "caption"} is copied: paste it in ${m.label}.`, false); }
       catch (e) { if (e && e.name !== "AbortError") igFlash("Could not open the share sheet.", true); }
     } else if (act === "ig-close") {
       igRevoke(); I.ig = null; closeModal();
@@ -838,7 +883,7 @@
     const el = e.target.closest("[data-inv]");
     if (!el) return;
     const act = el.dataset.inv; const id = el.dataset.id;
-    if (act.startsWith("ig-")) { await igAction(act, Number(id)); return; }
+    if (act.startsWith("ig-")) { await igAction(act, Number(id), el); return; }
     try {
       switch (act) {
         case "share-ig": {
