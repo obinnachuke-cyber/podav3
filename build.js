@@ -84,6 +84,7 @@ const INCLUDE = [
   "logo-white.png",
   "logo-blue.png",
   "favicon.png",
+  "assets/home-hero.png",
   "assets/folders/poda-folder.svg",
   "assets/folders/poda-folder-unread.svg",
   "assets/folders/poda-notification-badge.svg",

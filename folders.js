@@ -199,40 +199,23 @@
     });
   }
 
-  // Touch: slide a finger across the row and the folder nearest the finger
-  // lifts and fans open, with a light buzz where the phone supports it and a
-  // clear tilt of the whole row toward the finger. The nearest folder is
-  // found from where each folder sits on screen, not from what is under the
-  // finger: the folders overlap in 3D, so a hit test skips the ones behind.
-  // Lifting the finger leaves that folder raised and shows an Open button for
-  // it under the scene. A plain tap still opens a folder straight away.
-  // Vertical drags are left to the browser (touch-action: pan-y in style.css),
-  // so the page still scrolls.
+  // Touch: slide a finger across the row and each folder lifts and fans open
+  // as the finger passes over it, with a light buzz where the phone supports
+  // it and a slight tilt of the whole row toward the finger. Lifting the
+  // finger leaves the last folder raised and its index entry lit; a plain
+  // tap still opens a folder straight away. Vertical drags are left to the
+  // browser (touch-action: pan-y in style.css), so the page still scrolls.
   function bindFolderDrag(root) {
     const scene = root && root.querySelector(".fscene");
     const row = scene && scene.querySelector(".frow");
     if (!scene || !row) return;
 
     const DRAG_THRESHOLD = 8;   // px of sideways travel before a touch counts as a drag
-    const MAX_TILT = 14;        // degrees the row turns from one edge to the other
+    const MAX_TILT = 7;         // degrees the row turns from one edge to the other
     let down = null;            // the touch in progress: { id, x }
     let dragging = false;
     let lastKey = null;
-    let centers = [];           // [{ key, x }] screen position of each folder
     let swallowClick = false;   // a finished drag must not also open a folder
-
-    // The line under the scene: a swipe hint until a folder is chosen, then an
-    // Open button for it. Only touch visitors see it (the .is-touch class).
-    const cue = document.createElement("div");
-    cue.className = "fcue";
-    cue.setAttribute("aria-live", "polite");
-    cue.innerHTML = `<span class="fcue__hint">Swipe across the folders</span>` +
-      `<a class="btn btn--primary fcue__open" href="#" hidden></a>`;
-    scene.insertAdjacentElement("afterend", cue);
-    const hint = cue.querySelector(".fcue__hint");
-    const open = cue.querySelector(".fcue__open");
-    const markTouch = () => root.classList.add("is-touch");
-    if (window.matchMedia && window.matchMedia("(hover: none)").matches) markTouch();
 
     const setActive = key => {
       root.querySelectorAll("[data-scene], [data-folder]").forEach(el => {
@@ -240,37 +223,18 @@
         el.classList.toggle("is-active", !!key && k === key);
       });
     };
-    // Where each folder is on screen, left to right.
-    const measure = () => {
-      centers = Array.from(scene.querySelectorAll(".fstack")).map(el => {
-        const r = el.getBoundingClientRect();
-        return { key: el.dataset.scene, x: r.left + r.width / 2 };
-      });
-    };
-    const nearestKey = x => {
-      let best = null;
-      centers.forEach(c => { if (!best || Math.abs(c.x - x) < Math.abs(best.x - x)) best = c; });
-      return best ? best.key : null;
+    const stackAt = (x, y) => {
+      const el = document.elementFromPoint(x, y);
+      return el && el.closest ? el.closest(".fstack") : null;
     };
     const tiltTo = x => {
       const box = scene.getBoundingClientRect();
       const ratio = box.width ? (x - box.left) / box.width - 0.5 : 0;
       row.style.setProperty("--tilt", `${Math.max(-0.5, Math.min(0.5, ratio)) * 2 * MAX_TILT}deg`);
     };
-    // Point the Open button at the chosen folder's own index entry.
-    const showOpen = key => {
-      const entry = root.querySelector(`[data-folder="${key}"]`);
-      if (!entry) return;
-      open.href = entry.getAttribute("href");
-      open.textContent = `Open ${entry.dataset.name || ""} →`;
-      open.hidden = false;
-      hint.hidden = true;
-    };
 
     scene.addEventListener("pointerdown", e => {
       if (e.pointerType === "mouse") return;   // mouse keeps the hover behaviour
-      markTouch();
-      measure();
       down = { id: e.pointerId, x: e.clientX };
       dragging = false;
     });
@@ -278,14 +242,13 @@
     scene.addEventListener("pointermove", e => {
       if (!down || e.pointerId !== down.id) return;
       if (!dragging && Math.abs(e.clientX - down.x) < DRAG_THRESHOLD) return;
-      if (!dragging) scene.classList.add("is-dragging");
       dragging = true;
       tiltTo(e.clientX);
-      const key = nearestKey(e.clientX);
+      const stack = stackAt(e.clientX, e.clientY);
+      const key = stack ? stack.dataset.scene : null;
       if (key && key !== lastKey) {
         lastKey = key;
         setActive(key);
-        showOpen(key);
         if (navigator.vibrate) navigator.vibrate(8);
       }
     });
@@ -297,7 +260,6 @@
         setTimeout(() => { swallowClick = false; }, 350);
         row.style.setProperty("--tilt", "0deg");
       }
-      scene.classList.remove("is-dragging");
       down = null;
       dragging = false;
     };
