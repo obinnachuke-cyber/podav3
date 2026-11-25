@@ -474,7 +474,10 @@
           <td class="cell-mono">${imgs.length}</td>
           <td>${p.state !== "draft" ? "" : miss.length ? `<span class="rel-note" style="margin:0;">Needs ${esc(miss.join(", "))}</span>` : `<span class="badge">Ready to publish</span>`}</td>
           <td class="cell-mono">${p.price_cents == null ? "—" : "$" + (p.price_cents / 100).toFixed(p.price_cents % 100 ? 2 : 0)}</td>
-          <td><button type="button" class="btn" data-inv="edit" data-id="${esc(p.id)}">${p.state === "draft" ? "Fill in" : "Edit"}</button></td>
+          <td><div class="cell-actions">
+            <button type="button" class="btn" data-inv="edit" data-id="${esc(p.id)}">${p.state === "draft" ? "Fill in" : "Edit"}</button>
+            ${imgs.length ? `<button type="button" class="btn" data-inv="share-ig" data-id="${esc(p.id)}">Share to IG</button>` : ""}
+          </div></td>
         </tr>`;
     }).join("");
     return `
@@ -571,6 +574,7 @@
       <div class="modal-foot">
         ${p.state === "draft" ? `<button type="button" class="btn btn--danger" data-inv="delete-item">Delete item</button>` : ""}
         ${live ? `<button type="button" class="btn" data-inv="withdraw">Withdraw</button>` : ""}
+        ${imgs.length ? `<button type="button" class="btn" data-inv="share-ig-editor">Share to IG</button>` : ""}
         <button type="button" class="btn" data-inv="save">Save</button>
         ${p.state === "draft" ? `<button type="button" class="btn" data-inv="save-next">Save and next</button>
           <button type="button" class="btn btn--primary" data-inv="publish">Publish</button>` : ""}
@@ -672,14 +676,182 @@
   }
 
   /* ============================================================
+     Share to Instagram
+     Turns an item's photos into carousel slides (4:5, 1080x1350, on white)
+     and writes a short lowercase caption. Instagram has no web posting
+     route for a personal account, so the hand-off is: Share (phone share
+     sheet) or Download, then paste the copied caption.
+     ============================================================ */
+  const IG_MAX = 10, IG_W = 1080, IG_H = 1350;
+  const IG_FIXED_TAGS = ["thrifted", "secondhand", "vintage", "preloved", "thriftfinds"];
+
+  // One photo -> a 1080x1350 JPEG: the whole garment, centred on white, never cropped.
+  async function renderSlide(url) {
+    const res = await fetch(url, { mode: "cors" });
+    if (!res.ok) throw new Error("Could not load a photo.");
+    const bmp = await createImageBitmap(await res.blob());
+    const c = document.createElement("canvas");
+    c.width = IG_W; c.height = IG_H;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, IG_W, IG_H);
+    const k = Math.min(IG_W / bmp.width, IG_H / bmp.height);
+    const w = bmp.width * k, h = bmp.height * k;
+    ctx.drawImage(bmp, (IG_W - w) / 2, (IG_H - h) / 2, w, h);
+    return new Promise((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error("Could not prepare a photo.")), "image/jpeg", 0.92));
+  }
+
+  // Short, lowercase, no price, no link (the link lives in the bio).
+  function buildCaption(p) {
+    const lc = s => String(s || "").trim().toLowerCase();
+    const detail = [p.size ? "size " + lc(p.size) : "", lc(p.condition)].filter(Boolean).join(" · ");
+    const tag = s => lc(s).replace(/[^a-z0-9]+/g, "");
+    const tags = [];
+    [p.brand, p.category, p.color].forEach(v => { const t = tag(v); if (t) tags.push(t); });
+    IG_FIXED_TAGS.forEach(t => tags.push(t));
+    const uniq = [...new Set(tags)].map(t => "#" + t).join(" ");
+    return [lc(p.title), detail, "", "dm to buy", "--", uniq].filter((l, i, a) => l !== "" || (i > 0 && a[i - 1] !== "")).join("\n").replace(/^\n+/, "");
+  }
+
+  function igRevoke() {
+    if (I.ig) I.ig.slides.forEach(s => URL.revokeObjectURL(s.url));
+  }
+
+  function syncIgCaption() {
+    const t = document.getElementById("igCaption");
+    if (t && I.ig) I.ig.caption = t.value;
+  }
+
+  function igHTML() {
+    const g = I.ig, p = g.product;
+    const slides = g.slides.map((s, i) => `
+      <div class="inv-photo">
+        <img src="${esc(s.url)}" alt="" />
+        <span class="inv-photo__main">${i + 1}</span>
+        <div class="inv-photo__bar">
+          <button type="button" class="btn" data-inv="ig-left" data-id="${i}" ${i === 0 ? "disabled" : ""} aria-label="Move earlier">←</button>
+          <button type="button" class="btn" data-inv="ig-right" data-id="${i}" ${i === g.slides.length - 1 ? "disabled" : ""} aria-label="Move later">→</button>
+          <button type="button" class="btn btn--danger" data-inv="ig-drop" data-id="${i}" aria-label="Leave this photo out">×</button>
+        </div>
+      </div>`).join("");
+    modalContent.innerHTML = `
+      <div class="modal-head">
+        <h2 class="modal-title">Share to Instagram: ${esc(p.title || "Item")}</h2>
+        <button type="button" class="modal-close" data-inv="ig-close" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="field-error" id="igError" ${g.error ? "" : "hidden"}>${esc(g.error || "")}</p>
+        <p class="rel-note">${g.slides.length} slide${g.slides.length === 1 ? "" : "s"}, 4:5 on white${g.more ? `, first ${IG_MAX} of ${IG_MAX + g.more} photos (Instagram's limit)` : ""}. Reorder or drop slides, then share or download them.</p>
+        <div class="inv-strip">${slides || `<p class="rel-note">No photos to share.</p>`}</div>
+        <div class="field field--full" style="margin-top:14px;"><label for="igCaption">Caption</label>
+          <textarea id="igCaption" rows="9">${esc(g.caption)}</textarea></div>
+        <p class="rel-note" id="igOk" hidden style="margin:0;"></p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn" data-inv="ig-copy">Copy caption</button>
+        <button type="button" class="btn" data-inv="ig-download" ${g.slides.length ? "" : "disabled"}>Download photos</button>
+        <button type="button" class="btn btn--primary" data-inv="ig-share" ${g.slides.length ? "" : "disabled"}>Share photos</button>
+      </div>`;
+    modalOverlay.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function igFlash(text, bad) {
+    const el = document.getElementById(bad ? "igError" : "igOk");
+    if (!el) return;
+    el.textContent = text; el.hidden = false;
+    if (!bad) setTimeout(() => { el.hidden = true; }, 3000);
+  }
+
+  async function openShare(product) {
+    igRevoke();
+    const imgs = sortedImages(product);
+    I.ig = { product, slides: [], caption: buildCaption(product), error: "", more: Math.max(0, imgs.length - IG_MAX) };
+    modalContent.innerHTML = `<div class="modal-body"><p class="admin-empty">Getting the photos ready…</p></div>`;
+    modalOverlay.hidden = false;
+    document.body.style.overflow = "hidden";
+    const slug = (product.title || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "item";
+    let failed = 0;
+    for (const im of imgs.slice(0, IG_MAX)) {
+      try {
+        const blob = await renderSlide(A().productImageUrl(im.path));
+        I.ig.slides.push({ blob, url: URL.createObjectURL(blob), name: "" });
+      } catch (e) { failed++; }
+    }
+    I.ig.slides.forEach((s, i) => { s.name = `${slug}-${String(i + 1).padStart(2, "0")}.jpg`; });
+    if (failed) I.ig.error = `${failed} photo${failed === 1 ? "" : "s"} could not be loaded and ${failed === 1 ? "was" : "were"} left out.`;
+    igHTML();
+  }
+
+  function igFiles() {
+    const slug = (I.ig.product.title || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "item";
+    return I.ig.slides.map((s, i) => new File([s.blob], `${slug}-${String(i + 1).padStart(2, "0")}.jpg`, { type: "image/jpeg" }));
+  }
+
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch (e) {
+      const t = document.getElementById("igCaption");
+      if (!t) return false;
+      t.select();
+      try { return document.execCommand("copy"); } catch (x) { return false; }
+    }
+  }
+
+  async function igAction(act, idx) {
+    syncIgCaption();
+    const g = I.ig;
+    if (act === "ig-left" || act === "ig-right") {
+      const j = idx + (act === "ig-left" ? -1 : 1);
+      if (j >= 0 && j < g.slides.length) { [g.slides[idx], g.slides[j]] = [g.slides[j], g.slides[idx]]; }
+      igHTML();
+    } else if (act === "ig-drop") {
+      URL.revokeObjectURL(g.slides[idx].url); g.slides.splice(idx, 1); igHTML();
+    } else if (act === "ig-copy") {
+      igFlash((await copyText(g.caption)) ? "Caption copied." : "Could not copy: select the text and copy it by hand.", false);
+    } else if (act === "ig-download") {
+      const files = igFiles();
+      for (const f of files) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(f); a.download = f.name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        await new Promise(r => setTimeout(r, 300));
+      }
+      igFlash(`Downloaded ${files.length} photo${files.length === 1 ? "" : "s"}.`, false);
+    } else if (act === "ig-share") {
+      const files = igFiles();
+      if (!(navigator.canShare && navigator.canShare({ files }))) {
+        igFlash("This browser can't share photos straight to apps. Use Download photos, then add them in Instagram.", true); return;
+      }
+      await copyText(g.caption); // caption is on the clipboard, ready to paste into Instagram
+      try { await navigator.share({ files }); igFlash("Shared. The caption is copied: paste it in Instagram.", false); }
+      catch (e) { if (e && e.name !== "AbortError") igFlash("Could not open the share sheet.", true); }
+    } else if (act === "ig-close") {
+      igRevoke(); I.ig = null; closeModal();
+    }
+  }
+
+  /* ============================================================
      Events
      ============================================================ */
   async function onClick(e) {
     const el = e.target.closest("[data-inv]");
     if (!el) return;
     const act = el.dataset.inv; const id = el.dataset.id;
+    if (act.startsWith("ig-")) { await igAction(act, Number(id)); return; }
     try {
       switch (act) {
+        case "share-ig": {
+          const p = I.products.find(x => x.id === id);
+          if (p) await openShare(p);
+          break;
+        }
+        case "share-ig-editor": {
+          await saveEditor();
+          const p = I.modal.product; I.modal = null;
+          await openShare(p);
+          break;
+        }
         case "commit": await commitStaged(); break;
         case "cancel-staged": revokeStaged(); I.staged = null; render(); break;
         case "stage-cover": {
