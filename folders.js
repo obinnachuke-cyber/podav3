@@ -1092,16 +1092,12 @@
             <i aria-hidden="true">▾</i>
           </button>
           <section class="ff-drop">
-            <div class="section-bar">
-              <span class="section-bar__label">01</span>
-              <span class="section-bar__title">The Drop</span>
-              ${products.length ? `<span class="ff-left">${left} of ${products.length} left</span>` : ""}
-            </div>
             ${products.length ? `
-            <div class="ff-dflt" role="group" aria-label="Filter the drop">
+            <div class="ff-dflt" role="group" aria-label="Filter the pieces">
               <button type="button" data-df="all" aria-pressed="true" class="on">All ${products.length}</button>
               <button type="button" data-df="available" aria-pressed="false">Available ${left}</button>
               <button type="button" data-df="sold" aria-pressed="false">Sold ${sold}</button>
+              <span class="ff-left">${left} of ${products.length} left</span>
             </div>
             <div class="items-grid">${products.map(p => productCard(folder, p)).join("")}</div>`
               : `<p class="status-message">The drop is live — pieces are being placed.</p>`}
